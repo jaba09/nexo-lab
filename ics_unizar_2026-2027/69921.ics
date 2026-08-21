@@ -1,0 +1,707 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Michael Angstadt//biweekly 0.6.3//EN
+BEGIN:VEVENT
+UID:8f8373ad-7c94-43cd-ad5d-957d9c7a7003
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261113T150000Z
+DTEND:20261113T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:af37b964-3ddb-41e2-87ff-f950e7e5e4cb
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 5710 - Pruebas de evaluación
+DTSTART:20270203T130000Z
+DTEND:20270203T190000Z
+DESCRIPTION:Centro: 110\n
+END:VEVENT
+BEGIN:VEVENT
+UID:49e4984f-2f12-41be-b67e-bf91839b5d3d
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261120T180000Z
+DTEND:20261120T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:094bc7b5-807c-446b-8986-78423dcedb79
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261103T150000Z
+DTEND:20261103T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:c0feaf79-81b0-4e36-9ae1-1606625d193b
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261002T140000Z
+DTEND:20261002T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:ea4611d3-992a-485b-81aa-352d0407fbc2
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261030T150000Z
+DTEND:20261030T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:f6beba57-4c33-4f81-b6ad-c06a374a9ac7
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261006T140000Z
+DTEND:20261006T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:6cd00ec2-43dd-4aba-8807-91dae11e691e
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261106T180000Z
+DTEND:20261106T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:55d2dad5-7bd9-4c1f-b5d1-5a7bae9da42d
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20260918T140000Z
+DTEND:20260918T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:3dbb4a47-14a2-40b7-8d55-bad3687cdb0e
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261211T180000Z
+DTEND:20261211T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:b5ac35da-9bda-4188-afb0-b3d33f4e10e3
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20260922T140000Z
+DTEND:20260922T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:c2909f50-f018-4967-92e4-e260a736f397
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261016T140000Z
+DTEND:20261016T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:2e1e9787-8bbd-4570-8ee8-dcfae520c507
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261023T170000Z
+DTEND:20261023T190000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:8654f8d6-3e3a-4a95-a29d-e69acce57f3d
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261127T180000Z
+DTEND:20261127T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:003fb457-b7b5-4bc6-9ea0-e5c820032aa5
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261009T170000Z
+DTEND:20261009T190000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:c79ffef7-d52d-46af-9e98-1ce72954dc61
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261120T150000Z
+DTEND:20261120T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:1553b561-5772-409f-8795-16761ae8cc70
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261117T150000Z
+DTEND:20261117T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:32d02c0f-73bb-43d0-a46c-0b78adaf64af
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261113T180000Z
+DTEND:20261113T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:ad9aaf6b-7201-47ae-b49c-8758d82ee105
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261110T150000Z
+DTEND:20261110T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:93e9dfa4-e9eb-4359-9319-5878bcb6c09a
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261106T150000Z
+DTEND:20261106T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:b4ba856f-94e1-4ed1-b3e5-b5702b0ad6b8
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261002T170000Z
+DTEND:20261002T190000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:9c347d32-32e8-46ea-a6f4-d513c29c59f5
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261030T180000Z
+DTEND:20261030T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:0010ead4-7cea-4e2b-a0fd-61bf72e44d05
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261027T150000Z
+DTEND:20261027T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:49fa7d76-6098-433e-85a3-289863489c81
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20261204T180000Z
+DTEND:20261204T200000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:b33b785f-628a-45b6-855a-3c50f678fbd4
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20260929T140000Z
+DTEND:20260929T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:30396a34-7ebb-446a-8a63-b8793d53e2c9
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261009T140000Z
+DTEND:20261009T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:7ae71170-02cc-466c-934c-ed44756fd425
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20260911T140000Z
+DTEND:20260911T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:145c4a82-a553-4f2a-abbc-1864b675e63f
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261020T140000Z
+DTEND:20261020T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:baefaf50-969c-421a-80fd-b94f072f221e
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20260915T140000Z
+DTEND:20260915T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:208d1e18-0728-46c0-a67a-ec0f371dd262
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261023T140000Z
+DTEND:20261023T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:0223dbf1-6db4-4606-97c1-1d3ed3a0d14c
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20260911T170000Z
+DTEND:20260911T190000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:13e1ef55-9aa5-4286-abba-79ef10c035f6
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 5710 - Pruebas de evaluación
+DTSTART:20270113T130000Z
+DTEND:20270113T190000Z
+DESCRIPTION:Centro: 110\n
+END:VEVENT
+BEGIN:VEVENT
+UID:395d975d-8600-45ad-8e5e-01b590901ff1
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20260908T140000Z
+DTEND:20260908T170000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:435586af-f193-4aa4-8129-c22df47e8927
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261127T150000Z
+DTEND:20261127T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:06389585-71c5-4b00-8285-43afe970b5db
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261124T150000Z
+DTEND:20261124T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:bea59bea-95bc-4cae-976c-86c723b8de05
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20260925T170000Z
+DTEND:20260925T190000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:155c66c3-ef3c-498a-b308-5ee57af608ad
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261204T150000Z
+DTEND:20261204T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:08965f23-efc2-4883-84cd-05bcef11371a
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261201T150000Z
+DTEND:20261201T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:e4132157-ebb1-4140-8e2a-43d217c68c0c
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261215T150000Z
+DTEND:20261215T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM\, Problemas y Prácticas integrad
+ as en el horario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:3388a34a-0b48-4bac-9c56-14e47592d869
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 571 - Clase Magistral
+DTSTART:20261211T150000Z
+DTEND:20261211T180000Z
+LOCATION:Sem A.21 - Seminario A.21
+DESCRIPTION:Centro: 110\nObservaciones: CM y Problemas integradas en el hor
+ ario semanal
+END:VEVENT
+BEGIN:VEVENT
+UID:3189e872-050d-4186-8d78-e336e21171e6
+DTSTAMP:20260817T160202Z
+SUMMARY:69921 - Métodos numéricos y experimentales en ingeniería térmica y\
+ nde fluidos Grupo: 11 - Prácticas de laboratorio
+DTSTART:20260918T170000Z
+DTEND:20260918T190000Z
+DESCRIPTION:Centro: 110\nObservaciones: Las prácticas se programan en el la
+ boratorio de Mecánica de Fluidos (Torres Quevedo) y laboratorio de Máquina
+ s y Motores Térmicos
+END:VEVENT
+BEGIN:VEVENT
+UID:d08f7e3d-1c09-42c9-91ca-4578bd634852
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270104T070000Z
+DTEND:20270104T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:00ce92f0-30ec-4aa8-ad9c-871bc1f14dc8
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270106T070000Z
+DTEND:20270106T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:46659e40-340d-4fa4-90f7-4294c4ab7bdb
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270401T060000Z
+DTEND:20270401T190000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:b74269d6-8fd4-4438-839a-9dda3a41ddb4
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270330T060000Z
+DTEND:20270330T190000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:a8cf99ad-51eb-4ea8-9438-6f74dbdad4e3
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261227T070000Z
+DTEND:20261227T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:c8b8cc31-6995-41c3-9da0-69e569442323
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270327T070000Z
+DTEND:20270327T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:c65c0946-dd8f-45e5-a71f-479541b9df32
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261013T060000Z
+DTEND:20261013T190000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:d8e56d7b-6d84-43c6-aba4-11584608c60f
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261229T070000Z
+DTEND:20261229T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:41f96b4f-2010-4f6e-93ed-004ebade2484
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270325T070000Z
+DTEND:20270325T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:dcf5f281-a41d-467d-88d5-81d2e0686a2f
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261231T070000Z
+DTEND:20261231T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:dde6616e-0a7a-43ca-9746-bc1759306b2e
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270102T070000Z
+DTEND:20270102T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:f3192fd2-8158-4a60-87e6-6a75246f1ed5
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261102T070000Z
+DTEND:20261102T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:8dda994a-4dec-40a2-be90-0bdd86159209
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270103T070000Z
+DTEND:20270103T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:d0487ac8-c4d1-45ea-94d1-ba41ad5de610
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270329T060000Z
+DTEND:20270329T190000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:5930f8c9-2174-4397-94fe-58e28ee3cf56
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270105T070000Z
+DTEND:20270105T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:59771979-eb06-41bf-9cc1-ff5e57f4a5bb
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270331T060000Z
+DTEND:20270331T190000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:f4f712d3-8b1a-46ec-a255-272360d9b1ac
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261226T070000Z
+DTEND:20261226T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:eff503a1-34f6-4f55-9fa5-df3261db3a02
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270328T070000Z
+DTEND:20270328T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:16f88579-1d75-45cb-8d65-7e3c355c5f56
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261014T060000Z
+DTEND:20261014T190000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:c39de6a9-76fe-4c07-b2a2-dcaba6ea4191
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261228T070000Z
+DTEND:20261228T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:815f5239-b701-46a9-aad1-76a8e9bfdfe2
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270326T070000Z
+DTEND:20270326T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:bfe300b9-c885-45be-977a-19dd057e3280
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261230T070000Z
+DTEND:20261230T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:b32396b3-d3f3-409e-8926-afec23e2ae60
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270324T070000Z
+DTEND:20270324T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:f77a5496-dbfc-46a7-9be9-fa825a7ca61d
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270101T070000Z
+DTEND:20270101T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:58cbc1af-af32-4f7f-a965-702a2e48337f
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261206T070000Z
+DTEND:20261206T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:a85e6060-0bfa-4542-b793-746da0d6837a
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261207T070000Z
+DTEND:20261207T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:8e6aec99-1168-4ef6-9dda-c92f55c7b1e0
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261208T070000Z
+DTEND:20261208T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:ab04d305-e3dd-466c-b959-bd1892e11f57
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - Centro 110
+DTSTART:20270319T070000Z
+DTEND:20270319T200000Z
+DESCRIPTION:Centro: 110\n
+END:VEVENT
+BEGIN:VEVENT
+UID:443b0787-42c4-40c1-a2bd-4a7f6ae7a85e
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261223T070000Z
+DTEND:20261223T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:b744a723-2c56-4065-a6a8-ade8c5c9f73d
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261224T070000Z
+DTEND:20261224T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:550f495c-d810-4589-be6c-14e47ca8f0d8
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20261225T070000Z
+DTEND:20261225T200000Z
+DESCRIPTION:
+END:VEVENT
+BEGIN:VEVENT
+UID:d0851854-d248-4b6e-abd1-cb7c69e0f5eb
+DTSTAMP:20260817T160202Z
+SUMMARY:Día festivo - 
+DTSTART:20270402T060000Z
+DTEND:20270402T190000Z
+DESCRIPTION:
+END:VEVENT
+END:VCALENDAR

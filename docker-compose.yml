@@ -1,0 +1,13 @@
+services:
+  nexo-lab:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NEXO_LAB_DB_PATH: /app/data/nexo-lab.sqlite
+    volumes:
+      - nexo_lab_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  nexo_lab_data:

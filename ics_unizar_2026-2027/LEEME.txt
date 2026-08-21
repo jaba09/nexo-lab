@@ -1,0 +1,16 @@
+Calendarios de asignaturas de la Universidad de Zaragoza
+Curso académico: 2026/2027
+Fuente: https://sia.unizar.es/pds/consultaPublica/look%5Bconpub%5DInicioPubHora?entradaPublica=true
+
+Códigos únicos solicitados: 28
+Códigos disponibles: 26
+Códigos no disponibles en el catálogo del curso: 26935, 30042
+Eventos totales del ICS conjunto: 2192
+Eventos comunes sin código (días festivos): 32
+
+Contenido:
+- horarios_asignaturas_2026-2027.ics: calendario conjunto.
+- <codigo>.ics: calendario individual por asignatura disponible.
+- indice.csv: nombre, sesiones, eventos comunes y estado de cada código solicitado.
+
+Las selecciones se realizaron con todos los grupos disponibles.

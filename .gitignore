@@ -39,3 +39,9 @@ yarn-error.log*
 /outputs/
 /work/
 *.tsbuildinfo
+
+# local SQLite data
+/data/*.sqlite
+/data/*.sqlite-shm
+/data/*.sqlite-wal
+!/data/.gitkeep
