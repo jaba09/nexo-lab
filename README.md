@@ -15,21 +15,23 @@ GRA → ASI ↔ PRA ↔ INS → LAB
 ```
 
 Cada asignatura pertenece a un grado y se vincula con sus prácticas. Una
-práctica puede utilizar una o varias instalaciones. Las
-sesiones pertenecen a una asignatura, tienen un profesor obligatorio y pueden
-vincularse con una de sus prácticas. La aplicación las muestra en un calendario mensual con navegación
-entre meses y acceso directo a su edición.
+práctica puede utilizar una o varias instalaciones. Las sesiones pertenecen a
+una asignatura y pueden tener profesor y práctica; las que todavía no tienen
+práctica aparecen como incompletas. Los profesores incluyen abreviatura, nombre
+y correo electrónico, y se muestran ordenados por apellido.
 
-En el calendario, un clic selecciona una sesión y `Shift` + clic selecciona el
-rango cronológico entre la primera y la segunda. Con el botón derecho se abre
-un menú para asignar a todas las seleccionadas una práctica compatible con sus
-asignaturas, o dejarlas sin práctica como sesiones incompletas. El doble clic abre
-la edición completa de una sesión.
+El calendario ofrece vistas mensual, semanal (de lunes a viernes, entre las
+08:00 y las 19:00) y de lista. Permite filtrar por laboratorio, instalación,
+grado, asignatura y práctica. Un clic selecciona una sesión y `Shift` + clic
+amplía el rango; una barra flotante permite asignar práctica o profesor y
+borrar la selección. Las sesiones también se pueden mover mediante arrastre,
+excepto a días festivos.
 
 El selector de semestre filtra las sesiones del calendario por curso académico.
 Cada curso ofrece `S1` (septiembre–enero) y `S2` (febrero–agosto), por ejemplo
-`2026-27 S1`. La navegación mensual queda limitada a los meses del semestre
-seleccionado.
+`Semestre 1 · Curso 26-27`. La navegación queda limitada a las fechas del
+semestre seleccionado. La Vista general utiliza el mismo semestre y permite
+desplegar grados, asignaturas y sus sesiones.
 
 ## Importar horarios ICS
 
@@ -41,11 +43,12 @@ En el mismo `SUMMARY`, el valor de `Grupo: 36` se conserva como número de
 grupo de la sesión importada.
 
 El importador propone automáticamente la asignatura por código y permite elegir
-también el profesor antes de guardar. Las sesiones se crean sin práctica y aparecen en
-el calendario con el estado especial **Incompleta: sin práctica**; se completan
-asignando una práctica desde su formulario de edición. Los UID del ICS evitan
-duplicados si se importa el mismo archivo otra vez. Las fechas en UTC se
-convierten a la zona horaria `Europe/Madrid`.
+el profesor antes de guardar, aunque por defecto queda sin asignar. Las sesiones
+se crean sin práctica y aparecen en el calendario con el estado especial
+**Incompleta: sin práctica**. Los UID del ICS evitan duplicados si se importa el
+mismo archivo otra vez. Los eventos con `SUMMARY:Día festivo` se guardan como
+festivos y bloquean la creación o el traslado de sesiones a esa fecha. Las
+fechas en UTC se convierten a la zona horaria `Europe/Madrid`.
 
 ## Requisitos
 
@@ -77,6 +80,14 @@ docker compose up --build
 
 El volumen `nexo_lab_data` conserva la base de datos aunque se sustituya o
 reinicie el contenedor.
+
+## Despliegue en Render
+
+La imagen Docker fija `NEXO_LAB_DB_PATH=/app/data/nexo-lab.sqlite`. El servicio
+de Render debe mantener un disco persistente montado exactamente en
+`/app/data`; de este modo los despliegues y reinicios sustituyen la aplicación,
+pero no la base de datos. No se debe guardar SQLite en el sistema de archivos
+efímero del contenedor ni cambiar esta ruta sin migrar antes el volumen.
 
 ## Configuración
 

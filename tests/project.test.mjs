@@ -3,10 +3,11 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("has no Sites or Cloudflare runtime dependency", async () => {
-  const [packageJson, nextConfig, dockerfile, page, styles] = await Promise.all([
+  const [packageJson, nextConfig, dockerfile, dockerCompose, page, styles] = await Promise.all([
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../Dockerfile", import.meta.url), "utf8"),
+    readFile(new URL("../docker-compose.yml", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
@@ -14,7 +15,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(packageJson, /"next": "16\.2\.6"/);
   assert.doesNotMatch(packageJson, /vinext|wrangler|cloudflare|drizzle/i);
   assert.match(nextConfig, /output: "standalone"/);
-  assert.match(dockerfile, /NEXO_LAB_DB_PATH/);
+  assert.match(dockerfile, /ENV NEXO_LAB_DB_PATH=\/app\/data\/nexo-lab\.sqlite/);
+  assert.match(dockerCompose, /NEXO_LAB_DB_PATH: \/app\/data\/nexo-lab\.sqlite/);
+  assert.match(dockerCompose, /nexo_lab_data:\/app\/data/);
   assert.doesNotMatch(page, /Todo el ecosistema docente/);
   assert.match(page, /semesterDisplayTitle/);
   assert.match(page, /Semestre \$\{semester\.number\}/);
