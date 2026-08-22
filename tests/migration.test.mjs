@@ -111,6 +111,9 @@ test("migrates degree-practice relations to subjects without losing sessions", a
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers").get().total, 1);
   assert.ok(database.prepare("PRAGMA table_info(teachers)").all().some((column) => column.name === "email"));
   assert.equal(database.prepare("SELECT email FROM teachers").get().email, "");
+  assert.ok(database.prepare("PRAGMA table_info(teachers)").all().some((column) => column.name === "password_hash"));
+  assert.equal(database.prepare("SELECT password_hash AS passwordHash FROM teachers").get().passwordHash, "");
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM auth_sessions").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_practices").get().total, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM holidays").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name = 'degree_practices'").get().total, 0);

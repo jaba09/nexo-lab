@@ -5,6 +5,8 @@ services:
       - "3000:3000"
     environment:
       NEXO_LAB_DB_PATH: /app/data/nexo-lab.sqlite
+      NEXO_LAB_BOOTSTRAP_EMAIL: jablasal@unizar.es
+      NEXO_LAB_BOOTSTRAP_PASSWORD: ${NEXO_LAB_BOOTSTRAP_PASSWORD:?Define NEXO_LAB_BOOTSTRAP_PASSWORD}
     volumes:
       - nexo_lab_data:/app/data
     restart: unless-stopped

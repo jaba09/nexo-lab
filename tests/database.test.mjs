@@ -27,7 +27,10 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers").get().total, 3);
   const teacherColumns = database.prepare("PRAGMA table_info(teachers)").all();
   assert.equal(teacherColumns.find((column) => column.name === "email").notnull, 1);
-  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE email = ''").get().total, 3);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE email = ''").get().total, 0);
+  assert.equal(teacherColumns.find((column) => column.name === "password_hash").notnull, 1);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE password_hash = ''").get().total, 3);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM auth_sessions").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM sessions").get().total, 4);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM holidays").get().total, 0);
   const holidayColumns = database.prepare("PRAGMA table_info(holidays)").all();

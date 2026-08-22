@@ -16,6 +16,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV NEXO_LAB_DB_PATH=/app/data/nexo-lab.sqlite
+ENV NEXO_LAB_BOOTSTRAP_EMAIL=jablasal@unizar.es
 
 RUN mkdir -p /app/data
 COPY --from=builder --chown=node:node /app/public ./public

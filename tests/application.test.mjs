@@ -38,6 +38,14 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "nexo-lab-app-"));
   const databasePath = join(temporaryDirectory, "nexo-lab.sqlite");
   const origin = `http://127.0.0.1:${port}`;
+  const bootstrapEmail = "elena.martin@example.test";
+  const bootstrapPassword = "Clave inicial segura 2026";
+  let sessionCookie = "";
+  async function fetch(input, init = {}) {
+    const headers = new Headers(init.headers);
+    if (sessionCookie) headers.set("cookie", sessionCookie);
+    return globalThis.fetch(input, { ...init, headers });
+  }
   const server = spawn(process.execPath, [".next/standalone/server.js"], {
     cwd: process.cwd(),
     env: {
@@ -45,6 +53,8 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       HOSTNAME: "127.0.0.1",
       PORT: String(port),
       NEXO_LAB_DB_PATH: databasePath,
+      NEXO_LAB_BOOTSTRAP_EMAIL: bootstrapEmail,
+      NEXO_LAB_BOOTSTRAP_PASSWORD: bootstrapPassword,
       NODE_ENV: "production",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -54,7 +64,29 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const pageResponse = await waitForServer(origin);
   const html = await pageResponse.text();
   assert.match(html, /Nexo Lab — Gestión de laboratorios docentes/);
-  assert.match(html, /Cargando la estructura docente/);
+  assert.match(html, /Comprobando el acceso/);
+
+  const unauthorizedDataResponse = await fetch(`${origin}/api/data`);
+  assert.equal(unauthorizedDataResponse.status, 401);
+
+  const wrongLoginResponse = await fetch(`${origin}/api/auth/session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: bootstrapEmail, password: "contraseña incorrecta" }),
+  });
+  assert.equal(wrongLoginResponse.status, 401);
+
+  const loginResponse = await fetch(`${origin}/api/auth/session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: bootstrapEmail, password: bootstrapPassword }),
+  });
+  assert.equal(loginResponse.status, 200);
+  sessionCookie = loginResponse.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+  assert.match(sessionCookie, /^nexo_lab_session=/);
+  assert.equal((await loginResponse.json()).teacher.email, bootstrapEmail);
+  const authenticatedSessionResponse = await fetch(`${origin}/api/auth/session`);
+  assert.equal(authenticatedSessionResponse.status, 200);
 
   const initialData = await (await fetch(`${origin}/api/data`)).json();
   assert.equal(initialData.laboratories.length, 3);
@@ -65,7 +97,12 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(initialData.subjects.length, 4);
   assert.ok(initialData.subjects.every((subject) => subject.abbreviation === ""));
   assert.equal(initialData.teachers.length, 3);
-  assert.ok(initialData.teachers.every((teacher) => teacher.email === ""));
+  assert.deepEqual(initialData.teachers.map((teacher) => teacher.email).sort(), [
+    "ana.beltran@example.test",
+    "elena.martin@example.test",
+    "sergio.lozano@example.test",
+  ]);
+  assert.ok(initialData.teachers.every((teacher) => !("passwordHash" in teacher) && !("password_hash" in teacher)));
   assert.deepEqual(
     initialData.teachers.map((teacher) => teacher.name),
     [...initialData.teachers.map((teacher) => teacher.name)].sort((left, right) => (
@@ -385,16 +422,40 @@ END:VCALENDAR\r
   });
   assert.equal(invalidTeacherEmailResponse.status, 400);
 
+  const shortTeacherPasswordResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "teachers", code: "PRO-SHORT", name: "Clave corta", email: "corta@universidad.es", password: "muy-corta" }),
+  });
+  assert.equal(shortTeacherPasswordResponse.status, 400);
+  assert.match((await shortTeacherPasswordResponse.json()).error, /12 caracteres/);
+
   const createTeacherResponse = await fetch(`${origin}/api/data`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ entity: "teachers", code: "PRO-99", name: "Profesor temporal", email: "temporal@universidad.es" }),
+    body: JSON.stringify({ entity: "teachers", code: "PRO-99", name: "Profesor temporal", email: "temporal@universidad.es", password: "Contraseña temporal 2026" }),
   });
   assert.equal(createTeacherResponse.status, 201);
   const dataWithTemporaryTeacher = await (await fetch(`${origin}/api/data`)).json();
   const temporaryTeacher = dataWithTemporaryTeacher.teachers.find((teacher) => teacher.code === "PRO-99");
   assert.ok(temporaryTeacher);
   assert.equal(temporaryTeacher.email, "temporal@universidad.es");
+  const administratorCookie = sessionCookie;
+  const temporaryTeacherLogin = await fetch(`${origin}/api/auth/session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: temporaryTeacher.email, password: "Contraseña temporal 2026" }),
+  });
+  assert.equal(temporaryTeacherLogin.status, 200);
+  sessionCookie = temporaryTeacherLogin.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+  assert.equal((await (await fetch(`${origin}/api/auth/session`)).json()).teacher.id, temporaryTeacher.id);
+  const selfDeleteResponse = await fetch(`${origin}/api/data`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "teachers", id: temporaryTeacher.id }),
+  });
+  assert.equal(selfDeleteResponse.status, 409);
+  sessionCookie = administratorCookie;
   const deleteTeacherResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",
     headers: { "content-type": "application/json" },
@@ -645,4 +706,9 @@ END:VCALENDAR\r
   assert.equal(deleteSemesterSessionsResponse.status, 200);
   assert.equal((await deleteSemesterSessionsResponse.json()).deletedCount, 4);
   assert.equal((await (await fetch(`${origin}/api/data`)).json()).sessions.length, 0);
+
+  const logoutResponse = await fetch(`${origin}/api/auth/session`, { method: "DELETE" });
+  assert.equal(logoutResponse.status, 200);
+  const invalidatedSessionResponse = await fetch(`${origin}/api/data`);
+  assert.equal(invalidatedSessionResponse.status, 401);
 });

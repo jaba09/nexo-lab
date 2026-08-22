@@ -61,6 +61,14 @@ const schemaStatements = [
     code TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     email TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS auth_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE,
+    teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS sessions (
@@ -129,10 +137,10 @@ const seedStatements = [
     (2, 2),
     (3, 3), (3, 4),
     (4, 1), (4, 3), (4, 5)`,
-  `INSERT INTO teachers (id, code, name) VALUES
-    (1, 'PRO-01', 'Dra. Elena Martín'),
-    (2, 'PRO-02', 'Dr. Sergio Lozano'),
-    (3, 'PRO-03', 'Dra. Ana Beltrán')`,
+  `INSERT INTO teachers (id, code, name, email) VALUES
+    (1, 'PRO-01', 'Dra. Elena Martín', 'elena.martin@example.test'),
+    (2, 'PRO-02', 'Dr. Sergio Lozano', 'sergio.lozano@example.test'),
+    (3, 'PRO-03', 'Dra. Ana Beltrán', 'ana.beltran@example.test')`,
   "INSERT INTO app_meta (key, value) VALUES ('seed_version', 'standalone-v2-subjects')",
 ];
 
@@ -368,6 +376,9 @@ function initializeDatabase(database: DatabaseSync) {
   if (!teacherColumnInfo.some((column) => column.name === "email")) {
     database.exec("ALTER TABLE teachers ADD COLUMN email TEXT NOT NULL DEFAULT ''");
   }
+  if (!teacherColumnInfo.some((column) => column.name === "password_hash")) {
+    database.exec("ALTER TABLE teachers ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''");
+  }
 
   migratePracticeInstallations(database);
   migrateDegreePractices(database);
@@ -378,6 +389,9 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_practice_installations_installation_id ON practice_installations(installation_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_sessions_subject_practice ON sessions(subject_id, practice_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_sessions_teacher_id ON sessions(teacher_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_teacher_id ON auth_sessions(teacher_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)");
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email COLLATE NOCASE) WHERE email <> ''");
   database.exec("CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date)");
   database.exec(`CREATE TRIGGER IF NOT EXISTS prevent_session_on_holiday_insert
     BEFORE INSERT ON sessions

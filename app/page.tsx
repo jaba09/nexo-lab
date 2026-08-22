@@ -72,6 +72,8 @@ type Teacher = {
   sessionCount: number;
 };
 
+type AuthenticatedTeacher = Pick<Teacher, "id" | "code" | "name" | "email">;
+
 function compareTeachersBySurname(left: Teacher, right: Teacher) {
   const surname = (teacher: Teacher) => teacher.name.trim().replace(/^(?:\p{L}\.)+\s*/u, "");
   return surname(left).localeCompare(surname(right), "es", { sensitivity: "base" })
@@ -413,6 +415,7 @@ const initialForm = {
   code: "",
   abbreviation: "",
   email: "",
+  password: "",
   name: "",
   location: "",
   manager: "",
@@ -438,7 +441,87 @@ function ArrowIcon() {
   return <span aria-hidden="true">↗</span>;
 }
 
+function LoginScreen({
+  initialError,
+  onLogin,
+}: {
+  initialError: string;
+  onLogin: (teacher: AuthenticatedTeacher) => Promise<void>;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(initialError);
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch(apiUrl("/api/auth/session"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const payload = await response.json() as { teacher?: AuthenticatedTeacher; error?: string };
+      if (!response.ok || !payload.teacher) throw new Error(payload.error || "No se pudo iniciar sesión.");
+      setPassword("");
+      await onLogin(payload.teacher);
+    } catch (loginError) {
+      setError(clientErrorMessage(loginError, "No se pudo iniciar sesión."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="login-page">
+      <section className="login-panel" aria-labelledby="login-title">
+        <div className="login-brand"><span>N</span>NEXO<em>LAB</em></div>
+        <div>
+          <span className="section-kicker">Gestión docente</span>
+          <h1 id="login-title">Iniciar sesión</h1>
+          <p>Accede con el correo electrónico asociado a tu ficha de profesor.</p>
+        </div>
+        {error && <div className="login-error" role="alert"><span>!</span><p>{error}</p></div>}
+        <form className="login-form" onSubmit={submitLogin}>
+          <label>
+            <span>Correo electrónico</span>
+            <input
+              required
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="nombre@unizar.es"
+            />
+          </label>
+          <label>
+            <span>Contraseña</span>
+            <input
+              required
+              type="password"
+              autoComplete="current-password"
+              maxLength={128}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Tu contraseña"
+            />
+          </label>
+          <button className="primary-button" type="submit" disabled={submitting}>
+            {submitting ? "Accediendo…" : "Entrar"}<ArrowIcon />
+          </button>
+        </form>
+      </section>
+      <aside className="login-art" aria-hidden="true"><span>LAB</span><strong>Planifica.<br />Coordina.<br />Enseña.</strong></aside>
+    </main>
+  );
+}
+
 export default function Home() {
+  const [authenticatedTeacher, setAuthenticatedTeacher] = useState<AuthenticatedTeacher | null>(null);
+  const [authenticationChecked, setAuthenticationChecked] = useState(false);
+  const [authenticationError, setAuthenticationError] = useState("");
   const [data, setData] = useState<AppData>(emptyData);
   const [active, setActive] = useState<Section>("overview");
   const [drawer, setDrawer] = useState<Entity | null>(null);
@@ -455,6 +538,7 @@ export default function Home() {
     try {
       const response = await fetch(apiUrl("/api/data"), { cache: "no-store" });
       const payload = (await response.json()) as AppData & { error?: string };
+      if (response.status === 401) setAuthenticatedTeacher(null);
       if (!response.ok) throw new Error(payload.error || "No se pudieron cargar los datos.");
       setData(payload);
     } catch (error) {
@@ -472,22 +556,29 @@ export default function Home() {
 
     async function loadInitialData() {
       try {
+        const sessionResponse = await fetch(apiUrl("/api/auth/session"), { cache: "no-store" });
+        if (sessionResponse.status === 401) return;
+        const sessionPayload = await sessionResponse.json() as { teacher?: AuthenticatedTeacher; error?: string };
+        if (!sessionResponse.ok || !sessionPayload.teacher) {
+          throw new Error(sessionPayload.error || "No se pudo comprobar la sesión.");
+        }
         const response = await fetch(apiUrl("/api/data"), { cache: "no-store" });
         const payload = (await response.json()) as AppData & { error?: string };
         if (!response.ok) throw new Error(payload.error || "No se pudieron cargar los datos.");
         if (active) {
+          setAuthenticatedTeacher(sessionPayload.teacher);
           setData(payload);
           setSelectedSemester(preferredSemester(payload.sessions, localIsoDate()));
         }
       } catch (error) {
         if (active) {
-          setNotice({
-            kind: "error",
-            message: clientErrorMessage(error, "No se pudieron cargar los datos."),
-          });
+          setAuthenticationError(clientErrorMessage(error, "No se pudo comprobar el acceso."));
         }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setAuthenticationChecked(true);
+          setLoading(false);
+        }
       }
     }
 
@@ -496,6 +587,24 @@ export default function Home() {
       active = false;
     };
   }, []);
+
+  async function finishLogin(teacher: AuthenticatedTeacher) {
+    setAuthenticatedTeacher(teacher);
+    setAuthenticationError("");
+    setLoading(true);
+    await loadData();
+  }
+
+  async function logout() {
+    try {
+      await fetch(apiUrl("/api/auth/session"), { method: "DELETE" });
+    } finally {
+      setAuthenticatedTeacher(null);
+      setData(emptyData);
+      setDrawer(null);
+      setNotice(null);
+    }
+  }
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -816,6 +925,14 @@ export default function Home() {
 
   const activeTitle = active === "overview" ? "Vista general" : entityCopy[active].plural;
 
+  if (!authenticationChecked) {
+    return <div className="auth-loading" role="status"><span />Comprobando el acceso…</div>;
+  }
+
+  if (!authenticatedTeacher) {
+    return <LoginScreen initialError={authenticationError} onLogin={finishLogin} />;
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -863,7 +980,11 @@ export default function Home() {
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar…" />
               </label>
             )}
-            <button className="profile-button" type="button" aria-label="Perfil de coordinación">CG</button>
+            <div className="account-summary">
+              <span className="profile-button" aria-hidden="true">{authenticatedTeacher.code}</span>
+              <span><strong>{authenticatedTeacher.name}</strong><small>{authenticatedTeacher.email}</small></span>
+              <button type="button" onClick={logout}>Salir</button>
+            </div>
           </div>
         </header>
 
@@ -946,17 +1067,33 @@ export default function Home() {
               )}
 
               {drawer === "teachers" && (
-                <label>
-                  <span>Correo electrónico <small>(opcional)</small></span>
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    maxLength={254}
-                    value={form.email}
-                    onChange={(event) => setForm({ ...form, email: event.target.value })}
-                    placeholder="nombre@universidad.es"
-                  />
-                </label>
+                <>
+                  <label>
+                    <span>Correo electrónico</span>
+                    <input
+                      required
+                      type="email"
+                      autoComplete="email"
+                      maxLength={254}
+                      value={form.email}
+                      onChange={(event) => setForm({ ...form, email: event.target.value })}
+                      placeholder="nombre@universidad.es"
+                    />
+                  </label>
+                  <label>
+                    <span>{editingId === null ? "Contraseña" : "Nueva contraseña"} {editingId !== null && <small>(opcional)</small>}</span>
+                    <input
+                      required={editingId === null}
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      maxLength={128}
+                      value={form.password}
+                      onChange={(event) => setForm({ ...form, password: event.target.value })}
+                      placeholder={editingId === null ? "12 caracteres como mínimo" : "Déjala vacía para conservar la actual"}
+                    />
+                  </label>
+                </>
               )}
 
               {drawer === "laboratories" && (

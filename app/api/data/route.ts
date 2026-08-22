@@ -1,5 +1,6 @@
 import { getDatabase } from "../../../lib/database";
 import { semesterDefinition } from "../../../lib/semesters";
+import { getAuthenticatedTeacher, hashPassword, passwordValidationError, unauthorizedResponse } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ function validTime(value: unknown) {
 
 function errorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "Error inesperado";
+  if (message.includes("UNIQUE constraint failed: teachers.email")) return "Ya existe un profesor con ese correo electrónico.";
   if (message.includes("UNIQUE constraint failed")) return "Ya existe un elemento con ese código.";
   if (message.includes("FOREIGN KEY constraint failed")) return "La relación seleccionada ya no está disponible.";
   if (message.includes("CHECK constraint failed")) return "Revisa los valores numéricos del formulario.";
@@ -91,6 +93,7 @@ function isHoliday(database: ReturnType<typeof getDatabase>, date: string) {
 }
 
 export async function GET() {
+  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
   try {
     const database = getDatabase();
     const laboratories = database.prepare(`SELECT
@@ -231,6 +234,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     const entity = payload.entity;
@@ -294,8 +298,11 @@ export async function POST(request: Request) {
       database.prepare("INSERT INTO degrees (code, ics_code, name, level, academic_year) VALUES (?, ?, ?, ?, 1)").run(code, icsCode, name, level);
     } else if (entity === "teachers") {
       const email = validEmail(payload.email);
-      if (email === null) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
-      database.prepare("INSERT INTO teachers (code, name, email) VALUES (?, ?, ?)").run(code, name, email);
+      if (!email) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
+      const passwordError = passwordValidationError(payload.password);
+      if (passwordError) return Response.json({ error: passwordError }, { status: 400 });
+      database.prepare("INSERT INTO teachers (code, name, email, password_hash) VALUES (?, ?, ?, ?)")
+        .run(code, name, email, hashPassword(String(payload.password)));
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
       const practiceIds = positiveIntegerList(payload.practiceIds);
@@ -321,6 +328,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     const entity = payload.entity;
@@ -408,8 +416,16 @@ export async function PUT(request: Request) {
       database.prepare("UPDATE degrees SET code = ?, ics_code = ?, name = ?, level = ? WHERE id = ?").run(code, icsCode, name, level, id);
     } else if (entity === "teachers") {
       const email = validEmail(payload.email);
-      if (email === null) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
-      database.prepare("UPDATE teachers SET code = ?, name = ?, email = ? WHERE id = ?").run(code, name, email, id);
+      if (!email) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
+      const password = typeof payload.password === "string" ? payload.password : "";
+      if (password) {
+        const passwordError = passwordValidationError(password);
+        if (passwordError) return Response.json({ error: passwordError }, { status: 400 });
+        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, password_hash = ? WHERE id = ?")
+          .run(code, name, email, hashPassword(password), id);
+      } else {
+        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ? WHERE id = ?").run(code, name, email, id);
+      }
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
       const practiceIds = positiveIntegerList(payload.practiceIds);
@@ -445,6 +461,7 @@ export async function PUT(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     if (payload.entity !== "sessions") {
@@ -559,6 +576,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const authenticatedTeacher = await getAuthenticatedTeacher();
+  if (!authenticatedTeacher) return unauthorizedResponse();
   try {
     const payload = await request.json() as { entity?: Entity; id?: unknown; ids?: unknown; semesterId?: unknown };
     const entity = payload.entity;
@@ -609,6 +628,9 @@ export async function DELETE(request: Request) {
       if (Number(usage.total)) return Response.json({ error: "No puedes eliminar esta asignatura porque todavía tiene sesiones programadas." }, { status: 409 });
       database.prepare("DELETE FROM subjects WHERE id = ?").run(id);
     } else if (entity === "teachers") {
+      if (id === authenticatedTeacher.id) {
+        return Response.json({ error: "No puedes eliminar el profesor con el que has iniciado sesión." }, { status: 409 });
+      }
       const usage = database.prepare("SELECT COUNT(*) AS total FROM sessions WHERE teacher_id = ?").get(id) as { total: number };
       if (Number(usage.total)) return Response.json({ error: "No puedes eliminar este profesor porque todavía tiene sesiones asignadas." }, { status: 409 });
       database.prepare("DELETE FROM teachers WHERE id = ?").run(id);

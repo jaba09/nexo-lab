@@ -5,6 +5,11 @@ Aplicación web independiente para gestionar laboratorios (LAB), instalaciones
 profesores (PRO) y sesiones docentes (SES).
 Todas las entidades se pueden crear, editar y eliminar desde la interfaz.
 
+El acceso está protegido por usuario y contraseña. El usuario de cada profesor
+es su correo electrónico; las contraseñas se guardan en SQLite mediante un hash
+`scrypt`, nunca como texto legible. La sesión de acceso usa una cookie segura y
+también protege todas las rutas de la API, incluida la importación ICS.
+
 La jerarquía se conserva en una base de datos SQLite propia:
 
 ```text
@@ -59,6 +64,7 @@ fechas en UTC se convierten a la zona horaria `Europe/Madrid`.
 
 ```bash
 npm install
+export NEXO_LAB_BOOTSTRAP_PASSWORD='una contraseña inicial de 12 caracteres o más'
 npm run dev
 ```
 
@@ -95,7 +101,18 @@ La variable `NEXO_LAB_DB_PATH` permite elegir mediante una ruta absoluta dónde
 se guarda SQLite. Si no se define, el valor es `./data/nexo-lab.sqlite` dentro
 del proyecto.
 
-Puedes copiar `.env.example` como `.env.local` para personalizarla.
+Puedes copiar `.env.template` como `.env.local` para personalizarla.
+
+El primer administrador es `jablasal@unizar.es`. Antes de su primer acceso hay
+que definir `NEXO_LAB_BOOTSTRAP_PASSWORD` con una contraseña de al menos 12
+caracteres, tanto en local como en las variables secretas de Render. Tras el
+primer inicio de sesión correcto, la aplicación guarda su hash en la base de
+datos persistente y deja de utilizar esa variable para ese usuario.
+
+Un administrador puede establecer la contraseña de otro profesor al crearlo o
+editarlo. Al editar, dejar el campo «Nueva contraseña» vacío conserva la clave
+actual. `NEXO_LAB_BOOTSTRAP_EMAIL` permite cambiar excepcionalmente el correo
+del administrador inicial; su valor predeterminado es `jablasal@unizar.es`.
 
 ## Comprobaciones
 

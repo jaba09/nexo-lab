@@ -1,5 +1,6 @@
 import { getDatabase } from "../../../../lib/database";
 import { IcsLabSession, parseIcsLabSessions } from "../../../../lib/ics";
+import { getAuthenticatedTeacher, unauthorizedResponse } from "../../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -140,6 +141,7 @@ function previewGroups(sessions: IcsLabSession[]) {
 }
 
 export async function POST(request: Request) {
+  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
   try {
     const payload = await requestPayload(request);
     const content = typeof payload.content === "string" ? payload.content : "";

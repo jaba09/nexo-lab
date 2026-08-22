@@ -16,7 +16,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.doesNotMatch(packageJson, /vinext|wrangler|cloudflare|drizzle/i);
   assert.match(nextConfig, /output: "standalone"/);
   assert.match(dockerfile, /ENV NEXO_LAB_DB_PATH=\/app\/data\/nexo-lab\.sqlite/);
+  assert.match(dockerfile, /ENV NEXO_LAB_BOOTSTRAP_EMAIL=jablasal@unizar\.es/);
   assert.match(dockerCompose, /NEXO_LAB_DB_PATH: \/app\/data\/nexo-lab\.sqlite/);
+  assert.match(dockerCompose, /NEXO_LAB_BOOTSTRAP_PASSWORD/);
   assert.match(dockerCompose, /nexo_lab_data:\/app\/data/);
   assert.doesNotMatch(page, /Todo el ecosistema docente/);
   assert.match(page, /semesterDisplayTitle/);
@@ -80,6 +82,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Profesores/);
   assert.match(page, /Correo electrónico/);
   assert.match(page, /type="email"/);
+  assert.match(page, /Iniciar sesión/);
+  assert.match(page, /type="password"/);
+  assert.match(page, /Nueva contraseña/);
+  assert.match(page, /api\/auth\/session/);
+  assert.match(page, />Salir</);
   assert.match(page, /teacher\.email \|\| "Sin correo electrónico"/);
   assert.match(page, /sort\(compareTeachersBySurname\)/);
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /localeCompare\(String\(right\), "es", \{ sensitivity: "base" \}\)/);
