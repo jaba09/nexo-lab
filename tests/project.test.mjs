@@ -35,7 +35,12 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /teacherSessionCounts/);
   assert.match(page, /unassignedTeacherSessionCount/);
   assert.match(page, /overview-teacher-table/);
+  assert.match(page, /function OverviewTeacherSessions/);
+  assert.match(page, /sessionsByTeacher/);
+  assert.match(page, /expandedTeacherKeys/);
+  assert.match(page, /overview-teacher-session-row/);
   assert.match(styles, /\.overview-teacher-table/);
+  assert.match(styles, /\.overview-teacher-data-row\.expanded/);
   assert.match(page, /semesterFromDate\(session\.sessionDate\) === selectedSemester/);
   assert.match(page, /left\.name\.localeCompare\(right\.name, "es", \{ sensitivity: "base" \}\)/);
   assert.match(page, /overview-degree-item/);

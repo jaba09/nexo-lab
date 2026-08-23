@@ -1,6 +1,6 @@
 "use client";
 
-import { DragEvent as ReactDragEvent, FormEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { DragEvent as ReactDragEvent, FormEvent, Fragment, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
@@ -1577,19 +1577,23 @@ function SessionSelectionActions({
   );
 }
 
-function OverviewSubjectSessions({
-  subjectId,
+function OverviewSessionsList({
+  headingPrefix,
+  ariaLabel,
+  emptyMessage,
   sessions,
   selectedIds,
   onSelect,
 }: {
-  subjectId: number;
+  headingPrefix: string;
+  ariaLabel: string;
+  emptyMessage: string;
   sessions: Session[];
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
   if (!sessions.length) {
-    return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
+    return <p className="overview-session-empty">{emptyMessage}</p>;
   }
 
   const sessionsByDate = new Map<string, Session[]>();
@@ -1600,13 +1604,13 @@ function OverviewSubjectSessions({
   }
 
   return (
-    <div className="calendar-list overview-session-list" aria-label="Sesiones de la asignatura ordenadas cronológicamente">
+    <div className="calendar-list overview-session-list" aria-label={ariaLabel}>
       {[...sessionsByDate.entries()].map(([date, dateSessions]) => {
         const day = parseLocalDate(date);
         const dayNumber = day.toLocaleDateString("es-ES", { day: "numeric" });
         const month = day.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
         const weekday = day.toLocaleDateString("es-ES", { weekday: "long" });
-        const headingId = `overview-subject-${subjectId}-day-${date}`;
+        const headingId = `${headingPrefix}-day-${date}`;
         return (
           <section className="calendar-list-day" key={date} aria-labelledby={headingId}>
             <header className="calendar-list-day-header">
@@ -1647,6 +1651,54 @@ function OverviewSubjectSessions({
   );
 }
 
+function OverviewSubjectSessions({
+  subjectId,
+  sessions,
+  selectedIds,
+  onSelect,
+}: {
+  subjectId: number;
+  sessions: Session[];
+  selectedIds: Set<number>;
+  onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <OverviewSessionsList
+      headingPrefix={`overview-subject-${subjectId}`}
+      ariaLabel="Sesiones de la asignatura ordenadas cronológicamente"
+      emptyMessage="Esta asignatura no tiene sesiones en el semestre seleccionado."
+      sessions={sessions}
+      selectedIds={selectedIds}
+      onSelect={onSelect}
+    />
+  );
+}
+
+function OverviewTeacherSessions({
+  teacherKey,
+  teacherName,
+  sessions,
+  selectedIds,
+  onSelect,
+}: {
+  teacherKey: string;
+  teacherName: string;
+  sessions: Session[];
+  selectedIds: Set<number>;
+  onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <OverviewSessionsList
+      headingPrefix={`overview-teacher-${teacherKey}`}
+      ariaLabel={`Sesiones de ${teacherName} ordenadas cronológicamente`}
+      emptyMessage="Este profesor no tiene sesiones en el semestre seleccionado."
+      sessions={sessions}
+      selectedIds={selectedIds}
+      onSelect={onSelect}
+    />
+  );
+}
+
 function Overview({
   data,
   selectedSemester,
@@ -1666,6 +1718,7 @@ function Overview({
   const [anchorId, setAnchorId] = useState<number | null>(null);
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [expandedTeacherKeys, setExpandedTeacherKeys] = useState<Set<string>>(() => new Set());
   const availableSemesters = semesterOptions([
     ...data.sessions.map((session) => session.sessionDate),
     ...data.holidays.map((holiday) => holiday.holidayDate),
@@ -1682,6 +1735,7 @@ function Overview({
   const teacherSessionCounts = new Map<number, number>();
   let unassignedTeacherSessionCount = 0;
   const sessionsBySubject = new Map<number, Session[]>();
+  const sessionsByTeacher = new Map<number | null, Session[]>();
   for (const session of semesterSessions) {
     degreeSessionCounts.set(session.degreeId, (degreeSessionCounts.get(session.degreeId) ?? 0) + 1);
     subjectSessionCounts.set(session.subjectId, (subjectSessionCounts.get(session.subjectId) ?? 0) + 1);
@@ -1690,6 +1744,9 @@ function Overview({
     } else {
       teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
     }
+    const teacherSessions = sessionsByTeacher.get(session.teacherId) ?? [];
+    teacherSessions.push(session);
+    sessionsByTeacher.set(session.teacherId, teacherSessions);
     const subjectSessions = sessionsBySubject.get(session.subjectId) ?? [];
     subjectSessions.push(session);
     sessionsBySubject.set(session.subjectId, subjectSessions);
@@ -1744,6 +1801,31 @@ function Overview({
     setAnchorId(session.id);
   }
 
+  function selectOverviewTeacherSession(session: Session, event: ReactMouseEvent<HTMLButtonElement>) {
+    const teacherSessions = sessionsByTeacher.get(session.teacherId) ?? [];
+    if (event.shiftKey && anchorId !== null) {
+      const anchorIndex = teacherSessions.findIndex((item) => item.id === anchorId);
+      const sessionIndex = teacherSessions.findIndex((item) => item.id === session.id);
+      if (anchorIndex >= 0 && sessionIndex >= 0) {
+        const first = Math.min(anchorIndex, sessionIndex);
+        const last = Math.max(anchorIndex, sessionIndex);
+        setSelectedIds(new Set(teacherSessions.slice(first, last + 1).map((item) => item.id)));
+        return;
+      }
+    }
+    setSelectedIds(new Set([session.id]));
+    setAnchorId(session.id);
+  }
+
+  function toggleOverviewTeacher(teacherKey: string) {
+    setExpandedTeacherKeys((current) => {
+      const next = new Set(current);
+      if (next.has(teacherKey)) next.delete(teacherKey);
+      else next.add(teacherKey);
+      return next;
+    });
+  }
+
   async function assignOverviewPractice(practiceId: number | null) {
     const ids = [...selectedIds];
     if (!ids.length) return;
@@ -1788,7 +1870,7 @@ function Overview({
         {selectedIds.size ? (
           <>
             <strong>{selectedIds.size} {selectedIds.size === 1 ? "sesión seleccionada" : "sesiones seleccionadas"}</strong>
-            <span>Shift + clic amplía el rango dentro de la asignatura · Esc limpia la selección</span>
+            <span>Shift + clic amplía el rango dentro del listado abierto · Esc limpia la selección</span>
             <SessionSelectionActions
               sessions={selectedSessions}
               practices={data.practices}
@@ -1803,7 +1885,7 @@ function Overview({
             />
           </>
         ) : (
-          <span>Haz clic en una sesión para seleccionarla. Después usa la barra de acciones para asignar práctica, profesor o borrar. Shift + clic selecciona un rango y Esc limpia la selección.</span>
+          <span>Haz clic en una sesión para seleccionarla. Después usa la barra de acciones para asignar práctica, profesor o borrar. Shift + clic selecciona un rango dentro del listado abierto y Esc limpia la selección.</span>
         )}
       </div>
       <section className="panel overview-degree-panel">
@@ -1887,30 +1969,77 @@ function Overview({
               <tbody>
                 {orderedTeachers.map((teacher) => {
                   const sessionCount = teacherSessionCounts.get(teacher.id) ?? 0;
+                  const teacherKey = String(teacher.id);
+                  const teacherSessions = sessionsByTeacher.get(teacher.id) ?? [];
+                  const expanded = expandedTeacherKeys.has(teacherKey);
                   return (
-                    <tr key={teacher.id}>
-                      <td>
-                        <span className="overview-teacher-identity">
-                          <span className="overview-teacher-code">{teacher.code}</span>
-                          <strong>{teacher.name}</strong>
-                        </span>
-                      </td>
-                      <td className="overview-teacher-email">{teacher.email || "Sin correo electrónico"}</td>
-                      <td className="overview-teacher-count"><b>{sessionCount}</b><small>{sessionCount === 1 ? "sesión" : "sesiones"}</small></td>
-                    </tr>
+                    <Fragment key={teacher.id}>
+                      <tr className={expanded ? "overview-teacher-data-row expanded" : "overview-teacher-data-row"}>
+                        <td>
+                          <button
+                            className="overview-teacher-identity"
+                            type="button"
+                            aria-expanded={expanded}
+                            aria-controls={`overview-teacher-${teacherKey}-sessions`}
+                            onClick={() => toggleOverviewTeacher(teacherKey)}
+                          >
+                            <span className="overview-teacher-chevron" aria-hidden="true">›</span>
+                            <span className="overview-teacher-code">{teacher.code}</span>
+                            <strong>{teacher.name}</strong>
+                          </button>
+                        </td>
+                        <td className="overview-teacher-email">{teacher.email || "Sin correo electrónico"}</td>
+                        <td className="overview-teacher-count"><b>{sessionCount}</b><small>{sessionCount === 1 ? "sesión" : "sesiones"}</small></td>
+                      </tr>
+                      {expanded && (
+                        <tr className="overview-teacher-session-row">
+                          <td colSpan={3} id={`overview-teacher-${teacherKey}-sessions`}>
+                            <OverviewTeacherSessions
+                              teacherKey={teacherKey}
+                              teacherName={teacher.name}
+                              sessions={teacherSessions}
+                              selectedIds={selectedIds}
+                              onSelect={selectOverviewTeacherSession}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
                 {unassignedTeacherSessionCount > 0 && (
-                  <tr className="overview-teacher-unassigned">
-                    <td>
-                      <span className="overview-teacher-identity">
-                        <span className="overview-teacher-code">—</span>
-                        <strong>Sin profesor asignado</strong>
-                      </span>
-                    </td>
-                    <td className="overview-teacher-email">—</td>
-                    <td className="overview-teacher-count"><b>{unassignedTeacherSessionCount}</b><small>{unassignedTeacherSessionCount === 1 ? "sesión" : "sesiones"}</small></td>
-                  </tr>
+                  <>
+                    <tr className={expandedTeacherKeys.has("unassigned") ? "overview-teacher-data-row overview-teacher-unassigned expanded" : "overview-teacher-data-row overview-teacher-unassigned"}>
+                      <td>
+                        <button
+                          className="overview-teacher-identity"
+                          type="button"
+                          aria-expanded={expandedTeacherKeys.has("unassigned")}
+                          aria-controls="overview-teacher-unassigned-sessions"
+                          onClick={() => toggleOverviewTeacher("unassigned")}
+                        >
+                          <span className="overview-teacher-chevron" aria-hidden="true">›</span>
+                          <span className="overview-teacher-code">—</span>
+                          <strong>Sin profesor asignado</strong>
+                        </button>
+                      </td>
+                      <td className="overview-teacher-email">—</td>
+                      <td className="overview-teacher-count"><b>{unassignedTeacherSessionCount}</b><small>{unassignedTeacherSessionCount === 1 ? "sesión" : "sesiones"}</small></td>
+                    </tr>
+                    {expandedTeacherKeys.has("unassigned") && (
+                      <tr className="overview-teacher-session-row overview-teacher-unassigned">
+                        <td colSpan={3} id="overview-teacher-unassigned-sessions">
+                          <OverviewTeacherSessions
+                            teacherKey="unassigned"
+                            teacherName="las sesiones sin profesor asignado"
+                            sessions={sessionsByTeacher.get(null) ?? []}
+                            selectedIds={selectedIds}
+                            onSelect={selectOverviewTeacherSession}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>

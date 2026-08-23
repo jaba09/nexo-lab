@@ -151,15 +151,20 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-teacher-table th:last-child { text-align: right; }
 .overview-teacher-table td { min-height: 64px; padding: 11px 12px; border-bottom: 1px solid #e5e5df; font-size: 10px; vertical-align: middle; }
 .overview-teacher-table tbody tr:last-child td { border-bottom: 0; }
-.overview-teacher-table tbody tr:hover { background: #f7f9ef; }
-.overview-teacher-identity { display: flex; align-items: center; gap: 12px; }
+.overview-teacher-data-row:hover { background: #f7f9ef; }
+.overview-teacher-data-row.expanded { background: #f7f9ef; }
+.overview-teacher-identity { width: 100%; padding: 0; border: 0; background: transparent; display: grid; grid-template-columns: 24px 46px minmax(0, 1fr); align-items: center; gap: 10px; text-align: left; cursor: pointer; }
 .overview-teacher-identity > strong { font-size: 11px; }
+.overview-teacher-chevron { width: 22px; height: 22px; border: 1px solid #cfd2cb; border-radius: 50%; display: grid; place-items: center; color: #68716d; font-size: 16px; line-height: 1; transition: transform .18s, background .18s, color .18s; }
+.overview-teacher-data-row.expanded .overview-teacher-chevron { transform: rotate(90deg); border-color: var(--ink); background: var(--ink); color: var(--lime); }
 .overview-teacher-code { min-width: 45px; max-width: 62px; min-height: 36px; padding: 0 8px; border-radius: 8px; background: var(--coral); display: grid; place-items: center; overflow: hidden; font: 750 8px var(--font-geist-mono); text-overflow: ellipsis; white-space: nowrap; }
 .overview-teacher-email { color: var(--muted); }
 .overview-teacher-count { width: 100px; text-align: right; white-space: nowrap; }
 .overview-teacher-count b { font-size: 21px; letter-spacing: -.035em; }
 .overview-teacher-count small { margin-left: 5px; color: var(--muted); font: 650 7px var(--font-geist-mono); letter-spacing: .04em; text-transform: uppercase; }
 .overview-teacher-unassigned td { background: #f3f2ec; }
+.overview-teacher-session-row > td { padding: 0 12px 14px 46px; background: #f7f9ef; }
+.overview-teacher-session-row .overview-session-list.calendar-list { margin: 0; }
 .primary-button, .secondary-button { min-height: 45px; padding: 0 19px; border-radius: 8px; border: 1px solid var(--ink); font-weight: 650; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px; transition: transform .15s, background .15s; }
 .primary-button { color: #fff; background: var(--ink); }
 .primary-button:hover:not(:disabled) { background: #32423c; transform: translateY(-1px); }
