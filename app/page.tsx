@@ -1679,10 +1679,17 @@ function Overview({
     ));
   const degreeSessionCounts = new Map<number, number>();
   const subjectSessionCounts = new Map<number, number>();
+  const teacherSessionCounts = new Map<number, number>();
+  let unassignedTeacherSessionCount = 0;
   const sessionsBySubject = new Map<number, Session[]>();
   for (const session of semesterSessions) {
     degreeSessionCounts.set(session.degreeId, (degreeSessionCounts.get(session.degreeId) ?? 0) + 1);
     subjectSessionCounts.set(session.subjectId, (subjectSessionCounts.get(session.subjectId) ?? 0) + 1);
+    if (session.teacherId === null) {
+      unassignedTeacherSessionCount += 1;
+    } else {
+      teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
+    }
     const subjectSessions = sessionsBySubject.get(session.subjectId) ?? [];
     subjectSessions.push(session);
     sessionsBySubject.set(session.subjectId, subjectSessions);
@@ -1698,6 +1705,7 @@ function Overview({
     left.name.localeCompare(right.name, "es", { sensitivity: "base" })
     || left.code.localeCompare(right.code, "es")
   ));
+  const orderedTeachers = [...data.teachers].sort(compareTeachersBySurname);
   const selectedSessions = semesterSessions.filter((session) => selectedIds.has(session.id));
 
   useEffect(() => {
@@ -1859,6 +1867,56 @@ function Overview({
           </div>
         ) : (
           <p className="overview-subject-empty standalone">Todavía no hay grados creados.</p>
+        )}
+      </section>
+      <section className="panel overview-teacher-panel">
+        <div className="panel-head">
+          <div><span className="section-kicker">Carga docente</span><h2>Sesiones por profesor</h2></div>
+          <span className="panel-tag session-total">{semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
+        </div>
+        {orderedTeachers.length || unassignedTeacherSessionCount ? (
+          <div className="overview-teacher-table-wrap">
+            <table className="overview-teacher-table">
+              <thead>
+                <tr>
+                  <th scope="col">Profesor</th>
+                  <th scope="col">Correo electrónico</th>
+                  <th scope="col">Sesiones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orderedTeachers.map((teacher) => {
+                  const sessionCount = teacherSessionCounts.get(teacher.id) ?? 0;
+                  return (
+                    <tr key={teacher.id}>
+                      <td>
+                        <span className="overview-teacher-identity">
+                          <span className="overview-teacher-code">{teacher.code}</span>
+                          <strong>{teacher.name}</strong>
+                        </span>
+                      </td>
+                      <td className="overview-teacher-email">{teacher.email || "Sin correo electrónico"}</td>
+                      <td className="overview-teacher-count"><b>{sessionCount}</b><small>{sessionCount === 1 ? "sesión" : "sesiones"}</small></td>
+                    </tr>
+                  );
+                })}
+                {unassignedTeacherSessionCount > 0 && (
+                  <tr className="overview-teacher-unassigned">
+                    <td>
+                      <span className="overview-teacher-identity">
+                        <span className="overview-teacher-code">—</span>
+                        <strong>Sin profesor asignado</strong>
+                      </span>
+                    </td>
+                    <td className="overview-teacher-email">—</td>
+                    <td className="overview-teacher-count"><b>{unassignedTeacherSessionCount}</b><small>{unassignedTeacherSessionCount === 1 ? "sesión" : "sesiones"}</small></td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="overview-subject-empty standalone">Todavía no hay profesores creados.</p>
         )}
       </section>
     </>

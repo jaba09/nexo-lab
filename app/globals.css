@@ -144,6 +144,22 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-session-empty { margin: 0 0 12px 31px; padding: 14px; border-radius: 8px; background: #efeee8; color: var(--muted); font-size: 9px; }
 .overview-subject-empty { margin: 0 0 12px 89px; padding: 17px; border-radius: 9px; background: #f3f2ec; color: var(--muted); font-size: 10px; }
 .overview-subject-empty.standalone { margin: 0; border-radius: 0; }
+.overview-teacher-panel { margin-top: 14px; overflow: hidden; }
+.overview-teacher-table-wrap { padding: 0 20px 12px; overflow-x: auto; }
+.overview-teacher-table { width: 100%; border-collapse: collapse; text-align: left; }
+.overview-teacher-table th { padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font: 650 8px var(--font-geist-mono); letter-spacing: .08em; text-transform: uppercase; }
+.overview-teacher-table th:last-child { text-align: right; }
+.overview-teacher-table td { min-height: 64px; padding: 11px 12px; border-bottom: 1px solid #e5e5df; font-size: 10px; vertical-align: middle; }
+.overview-teacher-table tbody tr:last-child td { border-bottom: 0; }
+.overview-teacher-table tbody tr:hover { background: #f7f9ef; }
+.overview-teacher-identity { display: flex; align-items: center; gap: 12px; }
+.overview-teacher-identity > strong { font-size: 11px; }
+.overview-teacher-code { min-width: 45px; max-width: 62px; min-height: 36px; padding: 0 8px; border-radius: 8px; background: var(--coral); display: grid; place-items: center; overflow: hidden; font: 750 8px var(--font-geist-mono); text-overflow: ellipsis; white-space: nowrap; }
+.overview-teacher-email { color: var(--muted); }
+.overview-teacher-count { width: 100px; text-align: right; white-space: nowrap; }
+.overview-teacher-count b { font-size: 21px; letter-spacing: -.035em; }
+.overview-teacher-count small { margin-left: 5px; color: var(--muted); font: 650 7px var(--font-geist-mono); letter-spacing: .04em; text-transform: uppercase; }
+.overview-teacher-unassigned td { background: #f3f2ec; }
 .primary-button, .secondary-button { min-height: 45px; padding: 0 19px; border-radius: 8px; border: 1px solid var(--ink); font-weight: 650; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px; transition: transform .15s, background .15s; }
 .primary-button { color: #fff; background: var(--ink); }
 .primary-button:hover:not(:disabled) { background: #32423c; transform: translateY(-1px); }

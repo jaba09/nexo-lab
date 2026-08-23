@@ -31,6 +31,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.overview-semester-focus \{ min-height: clamp\(280px/);
   assert.match(styles, /\.semester-focus h1 > small/);
   assert.match(page, /Sesiones por grado/);
+  assert.match(page, /Sesiones por profesor/);
+  assert.match(page, /teacherSessionCounts/);
+  assert.match(page, /unassignedTeacherSessionCount/);
+  assert.match(page, /overview-teacher-table/);
+  assert.match(styles, /\.overview-teacher-table/);
   assert.match(page, /semesterFromDate\(session\.sessionDate\) === selectedSemester/);
   assert.match(page, /left\.name\.localeCompare\(right\.name, "es", \{ sensitivity: "base" \}\)/);
   assert.match(page, /overview-degree-item/);
