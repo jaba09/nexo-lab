@@ -60,6 +60,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /function deleteOverviewSessions/);
   assert.match(page, /function SessionSelectionActions/);
   assert.equal([...page.matchAll(/<SessionSelectionActions/g)].length, 2);
+  assert.match(page, /downloadSessionsIcs/);
+  assert.match(page, /downloadSessionsPdf/);
+  assert.match(page, /Exportar ICS/);
+  assert.match(page, /Exportar PDF/);
+  assert.match(styles, /\.calendar-selection-bar \.export-action/);
   assert.match(page, /function practicesAvailableToSessions/);
   assert.match(page, /session\.degreePracticeIds\?\.map\(Number\)/);
   assert.match(page, /directPracticeIds\.includes\(practice\.id\)/);

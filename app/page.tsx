@@ -2,6 +2,7 @@
 
 import { DragEvent as ReactDragEvent, FormEvent, Fragment, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
+import { downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
 type Entity = Exclude<Section, "overview">;
@@ -1571,6 +1572,14 @@ function SessionSelectionActions({
           ))}
         </select>
       </label>
+      <button className="export-action" type="button" onClick={() => downloadSessionsIcs(sessions)}>Exportar ICS</button>
+      <button
+        className="export-action"
+        type="button"
+        onClick={() => void downloadSessionsPdf(sessions).catch(() => window.alert("No se ha podido generar el PDF."))}
+      >
+        Exportar PDF
+      </button>
       <button type="button" onClick={onClear}>Limpiar selección</button>
       <button className="danger-action" type="button" disabled={deleting} onClick={onDelete}>Borrar selección</button>
     </div>

@@ -349,6 +349,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .session-selection-actions select { height: 31px; padding: 0 28px 0 9px; border: 1px solid #9eae7c; border-radius: 6px; background: var(--white); color: var(--ink); font-size: 9px; cursor: pointer; }
 .session-selection-actions select:disabled { opacity: .55; cursor: wait; }
 .calendar-selection-bar button { padding: 5px 8px; border: 1px solid #aebd8c; border-radius: 5px; background: transparent; color: #526332; font-size: 8px; font-weight: 700; cursor: pointer; }
+.calendar-selection-bar .export-action { border-color: #6f8738; background: #f5fbdc; color: #40551b; }
+.calendar-selection-bar .export-action:hover { background: #eaff9d; }
 .calendar-selection-bar .danger-action { border-color: #d79b94; color: #913a33; background: #fff7f5; }
 .calendar-selection-bar .danger-action:hover { background: #ffe9e6; }
 .calendar-selection-bar .danger-action:disabled { opacity: .45; cursor: wait; }
