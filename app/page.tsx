@@ -259,13 +259,13 @@ const emptyCalendarFilters: CalendarFilters = {
 
 const navigation: { key: Section; label: string; short: string }[] = [
   { key: "overview", label: "Vista general", short: "00" },
+  { key: "sessions", label: "Calendario", short: "SES" },
   { key: "laboratories", label: "Laboratorios", short: "LAB" },
   { key: "installations", label: "Instalaciones", short: "INS" },
   { key: "practices", label: "Prácticas", short: "PRA" },
   { key: "degrees", label: "Grados", short: "GRA" },
   { key: "subjects", label: "Asignaturas", short: "ASI" },
   { key: "teachers", label: "Profesores", short: "PRO" },
-  { key: "sessions", label: "Calendario", short: "SES" },
 ];
 
 const entityCopy: Record<Entity, { singular: string; plural: string; description: string }> = {
