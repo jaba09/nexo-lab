@@ -7,6 +7,12 @@ services:
       NEXO_LAB_DB_PATH: /app/data/nexo-lab.sqlite
       NEXO_LAB_BOOTSTRAP_EMAIL: jablasal@unizar.es
       NEXO_LAB_BOOTSTRAP_PASSWORD: ${NEXO_LAB_BOOTSTRAP_PASSWORD:?Define NEXO_LAB_BOOTSTRAP_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST:-smtp.unizar.es}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-jablasal@unizar.es}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Nexo Lab <jablasal@unizar.es>}
+      NEXO_LAB_PUBLIC_URL: ${NEXO_LAB_PUBLIC_URL:-http://localhost:3000}
     volumes:
       - nexo_lab_data:/app/data
     restart: unless-stopped

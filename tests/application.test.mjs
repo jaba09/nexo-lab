@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
 async function availablePort() {
@@ -711,4 +713,47 @@ END:VCALENDAR\r
   assert.equal(logoutResponse.status, 200);
   const invalidatedSessionResponse = await fetch(`${origin}/api/data`);
   assert.equal(invalidatedSessionResponse.status, 401);
+
+  const unconfiguredRecoveryResponse = await fetch(`${origin}/api/auth/password-reset/request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: bootstrapEmail }),
+  });
+  assert.equal(unconfiguredRecoveryResponse.status, 503);
+
+  const resetToken = Buffer.alloc(32, 7).toString("base64url");
+  const resetTokenHash = createHash("sha256").update(resetToken, "utf8").digest("base64url");
+  const resetDatabase = new DatabaseSync(databasePath);
+  const bootstrapTeacher = resetDatabase.prepare("SELECT id, email FROM teachers WHERE id = 1").get();
+  resetDatabase.prepare(`INSERT INTO password_reset_tokens
+    (token_hash, teacher_id, expires_at, created_at) VALUES (?, ?, ?, ?)`)
+    .run(resetTokenHash, bootstrapTeacher.id, Date.now() + 30 * 60 * 1000, Date.now());
+  resetDatabase.close();
+
+  const newPassword = "Nueva clave segura 2026";
+  const resetResponse = await fetch(`${origin}/api/auth/password-reset/reset`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token: resetToken, password: newPassword }),
+  });
+  assert.equal(resetResponse.status, 200);
+  const reusedResetResponse = await fetch(`${origin}/api/auth/password-reset/reset`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token: resetToken, password: "Otra clave segura 2026" }),
+  });
+  assert.equal(reusedResetResponse.status, 400);
+
+  const oldPasswordResponse = await fetch(`${origin}/api/auth/session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: bootstrapTeacher.email, password: bootstrapPassword }),
+  });
+  assert.equal(oldPasswordResponse.status, 401);
+  const newPasswordResponse = await fetch(`${origin}/api/auth/session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: bootstrapTeacher.email, password: newPassword }),
+  });
+  assert.equal(newPasswordResponse.status, 200);
 });

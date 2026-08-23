@@ -9,6 +9,10 @@ El acceso está protegido por usuario y contraseña. El usuario de cada profesor
 es su correo electrónico; las contraseñas se guardan en SQLite mediante un hash
 `scrypt`, nunca como texto legible. La sesión de acceso usa una cookie segura y
 también protege todas las rutas de la API, incluida la importación ICS.
+La pantalla de acceso incluye «He olvidado mi contraseña». El sistema envía por
+SMTP un enlace de un solo uso, válido durante 30 minutos, sin revelar si el
+correo introducido pertenece a un profesor. Al establecer una clave nueva se
+invalidan las sesiones de acceso que ese usuario tuviera abiertas.
 
 La jerarquía se conserva en una base de datos SQLite propia:
 
@@ -113,6 +117,26 @@ Un administrador puede establecer la contraseña de otro profesor al crearlo o
 editarlo. Al editar, dejar el campo «Nueva contraseña» vacío conserva la clave
 actual. `NEXO_LAB_BOOTSTRAP_EMAIL` permite cambiar excepcionalmente el correo
 del administrador inicial; su valor predeterminado es `jablasal@unizar.es`.
+
+### Recuperación de contraseña por correo de Unizar
+
+Para enviar los enlaces mediante el correo institucional, configura estas
+variables en Render (o en `.env.local` durante el desarrollo):
+
+```text
+SMTP_HOST=smtp.unizar.es
+SMTP_PORT=587
+SMTP_USER=jablasal@unizar.es
+SMTP_PASSWORD=<contraseña del correo, solo como secreto del servidor>
+EMAIL_FROM=Nexo Lab <jablasal@unizar.es>
+NEXO_LAB_PUBLIC_URL=https://nexo-lab.onrender.com
+```
+
+La conexión utiliza STARTTLS y exige TLS 1.2 o posterior. `SMTP_PASSWORD` no
+debe escribirse en el repositorio, en una imagen Docker ni en el chat. Si la
+contraseña del correo cambia, también hay que actualizar el secreto en Render.
+Los tokens se guardan en SQLite solo mediante su hash y no modifican los datos
+docentes existentes.
 
 ## Comprobaciones
 

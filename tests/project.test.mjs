@@ -83,6 +83,15 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Correo electrónico/);
   assert.match(page, /type="email"/);
   assert.match(page, /Iniciar sesión/);
+  assert.match(page, /He olvidado mi contraseña/);
+  assert.match(page, /Recuperar acceso/);
+  assert.match(page, /Revisa tu correo/);
+  assert.match(page, /Nueva contraseña/);
+  assert.match(page, /api\/auth\/password-reset\/request/);
+  assert.match(page, /api\/auth\/password-reset\/reset/);
+  assert.doesNotMatch(page, /mailto:/);
+  assert.match(styles, /\.recovery-result/);
+  assert.match(packageJson, /"nodemailer"/);
   assert.match(page, /type="password"/);
   assert.match(page, /Nueva contraseña/);
   assert.match(page, /api\/auth\/session/);

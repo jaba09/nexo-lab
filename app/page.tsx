@@ -1,6 +1,6 @@
 "use client";
 
-import { DragEvent as ReactDragEvent, FormEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState } from "react";
+import { DragEvent as ReactDragEvent, FormEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
@@ -441,6 +441,15 @@ function ArrowIcon() {
   return <span aria-hidden="true">↗</span>;
 }
 
+function subscribeToBrowserLocation(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function resetTokenFromBrowserLocation() {
+  return new URLSearchParams(window.location.search).get("resetToken")?.trim() ?? "";
+}
+
 function LoginScreen({
   initialError,
   onLogin,
@@ -452,6 +461,12 @@ function LoginScreen({
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(initialError);
+  const [authMode, setAuthMode] = useState<"login" | "request" | "request-sent" | "reset" | "reset-done">("login");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [resetLinkDismissed, setResetLinkDismissed] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const resetToken = useSyncExternalStore(subscribeToBrowserLocation, resetTokenFromBrowserLocation, () => "");
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -474,44 +489,141 @@ function LoginScreen({
     }
   }
 
+  async function submitRecovery(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch(apiUrl("/api/auth/password-reset/request"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: recoveryEmail }),
+      });
+      const payload = await response.json() as { message?: string; error?: string };
+      if (!response.ok) throw new Error(payload.error || "No se pudo solicitar el enlace de recuperación.");
+      setAuthMode("request-sent");
+    } catch (recoveryError) {
+      setError(clientErrorMessage(recoveryError, "No se pudo solicitar el enlace de recuperación."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitNewPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (newPassword !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await fetch(apiUrl("/api/auth/password-reset/reset"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: resetToken, password: newPassword }),
+      });
+      const payload = await response.json() as { message?: string; error?: string };
+      if (!response.ok) throw new Error(payload.error || "No se pudo actualizar la contraseña.");
+      setNewPassword("");
+      setConfirmPassword("");
+      window.history.replaceState({}, "", window.location.pathname);
+      setAuthMode("reset-done");
+    } catch (resetError) {
+      setError(clientErrorMessage(resetError, "No se pudo actualizar la contraseña."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function showRecovery() {
+    setRecoveryEmail(email);
+    setError("");
+    setAuthMode("request");
+  }
+
+  function showLogin() {
+    window.history.replaceState({}, "", window.location.pathname);
+    setAuthMode("login");
+    setResetLinkDismissed(true);
+    setError("");
+  }
+
+  const visibleAuthMode = resetToken && !resetLinkDismissed && authMode === "login" ? "reset" : authMode;
+  const recoveringPassword = visibleAuthMode !== "login";
+  const authTitle = visibleAuthMode === "login"
+    ? "Iniciar sesión"
+    : visibleAuthMode === "reset" ? "Nueva contraseña" : "Recuperar acceso";
+
   return (
     <main className="login-page">
-      <section className="login-panel" aria-labelledby="login-title">
+      <section className={recoveringPassword ? "login-panel recovery" : "login-panel"} aria-labelledby="login-title">
         <div className="login-brand"><span>N</span>NEXO<em>LAB</em></div>
         <div>
           <span className="section-kicker">Gestión docente</span>
-          <h1 id="login-title">Iniciar sesión</h1>
-          <p>Accede con el correo electrónico asociado a tu ficha de profesor.</p>
+          <h1 id="login-title">{authTitle}</h1>
+          <p>{visibleAuthMode === "login"
+            ? "Accede con el correo electrónico asociado a tu ficha de profesor."
+            : visibleAuthMode === "reset"
+              ? "Elige una contraseña nueva para volver a acceder a Nexo Lab."
+              : "Solicita un enlace seguro en el correo asociado a tu ficha."}</p>
         </div>
         {error && <div className="login-error" role="alert"><span>!</span><p>{error}</p></div>}
-        <form className="login-form" onSubmit={submitLogin}>
-          <label>
-            <span>Correo electrónico</span>
-            <input
-              required
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="nombre@unizar.es"
-            />
-          </label>
-          <label>
-            <span>Contraseña</span>
-            <input
-              required
-              type="password"
-              autoComplete="current-password"
-              maxLength={128}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Tu contraseña"
-            />
-          </label>
-          <button className="primary-button" type="submit" disabled={submitting}>
-            {submitting ? "Accediendo…" : "Entrar"}<ArrowIcon />
-          </button>
-        </form>
+        {visibleAuthMode === "request-sent" && (
+          <div className="recovery-result" role="status">
+            <span aria-hidden="true">✓</span>
+            <h2>Revisa tu correo</h2>
+            <p>Si la dirección está registrada, recibirás un enlace válido durante 30 minutos. Revisa también la carpeta de correo no deseado.</p>
+            <button className="login-link-button" type="button" onClick={showLogin}>Volver al inicio de sesión</button>
+          </div>
+        )}
+        {visibleAuthMode === "reset-done" && (
+          <div className="recovery-result" role="status">
+            <span aria-hidden="true">✓</span>
+            <h2>Contraseña actualizada</h2>
+            <p>Ya puedes iniciar sesión con tu nueva contraseña. Los accesos anteriores se han cerrado por seguridad.</p>
+            <button className="primary-button recovery-login-button" type="button" onClick={showLogin}>Iniciar sesión<ArrowIcon /></button>
+          </div>
+        )}
+        {visibleAuthMode === "reset" && (
+          <form className="login-form recovery-form" onSubmit={submitNewPassword}>
+            <label>
+              <span>Nueva contraseña</span>
+              <input required type="password" autoComplete="new-password" minLength={12} maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="12 caracteres como mínimo" />
+            </label>
+            <label>
+              <span>Repite la nueva contraseña</span>
+              <input required type="password" autoComplete="new-password" minLength={12} maxLength={128} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="La misma contraseña" />
+            </label>
+            <p className="recovery-help">El enlace es de un solo uso. Al guardar la nueva contraseña se cerrarán las sesiones que estuvieran abiertas.</p>
+            <button className="primary-button" type="submit" disabled={submitting}>{submitting ? "Guardando…" : "Guardar contraseña"}<ArrowIcon /></button>
+          </form>
+        )}
+        {visibleAuthMode === "request" && (
+          <form className="login-form recovery-form" onSubmit={submitRecovery}>
+            <label>
+              <span>Correo electrónico</span>
+              <input required type="email" autoComplete="username" value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} placeholder="nombre@unizar.es" />
+            </label>
+            <p className="recovery-help">Recibirás un enlace de un solo uso para elegir una nueva contraseña. Nexo Lab nunca envía contraseñas por correo.</p>
+            <button className="primary-button" type="submit" disabled={submitting}>{submitting ? "Enviando…" : "Enviar enlace"}<ArrowIcon /></button>
+            <button className="login-link-button" type="button" onClick={showLogin}>Volver al inicio de sesión</button>
+          </form>
+        )}
+        {visibleAuthMode === "login" && (
+          <form className="login-form" onSubmit={submitLogin}>
+            <label>
+              <span>Correo electrónico</span>
+              <input required type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nombre@unizar.es" />
+            </label>
+            <label>
+              <span>Contraseña</span>
+              <input required type="password" autoComplete="current-password" maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Tu contraseña" />
+            </label>
+            <button className="primary-button" type="submit" disabled={submitting}>{submitting ? "Accediendo…" : "Entrar"}<ArrowIcon /></button>
+            <button className="login-link-button" type="button" onClick={showRecovery}>He olvidado mi contraseña</button>
+          </form>
+        )}
       </section>
       <aside className="login-art" aria-hidden="true"><span>LAB</span><strong>Planifica.<br />Coordina.<br />Enseña.</strong></aside>
     </main>

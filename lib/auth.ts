@@ -4,6 +4,7 @@ import { getDatabase } from "./database";
 
 const cookieName = "nexo_lab_session";
 const sessionDurationSeconds = 60 * 60 * 24 * 7;
+const passwordResetDurationMilliseconds = 30 * 60 * 1000;
 const scryptKeyLength = 64;
 const scryptCost = 16_384;
 const scryptBlockSize = 8;
@@ -75,6 +76,45 @@ export function secureStringEqual(left: string, right: string) {
 
 export function sessionTokenHash(token: string) {
   return createHash("sha256").update(token, "utf8").digest("base64url");
+}
+
+export function createPasswordResetToken(teacherId: number) {
+  const database = getDatabase();
+  const token = randomBytes(32).toString("base64url");
+  const now = Date.now();
+  const expiresAt = now + passwordResetDurationMilliseconds;
+  database.prepare("DELETE FROM password_reset_tokens WHERE expires_at <= ? OR (used_at IS NOT NULL AND used_at <= ?)")
+    .run(now, now - 24 * 60 * 60 * 1000);
+  database.prepare(`INSERT INTO password_reset_tokens
+    (token_hash, teacher_id, expires_at, created_at) VALUES (?, ?, ?, ?)`)
+    .run(sessionTokenHash(token), teacherId, expiresAt, now);
+  return { token, expiresAt };
+}
+
+export function consumePasswordResetToken(token: string, password: string) {
+  const database = getDatabase();
+  const now = Date.now();
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const reset = database.prepare(`SELECT id, teacher_id AS teacherId
+      FROM password_reset_tokens
+      WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?`)
+      .get(sessionTokenHash(token), now) as { id: number; teacherId: number } | undefined;
+    if (!reset) {
+      database.exec("ROLLBACK");
+      return false;
+    }
+    database.prepare("UPDATE teachers SET password_hash = ? WHERE id = ?")
+      .run(hashPassword(password), reset.teacherId);
+    database.prepare("DELETE FROM auth_sessions WHERE teacher_id = ?").run(reset.teacherId);
+    database.prepare("UPDATE password_reset_tokens SET used_at = ? WHERE teacher_id = ? AND used_at IS NULL")
+      .run(now, reset.teacherId);
+    database.exec("COMMIT");
+    return true;
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function createAuthenticationSession(teacherId: number) {
