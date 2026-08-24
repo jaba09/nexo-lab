@@ -123,6 +123,10 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     initialData.academicDayTypes.find((item) => item.date === "2026-11-10"),
     { date: "2026-11-10", dayType: "B" },
   );
+  assert.deepEqual(
+    initialData.academicDayTypes.find((item) => item.date === "2027-03-08"),
+    { date: "2027-03-08", dayType: "A" },
+  );
 
   const protectedSubjectResponse = await fetch(`${origin}/api/data`, {
     method: "PUT",

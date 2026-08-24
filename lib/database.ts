@@ -417,6 +417,17 @@ function initializeDatabase(database: DatabaseSync) {
     for (const item of academicDayTypes2026_2027) {
       insertAcademicDayType.run(item.date, item.dayType, einaAcademicCalendarSource);
     }
+    const correctionVersion = database.prepare("SELECT value FROM app_meta WHERE key = ?")
+      .get("academic_day_types_correction_version") as { value: string } | undefined;
+    if (!correctionVersion) {
+      database.prepare(`UPDATE academic_day_types
+        SET day_type = 'A'
+        WHERE day_date = '2027-03-08'
+          AND day_type = 'B'
+          AND source = ?`).run(einaAcademicCalendarSource);
+      database.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?)")
+        .run("academic_day_types_correction_version", "2027-03-08-is-A");
+    }
     database.exec("COMMIT");
   } catch (error) {
     database.exec("ROLLBACK");

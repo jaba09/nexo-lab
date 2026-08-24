@@ -71,6 +71,12 @@ test("migrates degree-practice relations to subjects without losing sessions", a
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (degree_id, practice_id) REFERENCES degree_practices(degree_id, practice_id) ON DELETE RESTRICT
     );
+    CREATE TABLE academic_day_types (
+      day_date TEXT PRIMARY KEY,
+      day_type TEXT NOT NULL CHECK (day_type IN ('A', 'B')),
+      source TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     INSERT INTO degrees (id, code, name, level, academic_year) VALUES (1, '300', 'Grado heredado', 'Grado', 1);
     INSERT INTO laboratories (id, code, name, location, manager)
@@ -82,6 +88,8 @@ test("migrates degree-practice relations to subjects without losing sessions", a
     INSERT INTO degree_practices (degree_id, practice_id) VALUES (1, 1);
     INSERT INTO sessions (id, session_date, start_time, duration, degree_id, practice_id)
       VALUES (7, '2026-09-30', '11:00', 180, 1, 1);
+    INSERT INTO academic_day_types (day_date, day_type, source)
+      VALUES ('2027-03-08', 'B', 'https://eina.unizar.es/sites/eina/files/archivos/2026-2027/calendario/calendario_academico_eina_2026-2027_presentado_junta_escuela.pdf');
     INSERT INTO app_meta (key, value) VALUES ('seed_version', 'standalone-v1'), ('sessions_seed_version', '1');
   `);
   legacy.close();
@@ -119,6 +127,8 @@ test("migrates degree-practice relations to subjects without losing sessions", a
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM holidays").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM academic_day_types").get().total, 120);
   assert.equal(database.prepare("SELECT day_type AS dayType FROM academic_day_types WHERE day_date = ?").get("2027-03-01").dayType, "A");
+  assert.equal(database.prepare("SELECT day_type AS dayType FROM academic_day_types WHERE day_date = ?").get("2027-03-08").dayType, "A");
+  assert.equal(database.prepare("SELECT value FROM app_meta WHERE key = ?").get("academic_day_types_correction_version").value, "2027-03-08-is-A");
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM sqlite_master WHERE type = 'table' AND name = 'degree_practices'").get().total, 0);
   const preservedSession = database.prepare("SELECT id, subject_id AS subjectId, teacher_id AS teacherId, practice_id AS practiceId FROM sessions WHERE id = 7").get();
   assert.equal(preservedSession.id, 7);
