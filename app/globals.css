@@ -129,7 +129,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-subject-list { margin: 0 0 12px 89px; padding: 5px 13px; border: 1px solid #dfe2d9; border-radius: 10px; background: #f7f8f2; }
 .overview-subject-item { border-bottom: 1px solid #e1e3dc; }
 .overview-subject-item:last-child { border-bottom: 0; }
-.overview-subject-item summary { min-height: 58px; padding: 7px 4px; display: grid; grid-template-columns: 24px 55px minmax(0, 1fr) 72px; align-items: center; gap: 11px; list-style: none; cursor: pointer; }
+.overview-subject-item summary { min-height: 58px; padding: 7px 4px; display: grid; grid-template-columns: 24px 55px minmax(0, 1fr) auto 72px; align-items: center; gap: 11px; list-style: none; cursor: pointer; }
 .overview-subject-item summary::-webkit-details-marker { display: none; }
 .overview-subject-item summary:hover { background: #f0f4e4; }
 .overview-subject-chevron { width: 20px; height: 20px; border: 1px solid #cfd2cb; border-radius: 50%; display: grid; place-items: center; color: #68716d; font-size: 15px; line-height: 1; transition: transform .18s, background .18s, color .18s; }
@@ -138,7 +138,18 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-subject-item summary > span:nth-child(3) strong, .overview-subject-item summary > span:nth-child(3) small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overview-subject-item summary > span:nth-child(3) strong { font-size: 10px; }
 .overview-subject-item summary > span:nth-child(3) small { margin-top: 4px; color: var(--muted); font: 650 8px var(--font-geist-mono); }
+.overview-subject-group-toggle { min-height: 30px; padding: 0 8px; border: 1px solid #cfd5bf; border-radius: 7px; background: #fbfcf6; display: inline-flex; align-items: center; gap: 6px; color: #5f6c49; font: 700 7px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .035em; white-space: nowrap; cursor: pointer; }
+.overview-subject-group-toggle:hover { border-color: #8fa45f; background: #f1f7df; }
+.overview-subject-group-box { width: 14px; height: 14px; border: 1px solid #9aa984; border-radius: 3px; background: var(--white); display: grid; place-items: center; color: var(--white); font: 800 9px/1 var(--font-geist-sans); }
+.overview-subject-group-toggle[aria-checked="true"] { border-color: #829c4b; background: #eef7d5; color: #40551b; }
+.overview-subject-group-toggle[aria-checked="true"] .overview-subject-group-box { border-color: #607f1e; background: #607f1e; }
 .overview-session-list.calendar-list { min-height: 0; margin: 0 0 12px 31px; padding: 10px; gap: 9px; border: 1px solid #dfe2d9; border-radius: 10px; background: #efeee8; }
+.overview-session-groups { margin: 0 0 12px 31px; display: grid; gap: 10px; }
+.overview-session-group { border: 1px solid #d8ddcc; border-radius: 10px; background: #f3f5eb; overflow: hidden; }
+.overview-session-group-head { min-height: 42px; padding: 8px 11px; border-bottom: 1px solid #d8ddcc; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #e9efd8; }
+.overview-session-group-head strong { padding: 6px 9px; border-radius: 6px; background: #607f1e; color: var(--white); font: 750 9px var(--font-geist-mono); }
+.overview-session-group-head span { color: var(--muted); font: 650 8px var(--font-geist-mono); }
+.overview-session-group .overview-session-list.calendar-list { margin: 0; border: 0; border-radius: 0; background: transparent; }
 .overview-session-row { grid-template-columns: 42px minmax(0, 1fr); }
 .overview-session-row .calendar-list-main { padding-left: 4px; }
 .overview-session-empty { margin: 0 0 12px 31px; padding: 14px; border-radius: 8px; background: #efeee8; color: var(--muted); font-size: 9px; }
@@ -543,7 +554,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .content-frame { padding: 30px 16px 45px; }
   .content-frame:has(.calendar-selection-bar.active) { padding-bottom: 220px; }
   .semester-focus { min-height: 340px; padding: 28px 23px; align-items: flex-start; flex-direction: column; justify-content: space-between; gap: 28px; }.semester-focus h1 { font-size: clamp(47px, 15vw, 68px); gap: 10px; }.semester-focus h1 > small { margin-bottom: 1px; }.semester-focus-picker { width: 100%; flex: 0 0 auto; }.calendar-semester-focus { min-height: 300px; }.calendar-semester-focus h1 { flex-wrap: wrap; white-space: normal; }
-  .overview-degree-list { padding: 4px 10px 9px; }.overview-degree-item summary { grid-template-columns: 24px 39px minmax(0, 1fr) 58px; gap: 8px; }.overview-degree-chevron { width: 21px; height: 21px; }.overview-degree-code { width: 36px; height: 36px; }.overview-degree-item summary > b, .overview-subject-item summary > b { font-size: 17px; }.overview-subject-list { margin-left: 31px; padding-left: 7px; padding-right: 7px; }.overview-subject-item summary { grid-template-columns: 20px 48px minmax(0, 1fr) 52px; gap: 7px; }.overview-session-list.calendar-list, .overview-session-empty { margin-left: 0; }.overview-subject-empty { margin-left: 31px; }
+  .overview-degree-list { padding: 4px 10px 9px; }.overview-degree-item summary { grid-template-columns: 24px 39px minmax(0, 1fr) 58px; gap: 8px; }.overview-degree-chevron { width: 21px; height: 21px; }.overview-degree-code { width: 36px; height: 36px; }.overview-degree-item summary > b, .overview-subject-item summary > b { font-size: 17px; }.overview-subject-list { margin-left: 31px; padding-left: 7px; padding-right: 7px; }.overview-subject-item summary { grid-template-columns: 20px 48px minmax(0, 1fr) 30px 52px; gap: 7px; }.overview-subject-group-toggle { width: 30px; padding: 0; justify-content: center; }.overview-subject-group-toggle span { display: none; }.overview-session-list.calendar-list, .overview-session-empty, .overview-session-groups { margin-left: 0; }.overview-subject-empty { margin-left: 31px; }
   .hero, .entity-hero { align-items: flex-start; flex-direction: column; gap: 24px; margin-bottom: 28px; }.hero h1 { font-size: 45px; }.hero-action, .entity-hero .primary-button { width: 100%; }.entity-hero-actions { width: 100%; flex-direction: column-reverse; }.entity-hero-actions .secondary-button { width: 100%; }
   .stats-grid { gap: 8px; }.stat-card { min-height: 135px; }.stat-card strong { font-size: 37px; }
   .relationship-panel .panel-tag { display: none; }.relationship-flow { padding: 20px; }

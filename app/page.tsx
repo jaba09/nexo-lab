@@ -1683,6 +1683,61 @@ function OverviewSubjectSessions({
   );
 }
 
+function OverviewGroupedSubjectSessions({
+  subjectId,
+  sessions,
+  selectedIds,
+  onSelect,
+}: {
+  subjectId: number;
+  sessions: Session[];
+  selectedIds: Set<number>;
+  onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
+  if (!sessions.length) {
+    return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
+  }
+
+  const sessionsByGroup = new Map<string, Session[]>();
+  for (const session of sessions) {
+    const groupCode = session.groupCode?.trim() ?? "";
+    const groupSessions = sessionsByGroup.get(groupCode) ?? [];
+    groupSessions.push(session);
+    sessionsByGroup.set(groupCode, groupSessions);
+  }
+  const orderedGroups = [...sessionsByGroup.entries()].sort(([left], [right]) => {
+    if (!left) return 1;
+    if (!right) return -1;
+    return left.localeCompare(right, "es", { numeric: true, sensitivity: "base" });
+  });
+
+  return (
+    <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por subgrupo">
+      {orderedGroups.map(([groupCode, groupSessions], groupIndex) => {
+        const groupLabel = groupCode
+          ? (/^G/i.test(groupCode) ? groupCode.toUpperCase() : `G${groupCode}`)
+          : "Sin grupo";
+        return (
+          <section className="overview-session-group" key={groupCode || "unassigned"}>
+            <header className="overview-session-group-head">
+              <strong>{groupLabel}</strong>
+              <span>{groupSessions.length} {groupSessions.length === 1 ? "sesión" : "sesiones"}</span>
+            </header>
+            <OverviewSessionsList
+              headingPrefix={`overview-subject-${subjectId}-group-${groupIndex}`}
+              ariaLabel={`Sesiones del subgrupo ${groupLabel} ordenadas cronológicamente`}
+              emptyMessage="Este subgrupo no tiene sesiones en el semestre seleccionado."
+              sessions={groupSessions}
+              selectedIds={selectedIds}
+              onSelect={onSelect}
+            />
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function OverviewTeacherSessions({
   teacherKey,
   teacherName,
@@ -1728,6 +1783,7 @@ function Overview({
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expandedTeacherKeys, setExpandedTeacherKeys] = useState<Set<string>>(() => new Set());
+  const [groupedSubjectIds, setGroupedSubjectIds] = useState<Set<number>>(() => new Set());
   const availableSemesters = semesterOptions([
     ...data.sessions.map((session) => session.sessionDate),
     ...data.holidays.map((holiday) => holiday.holidayDate),
@@ -1835,6 +1891,15 @@ function Overview({
     });
   }
 
+  function toggleSubjectGrouping(subjectId: number) {
+    setGroupedSubjectIds((current) => {
+      const next = new Set(current);
+      if (next.has(subjectId)) next.delete(subjectId);
+      else next.add(subjectId);
+      return next;
+    });
+  }
+
   async function assignOverviewPractice(practiceId: number | null) {
     const ids = [...selectedIds];
     if (!ids.length) return;
@@ -1937,14 +2002,38 @@ function Overview({
                                 <strong>{subject.name}</strong>
                                 <small>{subject.code}</small>
                               </span>
+                              <button
+                                className="overview-subject-group-toggle"
+                                type="button"
+                                role="checkbox"
+                                aria-checked={groupedSubjectIds.has(subject.id)}
+                                aria-label={`Agrupar las sesiones de ${subject.name} por subgrupos`}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  toggleSubjectGrouping(subject.id);
+                                }}
+                              >
+                                <span className="overview-subject-group-box" aria-hidden="true">{groupedSubjectIds.has(subject.id) ? "✓" : ""}</span>
+                                <span>Por subgrupos</span>
+                              </button>
                               <b>{subjectSessionCount}<small>{subjectSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
                             </summary>
-                            <OverviewSubjectSessions
-                              subjectId={subject.id}
-                              sessions={subjectSessions}
-                              selectedIds={selectedIds}
-                              onSelect={selectOverviewSession}
-                            />
+                            {groupedSubjectIds.has(subject.id) ? (
+                              <OverviewGroupedSubjectSessions
+                                subjectId={subject.id}
+                                sessions={subjectSessions}
+                                selectedIds={selectedIds}
+                                onSelect={selectOverviewSession}
+                              />
+                            ) : (
+                              <OverviewSubjectSessions
+                                subjectId={subject.id}
+                                sessions={subjectSessions}
+                                selectedIds={selectedIds}
+                                onSelect={selectOverviewSession}
+                              />
+                            )}
                           </details>
                         );
                       })}
