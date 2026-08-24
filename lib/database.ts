@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { academicDayTypes2026_2027, einaAcademicCalendarSource } from "./academicDayTypes.js";
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS laboratories (
@@ -102,6 +103,12 @@ const schemaStatements = [
     holiday_date TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL DEFAULT 'Día festivo',
     source_uid TEXT UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS academic_day_types (
+    day_date TEXT PRIMARY KEY,
+    day_type TEXT NOT NULL CHECK (day_type IN ('A', 'B')),
+    source TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS app_meta (
@@ -403,6 +410,18 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at)");
   database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email COLLATE NOCASE) WHERE email <> ''");
   database.exec("CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date)");
+  const insertAcademicDayType = database.prepare(`INSERT OR IGNORE INTO academic_day_types
+    (day_date, day_type, source) VALUES (?, ?, ?)`);
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    for (const item of academicDayTypes2026_2027) {
+      insertAcademicDayType.run(item.date, item.dayType, einaAcademicCalendarSource);
+    }
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
   database.exec(`CREATE TRIGGER IF NOT EXISTS prevent_session_on_holiday_insert
     BEFORE INSERT ON sessions
     WHEN EXISTS (SELECT 1 FROM holidays WHERE holiday_date = NEW.session_date)

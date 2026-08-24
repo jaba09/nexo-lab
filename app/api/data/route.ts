@@ -203,6 +203,10 @@ export async function GET() {
       id, holiday_date AS holidayDate, name
       FROM holidays
       ORDER BY holiday_date, id`).all();
+    const academicDayTypes = database.prepare(`SELECT
+      day_date AS date, day_type AS dayType
+      FROM academic_day_types
+      ORDER BY day_date`).all();
 
     return Response.json({
       laboratories,
@@ -227,6 +231,7 @@ export async function GET() {
         degreePracticeIds: String(session.degreePracticeIds || "").split(",").filter(Boolean).map(Number),
       })),
       holidays,
+      academicDayTypes,
     });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });

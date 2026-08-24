@@ -118,6 +118,11 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     [1, 2, 5],
   );
   assert.equal(initialData.holidays.length, 0);
+  assert.equal(initialData.academicDayTypes.length, 120);
+  assert.deepEqual(
+    initialData.academicDayTypes.find((item) => item.date === "2026-11-10"),
+    { date: "2026-11-10", dayType: "B" },
+  );
 
   const protectedSubjectResponse = await fetch(`${origin}/api/data`, {
     method: "PUT",

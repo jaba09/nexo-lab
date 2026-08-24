@@ -111,6 +111,11 @@ type Holiday = {
   name: string;
 };
 
+type AcademicDayType = {
+  date: string;
+  dayType: "A" | "B";
+};
+
 type IcsPreviewGroup = {
   degreeCode: string;
   subjectCode: string;
@@ -195,6 +200,7 @@ type AppData = {
   teachers: Teacher[];
   sessions: Session[];
   holidays: Holiday[];
+  academicDayTypes: AcademicDayType[];
 };
 
 type CalendarFilters = {
@@ -248,6 +254,7 @@ const emptyData: AppData = {
   teachers: [],
   sessions: [],
   holidays: [],
+  academicDayTypes: [],
 };
 
 const emptyCalendarFilters: CalendarFilters = {
@@ -338,6 +345,22 @@ function preferredSemester(sessions: Session[], referenceDate: string) {
 function parseLocalDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function appendAcademicDayType(label: string, dayType?: "A" | "B") {
+  return dayType ? `${label}-${dayType}` : label;
+}
+
+function academicWeekdayLabel(
+  day: Date,
+  date: string,
+  dayTypesByDate: Map<string, "A" | "B">,
+  weekday: "long" | "short" = "long",
+) {
+  return appendAcademicDayType(
+    day.toLocaleDateString("es-ES", { weekday }),
+    dayTypesByDate.get(date),
+  );
 }
 
 function startOfCalendarWeek(date: Date) {
@@ -740,6 +763,7 @@ export default function Home() {
       teachers: data.teachers.filter(matches),
       sessions: data.sessions.filter(matches),
       holidays: data.holidays,
+      academicDayTypes: data.academicDayTypes,
     };
   }, [data, search]);
 
@@ -1591,6 +1615,7 @@ function OverviewSessionsList({
   ariaLabel,
   emptyMessage,
   sessions,
+  dayTypesByDate,
   selectedIds,
   onSelect,
 }: {
@@ -1598,6 +1623,7 @@ function OverviewSessionsList({
   ariaLabel: string;
   emptyMessage: string;
   sessions: Session[];
+  dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
@@ -1618,7 +1644,7 @@ function OverviewSessionsList({
         const day = parseLocalDate(date);
         const dayNumber = day.toLocaleDateString("es-ES", { day: "numeric" });
         const month = day.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
-        const weekday = day.toLocaleDateString("es-ES", { weekday: "long" });
+        const weekday = academicWeekdayLabel(day, date, dayTypesByDate);
         const headingId = `${headingPrefix}-day-${date}`;
         return (
           <section className="calendar-list-day" key={date} aria-labelledby={headingId}>
@@ -1663,11 +1689,13 @@ function OverviewSessionsList({
 function OverviewSubjectSessions({
   subjectId,
   sessions,
+  dayTypesByDate,
   selectedIds,
   onSelect,
 }: {
   subjectId: number;
   sessions: Session[];
+  dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
@@ -1677,6 +1705,7 @@ function OverviewSubjectSessions({
       ariaLabel="Sesiones de la asignatura ordenadas cronológicamente"
       emptyMessage="Esta asignatura no tiene sesiones en el semestre seleccionado."
       sessions={sessions}
+      dayTypesByDate={dayTypesByDate}
       selectedIds={selectedIds}
       onSelect={onSelect}
     />
@@ -1686,11 +1715,13 @@ function OverviewSubjectSessions({
 function OverviewGroupedSubjectSessions({
   subjectId,
   sessions,
+  dayTypesByDate,
   selectedIds,
   onSelect,
 }: {
   subjectId: number;
   sessions: Session[];
+  dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
@@ -1701,6 +1732,7 @@ function OverviewGroupedSubjectSessions({
   const sessionsByGroupSlot = new Map<string, {
     groupCode: string;
     weekday: string;
+    dayType?: "A" | "B";
     weekdayIndex: number;
     startTime: string;
     endTime: string;
@@ -1711,13 +1743,15 @@ function OverviewGroupedSubjectSessions({
     const day = parseLocalDate(session.sessionDate);
     const weekdayIndex = (day.getDay() + 6) % 7;
     const weekday = day.toLocaleDateString("es-ES", { weekday: "long" });
+    const dayType = dayTypesByDate.get(session.sessionDate);
     const [hour, minute] = session.startTime.split(":").map(Number);
     const endMinutes = hour * 60 + minute + session.duration;
     const endTime = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
-    const slotKey = `${groupCode}|${weekdayIndex}|${session.startTime}|${endTime}`;
+    const slotKey = `${groupCode}|${weekdayIndex}|${dayType ?? ""}|${session.startTime}|${endTime}`;
     const slot = sessionsByGroupSlot.get(slotKey) ?? {
       groupCode,
       weekday,
+      dayType,
       weekdayIndex,
       startTime: session.startTime,
       endTime,
@@ -1731,6 +1765,7 @@ function OverviewGroupedSubjectSessions({
     if (left.groupCode && !right.groupCode) return -1;
     return left.groupCode.localeCompare(right.groupCode, "es", { numeric: true, sensitivity: "base" })
       || left.weekdayIndex - right.weekdayIndex
+      || (left.dayType ?? "").localeCompare(right.dayType ?? "")
       || left.startTime.localeCompare(right.startTime)
       || left.endTime.localeCompare(right.endTime);
   });
@@ -1746,14 +1781,15 @@ function OverviewGroupedSubjectSessions({
             <summary className="overview-session-group-head">
               <span className="overview-session-group-chevron" aria-hidden="true">›</span>
               <strong>{groupLabel}</strong>
-              <span className="overview-session-group-schedule">{slot.weekday} {slot.startTime}–{slot.endTime}</span>
+              <span className="overview-session-group-schedule">{appendAcademicDayType(slot.weekday, slot.dayType)} {slot.startTime}–{slot.endTime}</span>
               <b>{slot.sessions.length}<small>{slot.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
             </summary>
             <OverviewSessionsList
               headingPrefix={`overview-subject-${subjectId}-slot-${slotIndex}`}
-              ariaLabel={`Sesiones del subgrupo ${groupLabel}, ${slot.weekday} de ${slot.startTime} a ${slot.endTime}, ordenadas cronológicamente`}
+              ariaLabel={`Sesiones del subgrupo ${groupLabel}, ${appendAcademicDayType(slot.weekday, slot.dayType)} de ${slot.startTime} a ${slot.endTime}, ordenadas cronológicamente`}
               emptyMessage="Este subgrupo y horario no tiene sesiones en el semestre seleccionado."
               sessions={slot.sessions}
+              dayTypesByDate={dayTypesByDate}
               selectedIds={selectedIds}
               onSelect={onSelect}
             />
@@ -1768,12 +1804,14 @@ function OverviewTeacherSessions({
   teacherKey,
   teacherName,
   sessions,
+  dayTypesByDate,
   selectedIds,
   onSelect,
 }: {
   teacherKey: string;
   teacherName: string;
   sessions: Session[];
+  dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
@@ -1783,6 +1821,7 @@ function OverviewTeacherSessions({
       ariaLabel={`Sesiones de ${teacherName} ordenadas cronológicamente`}
       emptyMessage="Este profesor no tiene sesiones en el semestre seleccionado."
       sessions={sessions}
+      dayTypesByDate={dayTypesByDate}
       selectedIds={selectedIds}
       onSelect={onSelect}
     />
@@ -1810,9 +1849,13 @@ function Overview({
   const [deleting, setDeleting] = useState(false);
   const [expandedTeacherKeys, setExpandedTeacherKeys] = useState<Set<string>>(() => new Set());
   const [groupedSubjectIds, setGroupedSubjectIds] = useState<Set<number>>(() => new Set());
+  const dayTypesByDate = useMemo(() => (
+    new Map(data.academicDayTypes.map((item) => [item.date, item.dayType]))
+  ), [data.academicDayTypes]);
   const availableSemesters = semesterOptions([
     ...data.sessions.map((session) => session.sessionDate),
     ...data.holidays.map((holiday) => holiday.holidayDate),
+    ...data.academicDayTypes.map((item) => item.date),
   ], localIsoDate());
   const semesterSessions = data.sessions
     .filter((session) => semesterFromDate(session.sessionDate) === selectedSemester)
@@ -2049,6 +2092,7 @@ function Overview({
                               <OverviewGroupedSubjectSessions
                                 subjectId={subject.id}
                                 sessions={subjectSessions}
+                                dayTypesByDate={dayTypesByDate}
                                 selectedIds={selectedIds}
                                 onSelect={selectOverviewSession}
                               />
@@ -2056,6 +2100,7 @@ function Overview({
                               <OverviewSubjectSessions
                                 subjectId={subject.id}
                                 sessions={subjectSessions}
+                                dayTypesByDate={dayTypesByDate}
                                 selectedIds={selectedIds}
                                 onSelect={selectOverviewSession}
                               />
@@ -2122,6 +2167,7 @@ function Overview({
                               teacherKey={teacherKey}
                               teacherName={teacher.name}
                               sessions={teacherSessions}
+                              dayTypesByDate={dayTypesByDate}
                               selectedIds={selectedIds}
                               onSelect={selectOverviewTeacherSession}
                             />
@@ -2157,6 +2203,7 @@ function Overview({
                             teacherKey="unassigned"
                             teacherName="las sesiones sin profesor asignado"
                             sessions={sessionsByTeacher.get(null) ?? []}
+                            dayTypesByDate={dayTypesByDate}
                             selectedIds={selectedIds}
                             onSelect={selectOverviewTeacherSession}
                           />
@@ -2248,6 +2295,7 @@ function EntityView({
   const teacherSemesterOptions = semesterOptions([
     ...catalog.sessions.map((session) => session.sessionDate),
     ...catalog.holidays.map((holiday) => holiday.holidayDate),
+    ...catalog.academicDayTypes.map((item) => item.date),
   ], localIsoDate());
   const teacherSessionCounts = new Map<number, number>();
   for (const session of catalog.sessions) {
@@ -2279,6 +2327,7 @@ function EntityView({
           sessions={items as Session[]}
           allSessions={catalog.sessions}
           holidays={catalog.holidays}
+          academicDayTypes={catalog.academicDayTypes}
           laboratories={catalog.laboratories}
           installations={catalog.installations}
           degrees={catalog.degrees}
@@ -2405,6 +2454,7 @@ function CalendarView({
   sessions,
   allSessions,
   holidays,
+  academicDayTypes,
   laboratories,
   installations,
   degrees,
@@ -2423,6 +2473,7 @@ function CalendarView({
   sessions: Session[];
   allSessions: Session[];
   holidays: Holiday[];
+  academicDayTypes: AcademicDayType[];
   laboratories: Laboratory[];
   installations: Installation[];
   degrees: Degree[];
@@ -2455,6 +2506,9 @@ function CalendarView({
   const [movingSessionId, setMovingSessionId] = useState<number | null>(null);
   const [monthDropDate, setMonthDropDate] = useState<string | null>(null);
   const [weekDropPreview, setWeekDropPreview] = useState<CalendarDropPreview | null>(null);
+  const dayTypesByDate = useMemo(() => (
+    new Map(academicDayTypes.map((item) => [item.date, item.dayType]))
+  ), [academicDayTypes]);
 
   const orderedSessions = useMemo(() => [...sessions].sort((left, right) => (
     left.sessionDate.localeCompare(right.sessionDate)
@@ -2465,8 +2519,9 @@ function CalendarView({
     semesterOptions([
       ...allSessions.map((session) => session.sessionDate),
       ...holidays.map((holiday) => holiday.holidayDate),
+      ...academicDayTypes.map((item) => item.date),
     ], referenceDate)
-  ), [allSessions, holidays, referenceDate]);
+  ), [allSessions, holidays, academicDayTypes, referenceDate]);
   const activeSemester = useMemo(() => semesterDefinition(selectedSemester), [selectedSemester]);
   const semesterSessions = useMemo(() => (
     orderedSessions.filter((session) => semesterFromDate(session.sessionDate) === selectedSemester)
@@ -3018,6 +3073,7 @@ function CalendarView({
                 const date = localIsoDate(day);
                 const dateSessions = sessionsByDate.get(date) ?? [];
                 const holiday = holidaysByDate.get(date);
+                const dayType = dayTypesByDate.get(date);
                 const outsideMonth = day.getMonth() !== visibleMonth.getMonth();
                 return (
                   <div
@@ -3027,11 +3083,12 @@ function CalendarView({
                     tabIndex={-1}
                     aria-disabled={Boolean(holiday)}
                     title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
-                    aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}`}
+                    aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}`}
                     onDragOver={(event) => previewMonthDrop(event, date)}
                     onDrop={(event) => dropOnMonth(event, date)}
                   >
                     <span className="calendar-day-number">{day.getDate()}</span>
+                    {dayType && <span className="calendar-day-type" aria-label={`Tipo de día ${dayType}`}>{dayType}</span>}
                     {holiday && <span className="calendar-holiday-label">Festivo</span>}
                     <div className="calendar-events">
                       {monthDropDate === date && draggedSession && draggedSession.sessionDate !== date && (
@@ -3073,7 +3130,7 @@ function CalendarView({
                   style={{ gridColumn: dayIndex + 2, gridRow: 1 }}
                   key={`heading-${date}`}
                 >
-                  <span>{day.toLocaleDateString("es-ES", { weekday: "short" })}</span>
+                  <span>{academicWeekdayLabel(day, date, dayTypesByDate, "short")}</span>
                   <strong>{day.getDate()}</strong>
                   {holiday && <small>Festivo</small>}
                 </div>
@@ -3086,6 +3143,7 @@ function CalendarView({
               const date = localIsoDate(day);
               const positionedSessions = weeklyLayout.byDate.get(date) ?? [];
               const holiday = holidaysByDate.get(date);
+              const dayType = dayTypesByDate.get(date);
               const outsideSemester = date < activeSemester.startDate || date > activeSemester.endDate;
               return (
                 <div
@@ -3096,7 +3154,7 @@ function CalendarView({
                   tabIndex={-1}
                   aria-disabled={Boolean(holiday)}
                   title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
-                  aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las 08:00 y las 19:00`}
+                  aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las 08:00 y las 19:00`}
                   onDragOver={(event) => previewWeekDrop(event, date)}
                   onDrop={(event) => dropOnWeek(event, date)}
                 >
@@ -3119,7 +3177,7 @@ function CalendarView({
               const day = parseLocalDate(date);
               const dayNumber = day.toLocaleDateString("es-ES", { day: "numeric" });
               const month = day.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
-              const weekday = day.toLocaleDateString("es-ES", { weekday: "long" });
+              const weekday = academicWeekdayLabel(day, date, dayTypesByDate);
               return (
                 <section className="calendar-list-day" key={date} aria-labelledby={`calendar-list-day-${date}`}>
                   <header className="calendar-list-day-header">

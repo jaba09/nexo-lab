@@ -56,6 +56,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo y horario/);
   assert.match(page, /sessionsByGroupSlot/);
   assert.match(page, /slot\.weekday/);
+  assert.match(page, /appendAcademicDayType\(slot\.weekday, slot\.dayType\)/);
   assert.match(page, /slot\.startTime}–\{slot\.endTime/);
   assert.match(styles, /\.overview-subject-group-toggle/);
   assert.match(styles, /\.overview-session-groups/);
@@ -142,6 +143,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /SUMMARY comienza por “Día festivo”/);
   assert.match(page, /preview\.holidayCount/);
   assert.match(page, /calendar-holiday-label/);
+  assert.match(page, /academicDayTypes/);
+  assert.match(page, /academicWeekdayLabel/);
+  assert.match(page, /calendar-day-type/);
   assert.match(page, /holidaysByDate/);
   assert.match(page, /sessionDateBlocked/);
   assert.match(page, /Esta fecha es festiva/);
@@ -149,6 +153,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Día festivo · no se pueden programar sesiones/);
   assert.match(page, /holidayConflictCount/);
   assert.match(styles, /\.calendar-day\.holiday/);
+  assert.match(styles, /\.calendar-day-type/);
   assert.match(styles, /\.calendar-week-column\.holiday/);
   assert.match(page, /El código de cinco dígitos de SUMMARY identifica la asignatura/);
   assert.match(page, /Grupos detectados/);
