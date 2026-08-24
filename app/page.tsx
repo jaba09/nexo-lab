@@ -1,6 +1,6 @@
 "use client";
 
-import { DragEvent as ReactDragEvent, FormEvent, Fragment, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 import { downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 
@@ -2328,6 +2328,11 @@ function EntityView({
     if (session.teacherId === null || semesterFromDate(session.sessionDate) !== selectedSemester) continue;
     teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
   }
+  function editRecordWithKeyboard(event: ReactKeyboardEvent<HTMLElement>, item: EntityRecord) {
+    if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    onEdit(entity, item);
+  }
   return (
     <>
       <section className="entity-hero">
@@ -2379,35 +2384,35 @@ function EntityView({
       ) : entity === "laboratories" ? (
         <div className="laboratory-grid">
           {(items as Laboratory[]).map((lab) => (
-            <article className="laboratory-card" key={lab.id}>
-              <div className="card-top"><span className="entity-pill">{lab.code}</span><div className="record-actions"><button className="edit-button" type="button" onClick={() => onEdit(entity, lab)} aria-label={`Editar ${lab.name}`}>Editar</button><button className="delete-button" type="button" onClick={() => onDelete(entity, lab.id, lab.name)} aria-label={`Eliminar ${lab.name}`}>×</button></div></div>
+            <div className="laboratory-card editable-record" key={lab.id} role="button" tabIndex={0} aria-label={`Editar ${lab.name}`} onClick={() => onEdit(entity, lab)} onKeyDown={(event) => editRecordWithKeyboard(event, lab)}>
+              <div className="card-top"><span className="entity-pill">{lab.code}</span><div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, lab.id, lab.name); }} aria-label={`Eliminar ${lab.name}`}>×</button></div></div>
               <h2>{lab.name}</h2>
               <p><span>Ubicación</span>{lab.location}</p>
               <p><span>Responsable</span>{lab.manager}</p>
               <div className="card-foot"><strong>{lab.installationCount}</strong><span>instalaciones<br />conectadas</span><ArrowIcon /></div>
-            </article>
+            </div>
           ))}
         </div>
       ) : entity === "degrees" ? (
         <div className="degree-list">
           {(items as Degree[]).map((degree) => (
-            <article className="degree-card" key={degree.id}>
+            <div className="degree-card editable-record" key={degree.id} role="button" tabIndex={0} aria-label={`Editar ${degree.name}`} onClick={() => onEdit(entity, degree)} onKeyDown={(event) => editRecordWithKeyboard(event, degree)}>
               <div className="degree-code"><span>{degree.code}</span><small>{degree.level}</small></div>
               <div className="degree-main"><h2>{degree.name}</h2><p>{degree.icsCode ? `ICS ${degree.icsCode}` : "Sin código ICS"} · {degree.subjectCount} {degree.subjectCount === 1 ? "asignatura" : "asignaturas"}</p></div>
               <div className="tag-list">{degree.subjectCodes.length ? degree.subjectCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin asignaturas</em>}</div>
-              <div className="record-actions"><button className="edit-button" type="button" onClick={() => onEdit(entity, degree)} aria-label={`Editar ${degree.name}`}>Editar</button><button className="delete-button" type="button" onClick={() => onDelete(entity, degree.id, degree.name)} aria-label={`Eliminar ${degree.name}`}>×</button></div>
-            </article>
+              <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, degree.id, degree.name); }} aria-label={`Eliminar ${degree.name}`}>×</button></div>
+            </div>
           ))}
         </div>
       ) : entity === "subjects" ? (
         <div className="degree-list">
           {(items as Subject[]).map((subject) => (
-            <article className="degree-card" key={subject.id}>
+            <div className="degree-card editable-record" key={subject.id} role="button" tabIndex={0} aria-label={`Editar ${subject.name}`} onClick={() => onEdit(entity, subject)} onKeyDown={(event) => editRecordWithKeyboard(event, subject)}>
               <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
               <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation ? `${subject.abbreviation} · ` : "Sin abreviatura · "}{subject.degreeCode} · {subject.degreeName}</p></div>
               <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin prácticas</em>}</div>
-              <div className="record-actions"><button className="edit-button" type="button" onClick={() => onEdit(entity, subject)} aria-label={`Editar ${subject.name}`}>Editar</button><button className="delete-button" type="button" onClick={() => onDelete(entity, subject.id, subject.name)} aria-label={`Eliminar ${subject.name}`}>×</button></div>
-            </article>
+              <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>
+            </div>
           ))}
         </div>
       ) : entity === "teachers" ? (
@@ -2430,12 +2435,12 @@ function EntityView({
             {[...(items as Teacher[])].sort(compareTeachersBySurname).map((teacher) => {
               const semesterSessionCount = teacherSessionCounts.get(teacher.id) ?? 0;
               return (
-                <article className="degree-card" key={teacher.id}>
+                <div className="degree-card editable-record" key={teacher.id} role="button" tabIndex={0} aria-label={`Editar ${teacher.name}`} onClick={() => onEdit(entity, teacher)} onKeyDown={(event) => editRecordWithKeyboard(event, teacher)}>
                   <div className="degree-code teacher"><span>{teacher.code}</span><small>PRO</small></div>
                   <div className="degree-main"><h2>{teacher.name}</h2><p>{teacher.email || "Sin correo electrónico"}</p></div>
                   <div className="tag-list"><span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
-                  <div className="record-actions"><button className="edit-button" type="button" onClick={() => onEdit(entity, teacher)} aria-label={`Editar ${teacher.name}`}>Editar</button><button className="delete-button" type="button" onClick={() => onDelete(entity, teacher.id, teacher.name)} aria-label={`Eliminar ${teacher.name}`}>×</button></div>
-                </article>
+                  <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, teacher.id, teacher.name); }} aria-label={`Eliminar ${teacher.name}`}>×</button></div>
+                </div>
               );
             })}
           </div>
@@ -2452,20 +2457,20 @@ function EntityView({
             </tr></thead>
             <tbody>
               {entity === "installations" ? (items as Installation[]).map((item) => (
-                <tr key={item.id}>
+                <tr className="editable-record" key={item.id} role="button" tabIndex={0} aria-label={`Editar ${item.name}`} onClick={() => onEdit(entity, item)} onKeyDown={(event) => editRecordWithKeyboard(event, item)}>
                   <td><span className="table-code">{item.code}</span><strong>{item.name}</strong><small>{item.practiceCount} prácticas</small></td>
                   <td>{item.laboratoryName}</td>
                   <td>{item.category}<small>{item.capacity} personas</small></td>
                   <td><span className={`status-chip ${item.status === "Operativa" ? "ok" : "warn"}`}>{item.status}</span></td>
-                  <td><div className="record-actions"><button className="edit-button" type="button" onClick={() => onEdit(entity, item)} aria-label={`Editar ${item.name}`}>Editar</button><button className="delete-button" type="button" onClick={() => onDelete(entity, item.id, item.name)} aria-label={`Eliminar ${item.name}`}>×</button></div></td>
+                  <td><div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div></td>
                 </tr>
               )) : (items as Practice[]).map((item) => (
-                <tr key={item.id}>
+                <tr className="editable-record" key={item.id} role="button" tabIndex={0} aria-label={`Editar ${item.name}`} onClick={() => onEdit(entity, item)} onKeyDown={(event) => editRecordWithKeyboard(event, item)}>
                   <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} asignaturas</small></td>
                   <td>{item.installationNames}<small>{item.installationCount} instalaciones</small></td>
                   <td>{item.laboratoryNames}</td>
                   <td>{item.duration} min<small>Riesgo {item.riskLevel.toLowerCase()}</small></td>
-                  <td><div className="record-actions"><button className="edit-button" type="button" onClick={() => onEdit(entity, item)} aria-label={`Editar ${item.name}`}>Editar</button><button className="delete-button" type="button" onClick={() => onDelete(entity, item.id, item.name)} aria-label={`Eliminar ${item.name}`}>×</button></div></td>
+                  <td><div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div></td>
                 </tr>
               ))}
             </tbody>

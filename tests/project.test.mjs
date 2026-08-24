@@ -137,6 +137,13 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /installationIds/);
   assert.match(page, /subjectId/);
   assert.match(page, /Editar/);
+  assert.doesNotMatch(page, /edit-button/);
+  assert.equal([...page.matchAll(/className="[^"]*editable-record[^"]*"/g)].length, 6);
+  assert.match(page, /function editRecordWithKeyboard/);
+  assert.match(page, /event\.target !== event\.currentTarget/);
+  assert.match(page, /event\.stopPropagation\(\); onDelete/);
+  assert.match(styles, /\.editable-record/);
+  assert.match(styles, /\.entity-table tr\.editable-record:hover td/);
   assert.match(page, /Calendario de sesiones/);
   assert.match(page, /sessionPracticeId/);
   assert.match(page, /Importar ICS/);
