@@ -52,6 +52,12 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /function OverviewGroupedSubjectSessions/);
   assert.match(page, /groupedSubjectIds/);
   assert.match(page, /Por subgrupos/);
+  assert.match(page, /Selec\. subgrupos/);
+  assert.match(page, /function firstUnassignedSessionPerSubgroup/);
+  assert.match(page, /session\.practiceId !== null/);
+  assert.match(page, /firstSessionBySubgroup\.has\(subgroup\)/);
+  assert.match(page, /Seleccionar la primera sesión sin práctica de cada subgrupo de \$\{subject\.name\}/);
+  assert.match(page, /toggleFirstUnassignedSubgroups\(subjectSessions\)/);
   assert.match(page, /Agrupar las sesiones de \$\{subject\.name\} por subgrupos/);
   assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo y horario/);
   assert.match(page, /sessionsByGroup/);
@@ -60,6 +66,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /dayTypes\.join\("\/"\)/);
   assert.match(page, /scheduleSummary/);
   assert.match(styles, /\.overview-subject-group-toggle/);
+  assert.match(styles, /\.overview-subject-toggles/);
   assert.match(styles, /\.overview-session-groups/);
   assert.match(styles, /\.overview-session-group\[open\] \.overview-session-group-chevron/);
   assert.match(page, /calendar-list overview-session-list/);

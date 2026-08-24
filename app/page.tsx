@@ -1712,6 +1712,28 @@ function OverviewSubjectSessions({
   );
 }
 
+function normalizedSessionSubgroup(session: Session) {
+  return (session.groupCode?.trim() ?? "").replace(/^G(?=\d)/i, "").toUpperCase();
+}
+
+function firstUnassignedSessionPerSubgroup(sessions: Session[]) {
+  const firstSessionBySubgroup = new Map<string, Session>();
+  const orderedSessions = [...sessions].sort((left, right) => (
+    left.sessionDate.localeCompare(right.sessionDate)
+    || left.startTime.localeCompare(right.startTime)
+    || left.id - right.id
+  ));
+
+  for (const session of orderedSessions) {
+    if (session.practiceId !== null) continue;
+    const subgroup = normalizedSessionSubgroup(session);
+    if (!subgroup || firstSessionBySubgroup.has(subgroup)) continue;
+    firstSessionBySubgroup.set(subgroup, session);
+  }
+
+  return [...firstSessionBySubgroup.values()];
+}
+
 function OverviewGroupedSubjectSessions({
   subjectId,
   sessions,
@@ -1744,7 +1766,7 @@ function OverviewGroupedSubjectSessions({
   };
   const sessionsByGroup = new Map<string, SessionGroup>();
   for (const session of sessions) {
-    const groupCode = (session.groupCode?.trim() ?? "").replace(/^G(?=\d)/i, "").toUpperCase();
+    const groupCode = normalizedSessionSubgroup(session);
     const groupKey = groupCode || "__unassigned__";
     const group: SessionGroup = sessionsByGroup.get(groupKey) ?? {
       groupCode,
@@ -1995,6 +2017,20 @@ function Overview({
     });
   }
 
+  function toggleFirstUnassignedSubgroups(subjectSessions: Session[]) {
+    const firstUnassignedSessions = firstUnassignedSessionPerSubgroup(subjectSessions);
+    const firstUnassignedIds = firstUnassignedSessions.map((session) => session.id);
+    if (!firstUnassignedIds.length) return;
+    const alreadySelected = selectedIds.size === firstUnassignedIds.length
+      && firstUnassignedIds.every((id) => selectedIds.has(id));
+    if (alreadySelected) {
+      clearOverviewSelection();
+      return;
+    }
+    setSelectedIds(new Set(firstUnassignedIds));
+    setAnchorId(null);
+  }
+
   async function assignOverviewPractice(practiceId: number | null) {
     const ids = [...selectedIds];
     if (!ids.length) return;
@@ -2088,6 +2124,11 @@ function Overview({
                       {degreeSubjects.map((subject) => {
                         const subjectSessionCount = subjectSessionCounts.get(subject.id) ?? 0;
                         const subjectSessions = sessionsBySubject.get(subject.id) ?? [];
+                        const firstUnassignedSubgroupSessions = firstUnassignedSessionPerSubgroup(subjectSessions);
+                        const firstUnassignedSubgroupIds = firstUnassignedSubgroupSessions.map((session) => session.id);
+                        const firstUnassignedSubgroupsSelected = firstUnassignedSubgroupIds.length > 0
+                          && selectedIds.size === firstUnassignedSubgroupIds.length
+                          && firstUnassignedSubgroupIds.every((id) => selectedIds.has(id));
                         return (
                           <details className="overview-subject-item" key={subject.id}>
                             <summary>
@@ -2097,21 +2138,42 @@ function Overview({
                                 <strong>{subject.name}</strong>
                                 <small>{subject.code}</small>
                               </span>
-                              <button
-                                className="overview-subject-group-toggle"
-                                type="button"
-                                role="checkbox"
-                                aria-checked={groupedSubjectIds.has(subject.id)}
-                                aria-label={`Agrupar las sesiones de ${subject.name} por subgrupos`}
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  toggleSubjectGrouping(subject.id);
-                                }}
-                              >
-                                <span className="overview-subject-group-box" aria-hidden="true">{groupedSubjectIds.has(subject.id) ? "✓" : ""}</span>
-                                <span>Por subgrupos</span>
-                              </button>
+                              <span className="overview-subject-toggles">
+                                <button
+                                  className="overview-subject-group-toggle"
+                                  type="button"
+                                  role="checkbox"
+                                  aria-checked={groupedSubjectIds.has(subject.id)}
+                                  aria-label={`Agrupar las sesiones de ${subject.name} por subgrupos`}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    toggleSubjectGrouping(subject.id);
+                                  }}
+                                >
+                                  <span className="overview-subject-group-box" aria-hidden="true">{groupedSubjectIds.has(subject.id) ? "✓" : ""}</span>
+                                  <span className="overview-subject-toggle-label">Por subgrupos</span>
+                                </button>
+                                <button
+                                  className="overview-subject-group-toggle overview-subject-select-toggle"
+                                  type="button"
+                                  role="checkbox"
+                                  aria-checked={firstUnassignedSubgroupsSelected}
+                                  aria-label={`Seleccionar la primera sesión sin práctica de cada subgrupo de ${subject.name}`}
+                                  title={firstUnassignedSubgroupIds.length
+                                    ? "Selecciona la primera sesión sin práctica de cada subgrupo"
+                                    : "No hay sesiones de subgrupo sin práctica"}
+                                  disabled={!firstUnassignedSubgroupIds.length}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    toggleFirstUnassignedSubgroups(subjectSessions);
+                                  }}
+                                >
+                                  <span className="overview-subject-group-box" aria-hidden="true">{firstUnassignedSubgroupsSelected ? "✓" : ""}</span>
+                                  <span className="overview-subject-toggle-label">Selec. subgrupos</span>
+                                </button>
+                              </span>
                               <b>{subjectSessionCount}<small>{subjectSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
                             </summary>
                             {groupedSubjectIds.has(subject.id) ? (
