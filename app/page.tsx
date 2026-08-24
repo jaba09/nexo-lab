@@ -1481,7 +1481,7 @@ function SessionListColumns({ session }: { session: Session }) {
         <small>{session.subjectName}</small>
       </span>
       <span className="calendar-list-teacher">
-        <strong>Prof. {session.teacherCode ?? "Sin asignar"}</strong>
+        <strong className={session.teacherCode ? undefined : "session-teacher-unassigned"}>Prof. {session.teacherCode ?? "sin asignar"}</strong>
         <small>{session.teacherName ?? "Profesor sin asignar"}</small>
       </span>
     </>
@@ -2843,7 +2843,7 @@ function CalendarView({
             <>
               <strong className="weekly-practice-name" title={session.practiceName ?? "Sin práctica"}>{session.practiceName ?? "Sin práctica"}</strong>
               <small className="weekly-session-details" title={`${session.subjectName} · ${session.degreeName} · ${session.groupCode ? `Grupo ${session.groupCode}` : "Sin grupo"} · ${session.teacherName ?? "Profesor sin asignar"}`}>
-                {session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · Prof. {session.teacherCode ?? "Sin asignar"}
+                {session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherCode ? `Prof. ${session.teacherCode}` : <span className="session-teacher-unassigned">Prof. sin asignar</span>}
               </small>
             </>
           ) : (

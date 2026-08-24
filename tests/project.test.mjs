@@ -218,7 +218,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.monthly-session-line strong \{ margin: 0 7px; font-size: 11px;/);
   assert.match(page, /weekly-practice-name/);
   assert.match(page, /session\.practiceName \?\? "Sin práctica"/);
-  assert.match(page, /Prof\. \{session\.teacherCode \?\? "Sin asignar"\}/);
+  assert.match(page, /session-teacher-unassigned/);
+  assert.match(page, /Prof\. sin asignar/);
+  assert.match(styles, /\.session-teacher-unassigned \{ color: var\(--danger\)/);
   assert.match(styles, /\.weekly-practice-name, \.weekly-session-details/);
   await assert.rejects(access(new URL("../.openai/hosting.json", import.meta.url)));
 });

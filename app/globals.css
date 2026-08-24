@@ -421,6 +421,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .weekly-practice-name, .weekly-session-details { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-event.weekly-session .weekly-practice-name { color: var(--ink); font: 750 10px/1.15 var(--font-geist-sans); }
 .session-event.weekly-session .weekly-session-details { color: #66715c; font: 650 8px/1.2 var(--font-geist-mono); }
+.session-teacher-unassigned { color: var(--danger); font-weight: 800; }
 .session-event.weekly-session .session-event-delete { width: 20px; }
 .session-event.weekly-session.overlapping-session { grid-template-columns: minmax(0, 1fr); }
 .weekly-session.overlapping-session .session-event-main { padding-right: 19px; display: block; }
