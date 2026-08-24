@@ -53,9 +53,13 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /groupedSubjectIds/);
   assert.match(page, /Por subgrupos/);
   assert.match(page, /Agrupar las sesiones de \$\{subject\.name\} por subgrupos/);
-  assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo/);
+  assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo y horario/);
+  assert.match(page, /sessionsByGroupSlot/);
+  assert.match(page, /slot\.weekday/);
+  assert.match(page, /slot\.startTime}–\{slot\.endTime/);
   assert.match(styles, /\.overview-subject-group-toggle/);
   assert.match(styles, /\.overview-session-groups/);
+  assert.match(styles, /\.overview-session-group\[open\] \.overview-session-group-chevron/);
   assert.match(page, /calendar-list overview-session-list/);
   assert.match(page, /SessionListColumns session=\{session\}/);
   assert.match(page, /session\.groupCode \? `G\$\{session\.groupCode\}` : "G—"/);

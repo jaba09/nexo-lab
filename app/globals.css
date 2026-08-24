@@ -146,10 +146,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-session-list.calendar-list { min-height: 0; margin: 0 0 12px 31px; padding: 10px; gap: 9px; border: 1px solid #dfe2d9; border-radius: 10px; background: #efeee8; }
 .overview-session-groups { margin: 0 0 12px 31px; display: grid; gap: 10px; }
 .overview-session-group { border: 1px solid #d8ddcc; border-radius: 10px; background: #f3f5eb; overflow: hidden; }
-.overview-session-group-head { min-height: 42px; padding: 8px 11px; border-bottom: 1px solid #d8ddcc; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #e9efd8; }
+.overview-session-group-head { min-height: 48px; padding: 8px 11px; display: grid; grid-template-columns: 22px 65px minmax(0, 1fr) 64px; align-items: center; gap: 10px; list-style: none; background: #e9efd8; cursor: pointer; }
+.overview-session-group-head::-webkit-details-marker { display: none; }
+.overview-session-group-head:hover { background: #e2ebcc; }
+.overview-session-group-chevron { width: 20px; height: 20px; border: 1px solid #aab797; border-radius: 50%; display: grid; place-items: center; color: #62704e; font-size: 15px; line-height: 1; transition: transform .18s, background .18s, color .18s; }
+.overview-session-group[open] .overview-session-group-chevron { transform: rotate(90deg); border-color: #607f1e; background: #607f1e; color: var(--white); }
 .overview-session-group-head strong { padding: 6px 9px; border-radius: 6px; background: #607f1e; color: var(--white); font: 750 9px var(--font-geist-mono); }
-.overview-session-group-head span { color: var(--muted); font: 650 8px var(--font-geist-mono); }
-.overview-session-group .overview-session-list.calendar-list { margin: 0; border: 0; border-radius: 0; background: transparent; }
+.overview-session-group-schedule { color: #46523e; font-size: 10px; font-weight: 750; text-transform: capitalize; }
+.overview-session-group-head > b { text-align: right; font-size: 17px; }
+.overview-session-group-head > b small { display: block; color: var(--muted); font: 650 7px var(--font-geist-mono); text-transform: uppercase; }
+.overview-session-group .overview-session-list.calendar-list { margin: 0; border: 0; border-top: 1px solid #d8ddcc; border-radius: 0; background: transparent; }
 .overview-session-row { grid-template-columns: 42px minmax(0, 1fr); }
 .overview-session-row .calendar-list-main { padding-left: 4px; }
 .overview-session-empty { margin: 0 0 12px 31px; padding: 14px; border-radius: 8px; background: #efeee8; color: var(--muted); font-size: 9px; }

@@ -1698,40 +1698,66 @@ function OverviewGroupedSubjectSessions({
     return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
   }
 
-  const sessionsByGroup = new Map<string, Session[]>();
+  const sessionsByGroupSlot = new Map<string, {
+    groupCode: string;
+    weekday: string;
+    weekdayIndex: number;
+    startTime: string;
+    endTime: string;
+    sessions: Session[];
+  }>();
   for (const session of sessions) {
     const groupCode = session.groupCode?.trim() ?? "";
-    const groupSessions = sessionsByGroup.get(groupCode) ?? [];
-    groupSessions.push(session);
-    sessionsByGroup.set(groupCode, groupSessions);
+    const day = parseLocalDate(session.sessionDate);
+    const weekdayIndex = (day.getDay() + 6) % 7;
+    const weekday = day.toLocaleDateString("es-ES", { weekday: "long" });
+    const [hour, minute] = session.startTime.split(":").map(Number);
+    const endMinutes = hour * 60 + minute + session.duration;
+    const endTime = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+    const slotKey = `${groupCode}|${weekdayIndex}|${session.startTime}|${endTime}`;
+    const slot = sessionsByGroupSlot.get(slotKey) ?? {
+      groupCode,
+      weekday,
+      weekdayIndex,
+      startTime: session.startTime,
+      endTime,
+      sessions: [],
+    };
+    slot.sessions.push(session);
+    sessionsByGroupSlot.set(slotKey, slot);
   }
-  const orderedGroups = [...sessionsByGroup.entries()].sort(([left], [right]) => {
-    if (!left) return 1;
-    if (!right) return -1;
-    return left.localeCompare(right, "es", { numeric: true, sensitivity: "base" });
+  const orderedSlots = [...sessionsByGroupSlot.entries()].sort(([, left], [, right]) => {
+    if (!left.groupCode && right.groupCode) return 1;
+    if (left.groupCode && !right.groupCode) return -1;
+    return left.groupCode.localeCompare(right.groupCode, "es", { numeric: true, sensitivity: "base" })
+      || left.weekdayIndex - right.weekdayIndex
+      || left.startTime.localeCompare(right.startTime)
+      || left.endTime.localeCompare(right.endTime);
   });
 
   return (
-    <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por subgrupo">
-      {orderedGroups.map(([groupCode, groupSessions], groupIndex) => {
-        const groupLabel = groupCode
-          ? (/^G/i.test(groupCode) ? groupCode.toUpperCase() : `G${groupCode}`)
+    <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por subgrupo y horario">
+      {orderedSlots.map(([slotKey, slot], slotIndex) => {
+        const groupLabel = slot.groupCode
+          ? (/^G/i.test(slot.groupCode) ? slot.groupCode.toUpperCase() : `G${slot.groupCode}`)
           : "Sin grupo";
         return (
-          <section className="overview-session-group" key={groupCode || "unassigned"}>
-            <header className="overview-session-group-head">
+          <details className="overview-session-group" key={slotKey}>
+            <summary className="overview-session-group-head">
+              <span className="overview-session-group-chevron" aria-hidden="true">›</span>
               <strong>{groupLabel}</strong>
-              <span>{groupSessions.length} {groupSessions.length === 1 ? "sesión" : "sesiones"}</span>
-            </header>
+              <span className="overview-session-group-schedule">{slot.weekday} {slot.startTime}–{slot.endTime}</span>
+              <b>{slot.sessions.length}<small>{slot.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
+            </summary>
             <OverviewSessionsList
-              headingPrefix={`overview-subject-${subjectId}-group-${groupIndex}`}
-              ariaLabel={`Sesiones del subgrupo ${groupLabel} ordenadas cronológicamente`}
-              emptyMessage="Este subgrupo no tiene sesiones en el semestre seleccionado."
-              sessions={groupSessions}
+              headingPrefix={`overview-subject-${subjectId}-slot-${slotIndex}`}
+              ariaLabel={`Sesiones del subgrupo ${groupLabel}, ${slot.weekday} de ${slot.startTime} a ${slot.endTime}, ordenadas cronológicamente`}
+              emptyMessage="Este subgrupo y horario no tiene sesiones en el semestre seleccionado."
+              sessions={slot.sessions}
               selectedIds={selectedIds}
               onSelect={onSelect}
             />
-          </section>
+          </details>
         );
       })}
     </div>
