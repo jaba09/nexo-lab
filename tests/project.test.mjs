@@ -54,10 +54,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Por subgrupos/);
   assert.match(page, /Agrupar las sesiones de \$\{subject\.name\} por subgrupos/);
   assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo y horario/);
-  assert.match(page, /sessionsByGroupSlot/);
-  assert.match(page, /slot\.weekday/);
-  assert.match(page, /appendAcademicDayType\(slot\.weekday, slot\.dayType\)/);
-  assert.match(page, /slot\.startTime}–\{slot\.endTime/);
+  assert.match(page, /sessionsByGroup/);
+  assert.match(page, /const groupKey = groupCode \|\| "__unassigned__"/);
+  assert.match(page, /schedulesByKey/);
+  assert.match(page, /dayTypes\.join\("\/"\)/);
+  assert.match(page, /scheduleSummary/);
   assert.match(styles, /\.overview-subject-group-toggle/);
   assert.match(styles, /\.overview-session-groups/);
   assert.match(styles, /\.overview-session-group\[open\] \.overview-session-group-chevron/);

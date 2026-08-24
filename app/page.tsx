@@ -1729,17 +1729,28 @@ function OverviewGroupedSubjectSessions({
     return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
   }
 
-  const sessionsByGroupSlot = new Map<string, {
-    groupCode: string;
+  type GroupSchedule = {
     weekday: string;
-    dayType?: "A" | "B";
     weekdayIndex: number;
     startTime: string;
     endTime: string;
+    dayTypes: Set<"A" | "B">;
+    hasUntypedDays: boolean;
+  };
+  type SessionGroup = {
+    groupCode: string;
+    schedulesByKey: Map<string, GroupSchedule>;
     sessions: Session[];
-  }>();
+  };
+  const sessionsByGroup = new Map<string, SessionGroup>();
   for (const session of sessions) {
-    const groupCode = session.groupCode?.trim() ?? "";
+    const groupCode = (session.groupCode?.trim() ?? "").replace(/^G(?=\d)/i, "").toUpperCase();
+    const groupKey = groupCode || "__unassigned__";
+    const group: SessionGroup = sessionsByGroup.get(groupKey) ?? {
+      groupCode,
+      schedulesByKey: new Map<string, GroupSchedule>(),
+      sessions: [],
+    };
     const day = parseLocalDate(session.sessionDate);
     const weekdayIndex = (day.getDay() + 6) % 7;
     const weekday = day.toLocaleDateString("es-ES", { weekday: "long" });
@@ -1747,48 +1758,63 @@ function OverviewGroupedSubjectSessions({
     const [hour, minute] = session.startTime.split(":").map(Number);
     const endMinutes = hour * 60 + minute + session.duration;
     const endTime = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
-    const slotKey = `${groupCode}|${weekdayIndex}|${dayType ?? ""}|${session.startTime}|${endTime}`;
-    const slot = sessionsByGroupSlot.get(slotKey) ?? {
-      groupCode,
+    const scheduleKey = `${weekdayIndex}|${session.startTime}|${endTime}`;
+    const schedule = group.schedulesByKey.get(scheduleKey) ?? {
       weekday,
-      dayType,
       weekdayIndex,
       startTime: session.startTime,
       endTime,
-      sessions: [],
+      dayTypes: new Set<"A" | "B">(),
+      hasUntypedDays: false,
     };
-    slot.sessions.push(session);
-    sessionsByGroupSlot.set(slotKey, slot);
+    if (dayType) schedule.dayTypes.add(dayType);
+    else schedule.hasUntypedDays = true;
+    group.schedulesByKey.set(scheduleKey, schedule);
+    group.sessions.push(session);
+    sessionsByGroup.set(groupKey, group);
   }
-  const orderedSlots = [...sessionsByGroupSlot.entries()].sort(([, left], [, right]) => {
+  const orderedGroups = [...sessionsByGroup.entries()].sort(([, left], [, right]) => {
     if (!left.groupCode && right.groupCode) return 1;
     if (left.groupCode && !right.groupCode) return -1;
-    return left.groupCode.localeCompare(right.groupCode, "es", { numeric: true, sensitivity: "base" })
-      || left.weekdayIndex - right.weekdayIndex
-      || (left.dayType ?? "").localeCompare(right.dayType ?? "")
-      || left.startTime.localeCompare(right.startTime)
-      || left.endTime.localeCompare(right.endTime);
+    return left.groupCode.localeCompare(right.groupCode, "es", { numeric: true, sensitivity: "base" });
   });
 
   return (
     <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por subgrupo y horario">
-      {orderedSlots.map(([slotKey, slot], slotIndex) => {
-        const groupLabel = slot.groupCode
-          ? (/^G/i.test(slot.groupCode) ? slot.groupCode.toUpperCase() : `G${slot.groupCode}`)
+      {orderedGroups.map(([groupKey, group], groupIndex) => {
+        const groupLabel = group.groupCode
+          ? `G${group.groupCode}`
           : "Sin grupo";
+        const scheduleLabels = [...group.schedulesByKey.values()]
+          .sort((left, right) => (
+            left.weekdayIndex - right.weekdayIndex
+            || left.startTime.localeCompare(right.startTime)
+            || left.endTime.localeCompare(right.endTime)
+          ))
+          .map((schedule) => {
+            const dayTypes = [...schedule.dayTypes].sort();
+            const typedWeekday = dayTypes.length
+              ? `${schedule.weekday}-${dayTypes.join("/")}`
+              : schedule.weekday;
+            const weekdayLabel = schedule.hasUntypedDays && dayTypes.length
+              ? `${typedWeekday} y ${schedule.weekday} sin tipo`
+              : typedWeekday;
+            return `${weekdayLabel} ${schedule.startTime}–${schedule.endTime}`;
+          });
+        const scheduleSummary = scheduleLabels.join(" · ");
         return (
-          <details className="overview-session-group" key={slotKey}>
+          <details className="overview-session-group" key={groupKey}>
             <summary className="overview-session-group-head">
               <span className="overview-session-group-chevron" aria-hidden="true">›</span>
               <strong>{groupLabel}</strong>
-              <span className="overview-session-group-schedule">{appendAcademicDayType(slot.weekday, slot.dayType)} {slot.startTime}–{slot.endTime}</span>
-              <b>{slot.sessions.length}<small>{slot.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
+              <span className="overview-session-group-schedule">{scheduleSummary}</span>
+              <b>{group.sessions.length}<small>{group.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
             </summary>
             <OverviewSessionsList
-              headingPrefix={`overview-subject-${subjectId}-slot-${slotIndex}`}
-              ariaLabel={`Sesiones del subgrupo ${groupLabel}, ${appendAcademicDayType(slot.weekday, slot.dayType)} de ${slot.startTime} a ${slot.endTime}, ordenadas cronológicamente`}
-              emptyMessage="Este subgrupo y horario no tiene sesiones en el semestre seleccionado."
-              sessions={slot.sessions}
+              headingPrefix={`overview-subject-${subjectId}-group-${groupIndex}`}
+              ariaLabel={`Sesiones del subgrupo ${groupLabel}, ${scheduleSummary}, ordenadas cronológicamente`}
+              emptyMessage="Este subgrupo no tiene sesiones en el semestre seleccionado."
+              sessions={group.sessions}
               dayTypesByDate={dayTypesByDate}
               selectedIds={selectedIds}
               onSelect={onSelect}
