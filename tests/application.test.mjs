@@ -97,6 +97,12 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(initialData.laboratories.length, 3);
   assert.equal(initialData.installations.length, 4);
   assert.equal(initialData.practices.length, 5);
+  assert.deepEqual(
+    initialData.practices.map((practice) => practice.name),
+    [...initialData.practices.map((practice) => practice.name)].sort((left, right) => (
+      left.localeCompare(right, "es", { sensitivity: "base" })
+    )),
+  );
   assert.equal(initialData.degrees.length, 3);
   assert.ok(initialData.degrees.every((degree) => degree.icsCode === ""));
   assert.equal(initialData.subjects.length, 4);

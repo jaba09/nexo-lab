@@ -139,7 +139,11 @@ export async function GET() {
         ) distinct_laboratories
         GROUP BY practice_id
       ) labs ON labs.practice_id = p.id
-      ORDER BY p.code`).all() as Record<string, unknown>[];
+      ORDER BY p.name COLLATE NOCASE, p.code COLLATE NOCASE`).all() as Record<string, unknown>[];
+    practices.sort((left, right) => (
+      compareSpanish(left.name, right.name)
+      || compareSpanish(left.code, right.code)
+    ));
     const degrees = database.prepare(`SELECT
       d.id, d.code, d.ics_code AS icsCode, d.name, d.level,
       COUNT(s.id) AS subjectCount,

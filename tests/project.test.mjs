@@ -139,6 +139,8 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /teacher\.email \|\| "Sin correo electrónico"/);
   assert.match(page, /sort\(compareTeachersBySurname\)/);
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /localeCompare\(String\(right\), "es", \{ sensitivity: "base" \}\)/);
+  assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /ORDER BY p\.name COLLATE NOCASE, p\.code COLLATE NOCASE/);
+  assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /compareSpanish\(left\.name, right\.name\)[\s\S]*?compareSpanish\(left\.code, right\.code\)/);
   assert.match(page, /teacherId/);
   assert.match(page, /teacherSessionCounts/);
   assert.match(page, /semesterFromDate\(session\.sessionDate\) !== selectedSemester/);
