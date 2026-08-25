@@ -1877,13 +1877,14 @@ function OverviewGroupedSubjectSessions({
             return `${weekdayLabel} ${schedule.startTime}–${schedule.endTime}`;
           });
         const scheduleSummary = scheduleLabels.join(" · ");
+        const groupUnassignedTeacherSessionCount = group.sessions.filter((session) => session.teacherId === null).length;
         return (
           <details className="overview-session-group" key={groupKey}>
             <summary className="overview-session-group-head">
               <span className="overview-session-group-chevron" aria-hidden="true">›</span>
               <strong>{groupLabel}</strong>
               <span className="overview-session-group-schedule">{scheduleSummary}</span>
-              <b>{group.sessions.length}<small>{group.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
+              <b>{group.sessions.length}<UnassignedTeacherSessionCount count={groupUnassignedTeacherSessionCount} /><small>{group.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
             </summary>
             <OverviewSessionsList
               headingPrefix={`overview-subject-${subjectId}-group-${groupIndex}`}

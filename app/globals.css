@@ -150,7 +150,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-session-list.calendar-list { min-height: 0; margin: 0 0 12px 31px; padding: 10px; gap: 9px; border: 1px solid #dfe2d9; border-radius: 10px; background: #efeee8; }
 .overview-session-groups { margin: 0 0 12px 31px; display: grid; gap: 10px; }
 .overview-session-group { border: 1px solid #d8ddcc; border-radius: 10px; background: #f3f5eb; overflow: hidden; }
-.overview-session-group-head { min-height: 48px; padding: 8px 11px; display: grid; grid-template-columns: 22px 65px minmax(0, 1fr) 64px; align-items: center; gap: 10px; list-style: none; background: #e9efd8; cursor: pointer; }
+.overview-session-group-head { min-height: 48px; padding: 8px 11px; display: grid; grid-template-columns: 22px 65px minmax(0, 1fr) 98px; align-items: center; gap: 10px; list-style: none; background: #e9efd8; cursor: pointer; }
 .overview-session-group-head::-webkit-details-marker { display: none; }
 .overview-session-group-head:hover { background: #e2ebcc; }
 .overview-session-group-chevron { width: 20px; height: 20px; border: 1px solid #aab797; border-radius: 50%; display: grid; place-items: center; color: #62704e; font-size: 15px; line-height: 1; transition: transform .18s, background .18s, color .18s; }

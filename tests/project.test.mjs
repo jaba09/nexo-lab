@@ -72,6 +72,8 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /schedulesByKey/);
   assert.match(page, /dayTypes\.join\("\/"\)/);
   assert.match(page, /scheduleSummary/);
+  assert.match(page, /groupUnassignedTeacherSessionCount = group\.sessions\.filter\(\(session\) => session\.teacherId === null\)\.length/);
+  assert.match(page, /group\.sessions\.length\}<UnassignedTeacherSessionCount count=\{groupUnassignedTeacherSessionCount\}/);
   assert.match(styles, /\.overview-subject-group-toggle/);
   assert.match(styles, /\.overview-subject-toggles/);
   assert.match(styles, /\.overview-session-groups/);
