@@ -164,7 +164,13 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /ORDER BY p\.name COLLATE NOCASE, p\.code COLLATE NOCASE/);
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /compareSpanish\(left\.name, right\.name\)[\s\S]*?compareSpanish\(left\.code, right\.code\)/);
   assert.match(page, /function comparePracticesByName[\s\S]*?left\.name\.localeCompare\(right\.name[\s\S]*?left\.code\.localeCompare\(right\.code/);
+  assert.match(page, /function practiceOptionLabel\(practice: Practice\)[\s\S]*?`\$\{practice\.name\} · \$\{practice\.code\}`/);
+  assert.match(page, /function practicesAvailableToSessions[\s\S]*?\.sort\(comparePracticesByName\)/);
+  assert.ok(page.match(/\{practiceOptionLabel\(practice\)\}/g)?.length >= 3);
   assert.match(page, /const orderedPractices = useMemo[\s\S]*?sort\(comparePracticesByName\)/);
+  assert.match(page, /const filterPractices = useMemo[\s\S]*?selectedSubject\.practiceIds\.map\(Number\)[\s\S]*?\.sort\(comparePracticesByName\)/);
+  assert.match(page, /filterPractices\.map\(\(practice\) => <option[\s\S]*?practiceOptionLabel\(practice\)/);
+  assert.match(page, /Todas las prácticas de la asignatura/);
   assert.match(page, /orderedPractices\.map\(\(practice\) =>/);
   assert.match(page, /const sessionPracticeOptions = orderedPractices\.filter/);
   assert.match(page, /teacherId/);

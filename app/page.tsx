@@ -89,6 +89,10 @@ function comparePracticesByName(left: Practice, right: Practice) {
     || left.code.localeCompare(right.code, "es", { sensitivity: "base" });
 }
 
+function practiceOptionLabel(practice: Practice) {
+  return `${practice.name} · ${practice.code}`;
+}
+
 type Session = {
   id: number;
   sessionDate: string;
@@ -1499,7 +1503,7 @@ export default function Home() {
                     >
                       <option value="">{editingId === null ? "Selecciona una práctica de la asignatura" : "Sin práctica asignada"}</option>
                       {sessionPracticeOptions.map((practice) => (
-                        <option key={practice.id} value={practice.id}>{practice.code} · {practice.name}</option>
+                        <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice)}</option>
                       ))}
                     </select>
                   </label>
@@ -1583,7 +1587,7 @@ function practicesAvailableToSessions({
         && subject.practiceIds.some((practiceId) => Number(practiceId) === practice.id)
       ));
     })
-  ));
+  )).sort(comparePracticesByName);
 }
 
 function SessionSelectionActions({
@@ -1631,7 +1635,7 @@ function SessionSelectionActions({
               <option value="">Asignar práctica…</option>
               <option value="none">Sin práctica</option>
               {degreePractices.map((practice) => (
-                <option key={practice.id} value={practice.id}>{practice.code} · {practice.name}</option>
+                <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice)}</option>
               ))}
             </select>
           </label>
@@ -2712,6 +2716,17 @@ function CalendarView({
       ? subjects.filter((subject) => String(subject.degreeId) === filters.degreeId)
       : subjects
   ), [filters.degreeId, subjects]);
+  const filterPractices = useMemo(() => {
+    const selectedSubject = filters.subjectId
+      ? subjects.find((subject) => String(subject.id) === filters.subjectId)
+      : undefined;
+    const subjectPracticeIds = selectedSubject
+      ? new Set(selectedSubject.practiceIds.map(Number))
+      : null;
+    return practices
+      .filter((practice) => subjectPracticeIds === null || subjectPracticeIds.has(practice.id))
+      .sort(comparePracticesByName);
+  }, [filters.subjectId, practices, subjects]);
   const filteredSemesterSessions = useMemo(() => semesterSessions.filter((session) => {
     if (filters.degreeId && String(session.degreeId) !== filters.degreeId) return false;
     if (filters.subjectId && String(session.subjectId) !== filters.subjectId) return false;
@@ -3212,9 +3227,9 @@ function CalendarView({
           </label>
           <label>
             <span>Práctica</span>
-            <select aria-label="Filtrar por práctica" value={filters.practiceId} onChange={(event) => changeFilter("practiceId", event.target.value)}>
-              <option value="">Todas las prácticas</option>
-              {practices.map((practice) => <option key={practice.id} value={practice.id}>{practice.code} · {practice.name}</option>)}
+            <select aria-label="Filtrar por práctica" value={filters.practiceId} disabled={Boolean(filters.subjectId) && !filterPractices.length} onChange={(event) => changeFilter("practiceId", event.target.value)}>
+              <option value="">{filters.subjectId ? filterPractices.length ? "Todas las prácticas de la asignatura" : "Esta asignatura no tiene prácticas" : "Todas las prácticas"}</option>
+              {filterPractices.map((practice) => <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice)}</option>)}
             </select>
           </label>
           <button type="button" disabled={!hasActiveFilters} onClick={clearFilters}>Limpiar filtros</button>
