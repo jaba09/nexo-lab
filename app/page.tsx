@@ -83,6 +83,11 @@ function compareTeachersBySurname(left: Teacher, right: Teacher) {
     || left.code.localeCompare(right.code, "es", { sensitivity: "base" });
 }
 
+function comparePracticesByName(left: Practice, right: Practice) {
+  return left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+    || left.code.localeCompare(right.code, "es", { sensitivity: "base" });
+}
+
 type Session = {
   id: number;
   sessionDate: string;
@@ -769,6 +774,11 @@ export default function Home() {
     };
   }, [data, search]);
 
+  const orderedPractices = useMemo(
+    () => [...data.practices].sort(comparePracticesByName),
+    [data.practices],
+  );
+
   const counts = {
     laboratories: data.laboratories.length,
     installations: data.installations.length,
@@ -784,7 +794,7 @@ export default function Home() {
     && (editingId !== null || subject.practiceIds.length > 0)
   ));
   const selectedSessionSubject = data.subjects.find((subject) => String(subject.id) === form.subjectId);
-  const sessionPracticeOptions = data.practices.filter((practice) => selectedSessionSubject?.practiceIds.includes(practice.id));
+  const sessionPracticeOptions = orderedPractices.filter((practice) => selectedSessionSubject?.practiceIds.includes(practice.id));
   const editingSession = editingId === null ? undefined : data.sessions.find((session) => session.id === editingId);
   const selectedSessionHoliday = data.holidays.find((holiday) => holiday.holidayDate === form.sessionDate);
   const sessionDateBlocked = drawer === "sessions" && Boolean(
@@ -1365,7 +1375,7 @@ export default function Home() {
                   </label>
                   <fieldset className="practice-picker">
                     <legend>Prácticas asignadas <small>Opcional</small></legend>
-                    {data.practices.length === 0 ? <p>Crea primero una práctica para poder vincularla.</p> : data.practices.map((practice) => (
+                    {orderedPractices.length === 0 ? <p>Crea primero una práctica para poder vincularla.</p> : orderedPractices.map((practice) => (
                       <label key={practice.id}>
                         <input
                           type="checkbox"
