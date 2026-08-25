@@ -111,6 +111,19 @@ type Session = {
   degreePracticeIds?: number[];
 };
 
+function UnassignedTeacherSessionCount({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <em
+      className="unassigned-teacher-session-count"
+      aria-label={`${count} ${count === 1 ? "sesión sin profesor asignado" : "sesiones sin profesor asignado"}`}
+      title={`${count} ${count === 1 ? "sesión sin profesor asignado" : "sesiones sin profesor asignado"}`}
+    >
+      ({count} s/prof)
+    </em>
+  );
+}
+
 type Holiday = {
   id: number;
   holidayDate: string;
@@ -1956,6 +1969,8 @@ function Overview({
     ));
   const degreeSessionCounts = new Map<number, number>();
   const subjectSessionCounts = new Map<number, number>();
+  const degreeUnassignedTeacherSessionCounts = new Map<number, number>();
+  const subjectUnassignedTeacherSessionCounts = new Map<number, number>();
   const teacherSessionCounts = new Map<number, number>();
   let unassignedTeacherSessionCount = 0;
   const sessionsBySubject = new Map<number, Session[]>();
@@ -1965,6 +1980,14 @@ function Overview({
     subjectSessionCounts.set(session.subjectId, (subjectSessionCounts.get(session.subjectId) ?? 0) + 1);
     if (session.teacherId === null) {
       unassignedTeacherSessionCount += 1;
+      degreeUnassignedTeacherSessionCounts.set(
+        session.degreeId,
+        (degreeUnassignedTeacherSessionCounts.get(session.degreeId) ?? 0) + 1,
+      );
+      subjectUnassignedTeacherSessionCounts.set(
+        session.subjectId,
+        (subjectUnassignedTeacherSessionCounts.get(session.subjectId) ?? 0) + 1,
+      );
     } else {
       teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
     }
@@ -2139,7 +2162,7 @@ function Overview({
       <section className="panel overview-degree-panel">
         <div className="panel-head">
           <div><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></div>
-          <span className="panel-tag session-total">{semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
+          <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
         </div>
         {orderedDegrees.length ? (
           <div className="overview-degree-list">
@@ -2151,6 +2174,7 @@ function Overview({
                   || left.code.localeCompare(right.code, "es")
                 ));
               const degreeSessionCount = degreeSessionCounts.get(degree.id) ?? 0;
+              const degreeUnassignedTeacherSessionCount = degreeUnassignedTeacherSessionCounts.get(degree.id) ?? 0;
               return (
                 <details className="overview-degree-item" key={degree.id}>
                   <summary>
@@ -2160,12 +2184,13 @@ function Overview({
                       <strong>{degree.name}</strong>
                       <small>{degree.level}{degree.icsCode ? ` · ICS ${degree.icsCode}` : ""}</small>
                     </span>
-                    <b>{degreeSessionCount}<small>{degreeSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
+                    <b>{degreeSessionCount}<UnassignedTeacherSessionCount count={degreeUnassignedTeacherSessionCount} /><small>{degreeSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
                   </summary>
                   {degreeSubjects.length ? (
                     <div className="overview-subject-list" aria-label={`Asignaturas de ${degree.name}`}>
                       {degreeSubjects.map((subject) => {
                         const subjectSessionCount = subjectSessionCounts.get(subject.id) ?? 0;
+                        const subjectUnassignedTeacherSessionCount = subjectUnassignedTeacherSessionCounts.get(subject.id) ?? 0;
                         const subjectSessions = sessionsBySubject.get(subject.id) ?? [];
                         const firstUnassignedSubgroupSessions = firstUnassignedSessionPerSubgroup(subjectSessions);
                         const firstUnassignedSubgroupIds = firstUnassignedSubgroupSessions.map((session) => session.id);
@@ -2217,7 +2242,7 @@ function Overview({
                                   <span className="overview-subject-toggle-label">Selec. subgrupos</span>
                                 </button>
                               </span>
-                              <b>{subjectSessionCount}<small>{subjectSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
+                              <b>{subjectSessionCount}<UnassignedTeacherSessionCount count={subjectUnassignedTeacherSessionCount} /><small>{subjectSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
                             </summary>
                             {groupedSubjectIds.has(subject.id) ? (
                               <OverviewGroupedSubjectSessions
@@ -2254,7 +2279,7 @@ function Overview({
       <section className="panel overview-teacher-panel">
         <div className="panel-head">
           <div><span className="section-kicker">Carga docente</span><h2>Sesiones por profesor</h2></div>
-          <span className="panel-tag session-total">{semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
+          <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
         </div>
         {orderedTeachers.length || unassignedTeacherSessionCount ? (
           <div className="overview-teacher-table-wrap">
