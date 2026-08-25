@@ -433,11 +433,17 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .calendar-month-drop-preview .session-event-main { cursor: grabbing; }
 .calendar-month-drop-preview em { color: #526d15; }
 .session-drop-indicator { width: 24px; border-left: 1px dashed #809a3a; display: grid; place-items: center; color: #526d15; font-size: 16px; }
-.session-event.weekly-session { position: absolute; left: 4px; right: 4px; z-index: 2; min-height: 34px; grid-template-columns: minmax(0, 1fr) 20px; box-shadow: 0 2px 7px rgba(23,32,29,.1); }
+.session-event.weekly-session { position: absolute; left: 4px; right: 4px; z-index: 2; min-height: 34px; grid-template-columns: minmax(0, 1fr) 20px; container: weekly-session / inline-size; box-shadow: 0 2px 7px rgba(23,32,29,.1); }
 .session-event.weekly-session .session-event-main { align-content: start; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; }
 .weekly-practice-name, .weekly-session-details { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-event.weekly-session .weekly-practice-name { color: var(--ink); font: 750 10px/1.15 var(--font-geist-sans); }
 .session-event.weekly-session .weekly-session-details { color: #66715c; font: 650 8px/1.2 var(--font-geist-mono); }
+.weekly-teacher-label, .weekly-teacher-name { display: inline; }
+.weekly-teacher-code { display: none; }
+@container weekly-session (max-width: 190px) {
+  .weekly-teacher-name { display: none; }
+  .weekly-teacher-code { display: inline; }
+}
 .session-teacher-unassigned { color: var(--danger); font-weight: 800; }
 .session-event.weekly-session .session-event-delete { width: 20px; }
 .session-event.weekly-session.overlapping-session { grid-template-columns: minmax(0, 1fr); }

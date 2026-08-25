@@ -112,6 +112,11 @@ type Session = {
   degreePracticeIds?: number[];
 };
 
+function sessionPracticeTitle(session: Session) {
+  if (!session.practiceName) return "Sin práctica";
+  return session.practiceCode ? `${session.practiceName} · ${session.practiceCode}` : session.practiceName;
+}
+
 function UnassignedTeacherSessionCount({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
@@ -1543,18 +1548,18 @@ function SessionListColumns({ session }: { session: Session }) {
       </time>
       <span className="calendar-list-practice">
         <span className="calendar-list-practice-title">
-          <strong>{session.practiceName ?? "Sin práctica"}</strong>
+          <strong>{sessionPracticeTitle(session)}</strong>
           {session.practiceId === null && <em>Incompleta</em>}
         </span>
-        <small>{session.practiceCode ?? "—"}{session.installationName ? ` · ${session.installationName}` : ""}</small>
+        {session.installationName && <small>{session.installationName}</small>}
       </span>
       <span className="calendar-list-subject">
         <strong>{session.subjectAbbreviation || session.subjectCode}-{session.degreeCode}</strong>
         <small>{session.subjectName}</small>
       </span>
       <span className="calendar-list-teacher">
-        <strong className={session.teacherCode ? undefined : "session-teacher-unassigned"}>Prof. {session.teacherCode ?? "sin asignar"}</strong>
-        <small>{session.teacherName ?? "Profesor sin asignar"}</small>
+        <strong className={session.teacherCode ? undefined : "session-teacher-unassigned"}>Prof. {session.teacherName ?? session.teacherCode ?? "sin asignar"}</strong>
+        <small>{session.teacherCode ?? "Profesor sin asignar"}</small>
       </span>
     </>
   );
@@ -3092,9 +3097,14 @@ function CalendarView({
         >
           {weekly ? (
             <>
-              <strong className="weekly-practice-name" title={session.practiceName ?? "Sin práctica"}>{session.practiceName ?? "Sin práctica"}</strong>
+              <strong className="weekly-practice-name" title={sessionPracticeTitle(session)}>{sessionPracticeTitle(session)}</strong>
               <small className="weekly-session-details" title={`${session.subjectName} · ${session.degreeName} · ${session.groupCode ? `Grupo ${session.groupCode}` : "Sin grupo"} · ${session.teacherName ?? "Profesor sin asignar"}`}>
-                {session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherCode ? `Prof. ${session.teacherCode}` : <span className="session-teacher-unassigned">Prof. sin asignar</span>}
+                {session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherCode ? (
+                  <span className="weekly-teacher-label">
+                    <span className="weekly-teacher-name">Prof. {session.teacherName ?? session.teacherCode}</span>
+                    <span className="weekly-teacher-code">Prof. {session.teacherCode}</span>
+                  </span>
+                ) : <span className="session-teacher-unassigned">Prof. sin asignar</span>}
               </small>
             </>
           ) : (

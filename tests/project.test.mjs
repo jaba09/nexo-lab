@@ -150,6 +150,15 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /api\/auth\/session/);
   assert.match(page, />Salir</);
   assert.match(page, /teacher\.email \|\| "Sin correo electrónico"/);
+  assert.match(page, /Prof\. \{session\.teacherName \?\? session\.teacherCode \?\? "sin asignar"\}/);
+  assert.match(page, /weekly-teacher-name/);
+  assert.match(page, /weekly-teacher-code/);
+  assert.match(page, /function sessionPracticeTitle\(session: Session\)/);
+  assert.match(page, /`\$\{session\.practiceName\} · \$\{session\.practiceCode\}`/);
+  assert.match(page, /<strong>\{sessionPracticeTitle\(session\)\}<\/strong>/);
+  assert.match(page, /title=\{sessionPracticeTitle\(session\)\}>\{sessionPracticeTitle\(session\)\}/);
+  assert.match(styles, /container: weekly-session \/ inline-size/);
+  assert.match(styles, /@container weekly-session \(max-width: 190px\)/);
   assert.match(page, /sort\(compareTeachersBySurname\)/);
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /localeCompare\(String\(right\), "es", \{ sensitivity: "base" \}\)/);
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /ORDER BY p\.name COLLATE NOCASE, p\.code COLLATE NOCASE/);
@@ -268,7 +277,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /session\.startTime\.replace\(\/\^0\//);
   assert.match(styles, /\.monthly-session-line strong \{ margin: 0 7px; font-size: 11px;/);
   assert.match(page, /weekly-practice-name/);
-  assert.match(page, /session\.practiceName \?\? "Sin práctica"/);
+  assert.match(page, /sessionPracticeTitle\(session\)/);
   assert.match(page, /session-teacher-unassigned/);
   assert.match(page, /Prof\. sin asignar/);
   assert.match(styles, /\.session-teacher-unassigned \{ color: var\(--danger\)/);
