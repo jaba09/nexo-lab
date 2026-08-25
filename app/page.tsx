@@ -70,10 +70,11 @@ type Teacher = {
   code: string;
   name: string;
   email: string;
+  isAdmin: boolean;
   sessionCount: number;
 };
 
-type AuthenticatedTeacher = Pick<Teacher, "id" | "code" | "name" | "email">;
+type AuthenticatedTeacher = Pick<Teacher, "id" | "code" | "name" | "email" | "isAdmin">;
 
 function compareTeachersBySurname(left: Teacher, right: Teacher) {
   const surname = (teacher: Teacher) => teacher.name.trim().replace(/^(?:\p{L}\.)+\s*/u, "");
@@ -439,6 +440,7 @@ const initialForm = {
   code: "",
   abbreviation: "",
   email: "",
+  isAdmin: false,
   password: "",
   name: "",
   location: "",
@@ -791,6 +793,7 @@ export default function Home() {
   );
 
   function openCreate(entity: Entity) {
+    if (!authenticatedTeacher?.isAdmin) return;
     const schedulableSubject = data.subjects.find((subject) => subject.practiceIds.length > 0);
     setForm({
       ...initialForm,
@@ -808,6 +811,7 @@ export default function Home() {
   }
 
   function openEdit(entity: Entity, item: EntityRecord) {
+    if (!authenticatedTeacher?.isAdmin) return;
     if (entity === "laboratories") {
       const laboratory = item as Laboratory;
       setForm({
@@ -864,6 +868,7 @@ export default function Home() {
         code: teacher.code,
         name: teacher.name,
         email: teacher.email,
+        isAdmin: teacher.isAdmin,
       });
     } else {
       const session = item as Session;
@@ -886,7 +891,7 @@ export default function Home() {
 
   async function submitEntity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!drawer) return;
+    if (!drawer || !authenticatedTeacher?.isAdmin) return;
     if (sessionDateBlocked) {
       setNotice({ kind: "error", message: "No se puede crear ni mover una sesión a un día festivo." });
       return;
@@ -925,6 +930,7 @@ export default function Home() {
   }
 
   async function deleteEntity(entity: Entity, id: number, label: string) {
+    if (!authenticatedTeacher?.isAdmin) return;
     if (!window.confirm(`¿Eliminar “${label}”? Esta acción no se puede deshacer.`)) return;
     setNotice(null);
     try {
@@ -946,6 +952,7 @@ export default function Home() {
   }
 
   async function deleteSessions(request: SessionDeleteRequest, confirmation: string) {
+    if (!authenticatedTeacher?.isAdmin) return false;
     if (!window.confirm(`${confirmation}\n\nEsta acción no se puede deshacer.`)) return false;
     setNotice(null);
     try {
@@ -970,6 +977,7 @@ export default function Home() {
   }
 
   async function assignPracticeToSessions(ids: number[], practiceId: number | null) {
+    if (!authenticatedTeacher?.isAdmin) return false;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
@@ -998,6 +1006,7 @@ export default function Home() {
   }
 
   async function assignTeacherToSessions(ids: number[], teacherId: number | null) {
+    if (!authenticatedTeacher?.isAdmin) return false;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
@@ -1027,6 +1036,7 @@ export default function Home() {
   }
 
   async function moveSession(id: number, sessionDate: string, startTime: string) {
+    if (!authenticatedTeacher?.isAdmin) return false;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
@@ -1071,7 +1081,7 @@ export default function Home() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={authenticatedTeacher.isAdmin ? "app-shell" : "app-shell read-only"}>
       <aside className="sidebar">
         <button className="brand" type="button" onClick={() => showSection("overview")} aria-label="Ir a la vista general">
           <span className="brand-mark">N</span>
@@ -1119,7 +1129,7 @@ export default function Home() {
             )}
             <div className="account-summary">
               <span className="profile-button" aria-hidden="true">{authenticatedTeacher.code}</span>
-              <span><strong>{authenticatedTeacher.name}</strong><small>{authenticatedTeacher.email}</small></span>
+              <span><strong>{authenticatedTeacher.name}</strong><small>{authenticatedTeacher.isAdmin ? "Administrador" : "Solo lectura"} · {authenticatedTeacher.email}</small></span>
               <button type="button" onClick={logout}>Salir</button>
             </div>
           </div>
@@ -1139,6 +1149,7 @@ export default function Home() {
           ) : active === "overview" ? (
             <Overview
               data={data}
+              canEdit={authenticatedTeacher.isAdmin}
               selectedSemester={selectedSemester}
               onSelectedSemesterChange={setSelectedSemester}
               onAssignPractice={assignPracticeToSessions}
@@ -1148,6 +1159,7 @@ export default function Home() {
           ) : (
             <EntityView
               entity={active}
+              canEdit={authenticatedTeacher.isAdmin}
               data={filtered}
               catalog={data}
               search={search}
@@ -1177,7 +1189,7 @@ export default function Home() {
         </div>
       </main>
 
-      {drawer && (
+      {drawer && authenticatedTeacher.isAdmin && (
         <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDrawer(null)}>
           <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
             <div className="drawer-head">
@@ -1216,6 +1228,18 @@ export default function Home() {
                       onChange={(event) => setForm({ ...form, email: event.target.value })}
                       placeholder="nombre@universidad.es"
                     />
+                  </label>
+                  <label className="permission-checkbox" htmlFor="teacher-is-admin">
+                    <input
+                      id="teacher-is-admin"
+                      type="checkbox"
+                      checked={form.isAdmin}
+                      onChange={(event) => setForm({ ...form, isAdmin: event.target.checked })}
+                    />
+                    <span>
+                      Administrador
+                      <small>Puede crear, editar, borrar e importar datos.</small>
+                    </span>
                   </label>
                   <label>
                     <span>{editingId === null ? "Contraseña" : "Nueva contraseña"} {editingId !== null && <small>(opcional)</small>}</span>
@@ -1475,7 +1499,7 @@ export default function Home() {
         </div>
       )}
 
-      {importOpen && (
+      {importOpen && authenticatedTeacher.isAdmin && (
         <IcsImportDialog
           data={data}
           onClose={() => setImportOpen(false)}
@@ -1538,6 +1562,7 @@ function SessionSelectionActions({
   practices,
   subjects,
   teachers,
+  canEdit,
   assigning,
   deleting,
   onAssignTeacher,
@@ -1549,6 +1574,7 @@ function SessionSelectionActions({
   practices: Practice[];
   subjects: Subject[];
   teachers: Teacher[];
+  canEdit: boolean;
   assigning: boolean;
   deleting: boolean;
   onAssignTeacher: (teacherId: number | null) => void;
@@ -1560,42 +1586,46 @@ function SessionSelectionActions({
 
   return (
     <div className="session-selection-actions" aria-label="Acciones para las sesiones seleccionadas">
-      <label>
-        <span>Práctica</span>
-        <select
-          aria-label="Asignar práctica a la selección"
-          value=""
-          disabled={assigning}
-          onChange={(event) => {
-            if (!event.target.value) return;
-            onAssignPractice(event.target.value === "none" ? null : Number(event.target.value));
-          }}
-        >
-          <option value="">Asignar práctica…</option>
-          <option value="none">Sin práctica</option>
-          {degreePractices.map((practice) => (
-            <option key={practice.id} value={practice.id}>{practice.code} · {practice.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Profesor</span>
-        <select
-          aria-label="Asignar profesor a la selección"
-          value=""
-          disabled={assigning}
-          onChange={(event) => {
-            if (!event.target.value) return;
-            onAssignTeacher(event.target.value === "none" ? null : Number(event.target.value));
-          }}
-        >
-          <option value="">Asignar profesor…</option>
-          <option value="none">Sin profesor</option>
-          {teachers.map((teacher) => (
-            <option key={teacher.id} value={teacher.id}>{teacher.code} · {teacher.name}</option>
-          ))}
-        </select>
-      </label>
+      {canEdit && (
+        <>
+          <label>
+            <span>Práctica</span>
+            <select
+              aria-label="Asignar práctica a la selección"
+              value=""
+              disabled={assigning}
+              onChange={(event) => {
+                if (!event.target.value) return;
+                onAssignPractice(event.target.value === "none" ? null : Number(event.target.value));
+              }}
+            >
+              <option value="">Asignar práctica…</option>
+              <option value="none">Sin práctica</option>
+              {degreePractices.map((practice) => (
+                <option key={practice.id} value={practice.id}>{practice.code} · {practice.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Profesor</span>
+            <select
+              aria-label="Asignar profesor a la selección"
+              value=""
+              disabled={assigning}
+              onChange={(event) => {
+                if (!event.target.value) return;
+                onAssignTeacher(event.target.value === "none" ? null : Number(event.target.value));
+              }}
+            >
+              <option value="">Asignar profesor…</option>
+              <option value="none">Sin profesor</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>{teacher.code} · {teacher.name}</option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
       <button className="export-action" type="button" onClick={() => downloadSessionsIcs(sessions)}>Exportar ICS</button>
       <button
         className="export-action"
@@ -1605,7 +1635,7 @@ function SessionSelectionActions({
         Exportar PDF
       </button>
       <button type="button" onClick={onClear}>Limpiar selección</button>
-      <button className="danger-action" type="button" disabled={deleting} onClick={onDelete}>Borrar selección</button>
+      {canEdit && <button className="danger-action" type="button" disabled={deleting} onClick={onDelete}>Borrar selección</button>}
     </div>
   );
 }
@@ -1878,6 +1908,7 @@ function OverviewTeacherSessions({
 
 function Overview({
   data,
+  canEdit,
   selectedSemester,
   onSelectedSemesterChange,
   onAssignPractice,
@@ -1885,6 +1916,7 @@ function Overview({
   onDeleteSessions,
 }: {
   data: AppData;
+  canEdit: boolean;
   selectedSemester: string;
   onSelectedSemesterChange: (semesterId: string) => void;
   onAssignPractice: (ids: number[], practiceId: number | null) => Promise<boolean>;
@@ -2081,6 +2113,7 @@ function Overview({
               practices={data.practices}
               subjects={data.subjects}
               teachers={data.teachers}
+              canEdit={canEdit}
               assigning={assigning}
               deleting={deleting}
               onAssignTeacher={(teacherId) => void assignOverviewTeacher(teacherId)}
@@ -2090,7 +2123,7 @@ function Overview({
             />
           </>
         ) : (
-          <span>Haz clic en una sesión para seleccionarla. Después usa la barra de acciones para asignar práctica, profesor o borrar. Shift + clic selecciona un rango dentro del listado abierto y Esc limpia la selección.</span>
+            <span>{canEdit ? "Haz clic en una sesión para seleccionarla. Después usa la barra de acciones para asignar práctica, profesor o borrar." : "Modo de solo lectura: selecciona sesiones para exportarlas en PDF o ICS."} Shift + clic selecciona un rango dentro del listado abierto y Esc limpia la selección.</span>
         )}
       </div>
       <section className="panel overview-degree-panel">
@@ -2348,6 +2381,7 @@ function SemesterFocus({
 
 function EntityView({
   entity,
+  canEdit,
   data,
   catalog,
   search,
@@ -2364,6 +2398,7 @@ function EntityView({
   onSelectedSemesterChange,
 }: {
   entity: Entity;
+  canEdit: boolean;
   data: AppData;
   catalog: AppData;
   search: string;
@@ -2391,7 +2426,7 @@ function EntityView({
     teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
   }
   function editRecordWithKeyboard(event: ReactKeyboardEvent<HTMLElement>, item: EntityRecord) {
-    if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+    if (!canEdit || event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
     onEdit(entity, item);
   }
@@ -2404,14 +2439,18 @@ function EntityView({
           <p>{entityCopy[entity].description}</p>
         </div>
         <div className="entity-hero-actions">
-          {entity === "sessions" && <button className="secondary-button" type="button" onClick={onImport}>Importar ICS</button>}
-          <button className="primary-button" type="button" disabled={dependencyMissing} onClick={() => onCreate(entity)}>
-            <span>+</span> Añadir {entityCopy[entity].singular}
-          </button>
+          {canEdit ? (
+            <>
+              {entity === "sessions" && <button className="secondary-button" type="button" onClick={onImport}>Importar ICS</button>}
+              <button className="primary-button" type="button" disabled={dependencyMissing} onClick={() => onCreate(entity)}>
+                <span>+</span> Añadir {entityCopy[entity].singular}
+              </button>
+            </>
+          ) : <span className="read-only-badge">Solo lectura</span>}
         </div>
       </section>
 
-      {dependencyMissing && (
+      {canEdit && dependencyMissing && (
         <div className="dependency-message">Para crear este elemento, añade antes su nivel superior en la jerarquía.</div>
       )}
 
@@ -2427,6 +2466,7 @@ function EntityView({
           subjects={catalog.subjects}
           practices={catalog.practices}
           teachers={catalog.teachers}
+          canEdit={canEdit}
           onEdit={(session) => onEdit(entity, session)}
           onDelete={(session) => onDelete(entity, session.id, `${session.practiceCode || session.subjectCode || "Sesión incompleta"} · ${session.sessionDate} ${session.startTime}`)}
           onAssignPractice={onAssignPractice}
@@ -2441,13 +2481,13 @@ function EntityView({
           <span>{search ? "⌕" : "+"}</span>
           <h2>{search ? "No hay coincidencias" : `Aún no hay ${entityCopy[entity].plural.toLowerCase()}`}</h2>
           <p>{search ? "Prueba con otro código, nombre o relación." : "Crea el primer registro para empezar a construir la estructura."}</p>
-          {!search && !dependencyMissing && <button className="primary-button" type="button" onClick={() => onCreate(entity)}>Crear ahora</button>}
+          {canEdit && !search && !dependencyMissing && <button className="primary-button" type="button" onClick={() => onCreate(entity)}>Crear ahora</button>}
         </div>
       ) : entity === "laboratories" ? (
         <div className="laboratory-grid">
           {(items as Laboratory[]).map((lab) => (
-            <div className="laboratory-card editable-record" key={lab.id} role="button" tabIndex={0} aria-label={`Editar ${lab.name}`} onClick={() => onEdit(entity, lab)} onKeyDown={(event) => editRecordWithKeyboard(event, lab)}>
-              <div className="card-top"><span className="entity-pill">{lab.code}</span><div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, lab.id, lab.name); }} aria-label={`Eliminar ${lab.name}`}>×</button></div></div>
+            <div className={canEdit ? "laboratory-card editable-record" : "laboratory-card"} key={lab.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${lab.name}` : undefined} onClick={canEdit ? () => onEdit(entity, lab) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, lab) : undefined}>
+              <div className="card-top"><span className="entity-pill">{lab.code}</span>{canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, lab.id, lab.name); }} aria-label={`Eliminar ${lab.name}`}>×</button></div>}</div>
               <h2>{lab.name}</h2>
               <p><span>Ubicación</span>{lab.location}</p>
               <p><span>Responsable</span>{lab.manager}</p>
@@ -2458,22 +2498,22 @@ function EntityView({
       ) : entity === "degrees" ? (
         <div className="degree-list">
           {(items as Degree[]).map((degree) => (
-            <div className="degree-card editable-record" key={degree.id} role="button" tabIndex={0} aria-label={`Editar ${degree.name}`} onClick={() => onEdit(entity, degree)} onKeyDown={(event) => editRecordWithKeyboard(event, degree)}>
+            <div className={canEdit ? "degree-card editable-record" : "degree-card"} key={degree.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${degree.name}` : undefined} onClick={canEdit ? () => onEdit(entity, degree) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, degree) : undefined}>
               <div className="degree-code"><span>{degree.code}</span><small>{degree.level}</small></div>
               <div className="degree-main"><h2>{degree.name}</h2><p>{degree.icsCode ? `ICS ${degree.icsCode}` : "Sin código ICS"} · {degree.subjectCount} {degree.subjectCount === 1 ? "asignatura" : "asignaturas"}</p></div>
               <div className="tag-list">{degree.subjectCodes.length ? degree.subjectCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin asignaturas</em>}</div>
-              <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, degree.id, degree.name); }} aria-label={`Eliminar ${degree.name}`}>×</button></div>
+              {canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, degree.id, degree.name); }} aria-label={`Eliminar ${degree.name}`}>×</button></div>}
             </div>
           ))}
         </div>
       ) : entity === "subjects" ? (
         <div className="degree-list">
           {(items as Subject[]).map((subject) => (
-            <div className="degree-card editable-record" key={subject.id} role="button" tabIndex={0} aria-label={`Editar ${subject.name}`} onClick={() => onEdit(entity, subject)} onKeyDown={(event) => editRecordWithKeyboard(event, subject)}>
+            <div className={canEdit ? "degree-card editable-record" : "degree-card"} key={subject.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${subject.name}` : undefined} onClick={canEdit ? () => onEdit(entity, subject) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, subject) : undefined}>
               <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
               <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation ? `${subject.abbreviation} · ` : "Sin abreviatura · "}{subject.degreeCode} · {subject.degreeName}</p></div>
               <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin prácticas</em>}</div>
-              <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>
+              {canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
             </div>
           ))}
         </div>
@@ -2497,11 +2537,11 @@ function EntityView({
             {[...(items as Teacher[])].sort(compareTeachersBySurname).map((teacher) => {
               const semesterSessionCount = teacherSessionCounts.get(teacher.id) ?? 0;
               return (
-                <div className="degree-card editable-record" key={teacher.id} role="button" tabIndex={0} aria-label={`Editar ${teacher.name}`} onClick={() => onEdit(entity, teacher)} onKeyDown={(event) => editRecordWithKeyboard(event, teacher)}>
+                <div className={canEdit ? "degree-card editable-record" : "degree-card"} key={teacher.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${teacher.name}` : undefined} onClick={canEdit ? () => onEdit(entity, teacher) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, teacher) : undefined}>
                   <div className="degree-code teacher"><span>{teacher.code}</span><small>PRO</small></div>
                   <div className="degree-main"><h2>{teacher.name}</h2><p>{teacher.email || "Sin correo electrónico"}</p></div>
-                  <div className="tag-list"><span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
-                  <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, teacher.id, teacher.name); }} aria-label={`Eliminar ${teacher.name}`}>×</button></div>
+                  <div className="tag-list"><span className={teacher.isAdmin ? "permission-tag admin" : "permission-tag"}>{teacher.isAdmin ? "Administrador" : "Solo lectura"}</span><span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
+                  {canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, teacher.id, teacher.name); }} aria-label={`Eliminar ${teacher.name}`}>×</button></div>}
                 </div>
               );
             })}
@@ -2519,20 +2559,20 @@ function EntityView({
             </tr></thead>
             <tbody>
               {entity === "installations" ? (items as Installation[]).map((item) => (
-                <tr className="editable-record" key={item.id} role="button" tabIndex={0} aria-label={`Editar ${item.name}`} onClick={() => onEdit(entity, item)} onKeyDown={(event) => editRecordWithKeyboard(event, item)}>
+                <tr className={canEdit ? "editable-record" : undefined} key={item.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${item.name}` : undefined} onClick={canEdit ? () => onEdit(entity, item) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, item) : undefined}>
                   <td><span className="table-code">{item.code}</span><strong>{item.name}</strong><small>{item.practiceCount} prácticas</small></td>
                   <td>{item.laboratoryName}</td>
                   <td>{item.category}<small>{item.capacity} personas</small></td>
                   <td><span className={`status-chip ${item.status === "Operativa" ? "ok" : "warn"}`}>{item.status}</span></td>
-                  <td><div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div></td>
+                  <td>{canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
                 </tr>
               )) : (items as Practice[]).map((item) => (
-                <tr className="editable-record" key={item.id} role="button" tabIndex={0} aria-label={`Editar ${item.name}`} onClick={() => onEdit(entity, item)} onKeyDown={(event) => editRecordWithKeyboard(event, item)}>
+                <tr className={canEdit ? "editable-record" : undefined} key={item.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${item.name}` : undefined} onClick={canEdit ? () => onEdit(entity, item) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, item) : undefined}>
                   <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} asignaturas</small></td>
                   <td>{item.installationNames}<small>{item.installationCount} instalaciones</small></td>
                   <td>{item.laboratoryNames}</td>
                   <td>{item.duration} min<small>Riesgo {item.riskLevel.toLowerCase()}</small></td>
-                  <td><div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div></td>
+                  <td>{canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
                 </tr>
               ))}
             </tbody>
@@ -2546,6 +2586,7 @@ function EntityView({
 function CalendarView({
   sessions,
   allSessions,
+  canEdit,
   holidays,
   academicDayTypes,
   laboratories,
@@ -2565,6 +2606,7 @@ function CalendarView({
 }: {
   sessions: Session[];
   allSessions: Session[];
+  canEdit: boolean;
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
   laboratories: Laboratory[];
@@ -2874,6 +2916,7 @@ function CalendarView({
   }
 
   function beginSessionDrag(event: ReactDragEvent<HTMLElement>, session: Session) {
+    if (!canEdit) return;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(session.id));
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -2999,19 +3042,19 @@ function CalendarView({
         className={`session-event ${weekly ? "weekly-session" : "monthly-session"}${weeklyPosition && weeklyPosition.laneCount > 1 ? ` overlapping-session overlap-lane-${weeklyPosition.lane % 4}` : ""}${session.practiceId === null ? " incomplete" : ""}${selectedIds.has(session.id) ? " selected" : ""}${draggedSessionId === session.id ? " dragging" : ""}${movingSessionId === session.id ? " moving" : ""}`}
         key={session.id}
         style={weeklyStyle}
-        draggable={movingSessionId === null}
-        aria-roledescription="Sesión arrastrable"
-        onDragStart={(event) => beginSessionDrag(event, session)}
-        onDragEnd={endSessionDrag}
+        draggable={canEdit && movingSessionId === null}
+        aria-roledescription={canEdit ? "Sesión arrastrable" : undefined}
+        onDragStart={canEdit ? (event) => beginSessionDrag(event, session) : undefined}
+        onDragEnd={canEdit ? endSessionDrag : undefined}
       >
         <button
           className="session-event-main"
           type="button"
           aria-pressed={selectedIds.has(session.id)}
           onClick={(event) => selectSession(session, event)}
-          onDoubleClick={() => onEdit(session)}
+          onDoubleClick={canEdit ? () => onEdit(session) : undefined}
           aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
-          title="Arrastra para cambiar día y hora · doble clic para editar"
+          title={canEdit ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar"}
         >
           {weekly ? (
             <>
@@ -3028,7 +3071,7 @@ function CalendarView({
             </span>
           )}
         </button>
-        <button className="session-event-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>
+        {canEdit && <button className="session-event-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>}
       </article>
     );
   }
@@ -3049,12 +3092,12 @@ function CalendarView({
           aria-pressed={selected}
           aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"} del ${formattedDate} a las ${session.startTime}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
           onClick={(event) => selectSession(session, event)}
-          onDoubleClick={() => onEdit(session)}
-          title="Clic para seleccionar · doble clic para editar"
+          onDoubleClick={canEdit ? () => onEdit(session) : undefined}
+          title={canEdit ? "Clic para seleccionar · doble clic para editar" : "Clic para seleccionar y exportar"}
         >
           <SessionListColumns session={session} />
         </button>
-        <button className="calendar-list-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>
+        {canEdit && <button className="calendar-list-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>}
       </article>
     );
   }
@@ -3078,7 +3121,7 @@ function CalendarView({
             <button type="button" aria-pressed={calendarView === "week"} onClick={() => changeCalendarView("week")}>Semana</button>
             <button type="button" aria-pressed={calendarView === "list"} onClick={() => changeCalendarView("list")}>Lista</button>
           </div>
-          <button className="calendar-delete-button" type="button" disabled={!allSemesterSessionIds.length || deleting} onClick={() => void deleteSemesterSessions()}>Borrar semestre</button>
+          {canEdit && <button className="calendar-delete-button" type="button" disabled={!allSemesterSessionIds.length || deleting} onClick={() => void deleteSemesterSessions()}>Borrar semestre</button>}
           <span className="incomplete-legend"><i /> Incompleta: sin práctica</span>
           {calendarView !== "list" && (
             <div className="calendar-navigation" aria-label={calendarView === "month" ? "Navegar por meses" : "Navegar por semanas"}>
@@ -3137,12 +3180,15 @@ function CalendarView({
         {selectedIds.size ? (
           <>
             <strong>{selectedIds.size} {selectedIds.size === 1 ? "sesión seleccionada" : "sesiones seleccionadas"}</strong>
-            <span>{calendarView === "list" ? "Shift + clic amplía el rango · Esc limpia" : "Arrastra para mover · Shift + clic amplía el rango"}</span>
+            <span>{canEdit
+              ? calendarView === "list" ? "Shift + clic amplía el rango · Esc limpia" : "Arrastra para mover · Shift + clic amplía el rango"
+              : "Exporta la selección en PDF o ICS · Esc limpia"}</span>
             <SessionSelectionActions
               sessions={selectedSessions}
               practices={practices}
               subjects={subjects}
               teachers={teachers}
+              canEdit={canEdit}
               assigning={assigning}
               deleting={deleting}
               onAssignTeacher={(teacherId) => void assignTeacher(teacherId)}
@@ -3152,7 +3198,9 @@ function CalendarView({
             />
           </>
         ) : (
-          <span>{calendarView === "list" ? "Selecciona una sesión para mostrar la barra de acciones. Shift + clic selecciona un rango y Esc limpia la selección." : "Selecciona una sesión para asignar práctica o profesor. Arrastra una sesión para cambiar su día y hora."}</span>
+          <span>{canEdit
+            ? calendarView === "list" ? "Selecciona una sesión para mostrar la barra de acciones. Shift + clic selecciona un rango y Esc limpia la selección." : "Selecciona una sesión para asignar práctica o profesor. Arrastra una sesión para cambiar su día y hora."
+            : "Modo de solo lectura: selecciona sesiones para exportarlas en PDF o ICS."}</span>
         )}
       </div>
       {calendarView === "month" ? (
@@ -3177,8 +3225,8 @@ function CalendarView({
                     aria-disabled={Boolean(holiday)}
                     title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
                     aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}`}
-                    onDragOver={(event) => previewMonthDrop(event, date)}
-                    onDrop={(event) => dropOnMonth(event, date)}
+                    onDragOver={canEdit ? (event) => previewMonthDrop(event, date) : undefined}
+                    onDrop={canEdit ? (event) => dropOnMonth(event, date) : undefined}
                   >
                     <span className="calendar-day-number">{day.getDate()}</span>
                     {dayType && <span className="calendar-day-type" aria-label={`Tipo de día ${dayType}`}>{dayType}</span>}
@@ -3248,8 +3296,8 @@ function CalendarView({
                   aria-disabled={Boolean(holiday)}
                   title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
                   aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las 08:00 y las 19:00`}
-                  onDragOver={(event) => previewWeekDrop(event, date)}
-                  onDrop={(event) => dropOnWeek(event, date)}
+                  onDragOver={canEdit ? (event) => previewWeekDrop(event, date) : undefined}
+                  onDrop={canEdit ? (event) => dropOnWeek(event, date) : undefined}
                 >
                   {weekDropPreview?.date === date && (
                     <div className="calendar-drop-preview" style={{ top: weekDropPreview.top, height: weekDropPreview.height }}>

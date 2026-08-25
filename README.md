@@ -117,6 +117,10 @@ Un administrador puede establecer la contraseña de otro profesor al crearlo o
 editarlo. Al editar, dejar el campo «Nueva contraseña» vacío conserva la clave
 actual. `NEXO_LAB_BOOTSTRAP_EMAIL` permite cambiar excepcionalmente el correo
 del administrador inicial; su valor predeterminado es `jablasal@unizar.es`.
+La ficha de cada profesor incluye el permiso «Administrador». Las cuentas sin
+ese permiso pueden consultar, filtrar y exportar sesiones, pero el servidor les
+impide crear, editar, borrar, mover o importar datos. La aplicación evita que
+se desactive el último administrador.
 
 ### Recuperación de contraseña por correo de Unizar
 

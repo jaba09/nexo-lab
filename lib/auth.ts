@@ -15,6 +15,7 @@ export type AuthenticatedTeacher = {
   code: string;
   name: string;
   email: string;
+  isAdmin: boolean;
 };
 
 function passwordBytes(password: string) {
@@ -151,12 +152,12 @@ export async function getAuthenticatedTeacher(): Promise<AuthenticatedTeacher | 
   const token = await currentAuthenticationToken();
   if (!token) return null;
   const database = getDatabase();
-  const teacher = database.prepare(`SELECT t.id, t.code, t.name, t.email
+  const teacher = database.prepare(`SELECT t.id, t.code, t.name, t.email, t.is_admin AS isAdmin
     FROM auth_sessions a
     JOIN teachers t ON t.id = a.teacher_id
     WHERE a.token_hash = ? AND a.expires_at > ?`
-  ).get(sessionTokenHash(token), Date.now()) as AuthenticatedTeacher | undefined;
-  return teacher ?? null;
+  ).get(sessionTokenHash(token), Date.now()) as (Omit<AuthenticatedTeacher, "isAdmin"> & { isAdmin: number }) | undefined;
+  return teacher ? { ...teacher, isAdmin: Boolean(teacher.isAdmin) } : null;
 }
 
 export async function deleteCurrentAuthenticationSession() {
@@ -167,4 +168,8 @@ export async function deleteCurrentAuthenticationSession() {
 
 export function unauthorizedResponse() {
   return Response.json({ error: "Inicia sesión para continuar." }, { status: 401 });
+}
+
+export function readOnlyResponse() {
+  return Response.json({ error: "Tu cuenta tiene acceso de solo lectura." }, { status: 403 });
 }

@@ -63,6 +63,7 @@ const schemaStatements = [
     name TEXT NOT NULL,
     email TEXT NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL DEFAULT '',
+    is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -394,6 +395,9 @@ function initializeDatabase(database: DatabaseSync) {
   if (!teacherColumnInfo.some((column) => column.name === "password_hash")) {
     database.exec("ALTER TABLE teachers ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''");
   }
+  if (!teacherColumnInfo.some((column) => column.name === "is_admin")) {
+    database.exec("ALTER TABLE teachers ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1))");
+  }
 
   migratePracticeInstallations(database);
   migrateDegreePractices(database);
@@ -468,6 +472,23 @@ function initializeDatabase(database: DatabaseSync) {
     database.exec("BEGIN IMMEDIATE");
     try {
       for (const statement of sessionSeedStatements) database.exec(statement);
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  const teacherRolesInitialized = database.prepare("SELECT value FROM app_meta WHERE key = ?")
+    .get("teacher_roles_version");
+  if (!teacherRolesInitialized) {
+    const bootstrapEmail = process.env.NEXO_LAB_BOOTSTRAP_EMAIL?.trim().toLowerCase() || "jablasal@unizar.es";
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      database.prepare("UPDATE teachers SET is_admin = 0").run();
+      database.prepare("UPDATE teachers SET is_admin = 1 WHERE email = ? COLLATE NOCASE").run(bootstrapEmail);
+      database.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?)")
+        .run("teacher_roles_version", "1");
       database.exec("COMMIT");
     } catch (error) {
       database.exec("ROLLBACK");

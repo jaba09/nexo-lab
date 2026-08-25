@@ -1,6 +1,6 @@
 import { getDatabase } from "../../../lib/database";
 import { semesterDefinition } from "../../../lib/semesters";
-import { getAuthenticatedTeacher, hashPassword, passwordValidationError, unauthorizedResponse } from "../../../lib/auth";
+import { getAuthenticatedTeacher, hashPassword, passwordValidationError, readOnlyResponse, unauthorizedResponse } from "../../../lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,7 +162,7 @@ export async function GET() {
       GROUP BY s.id
       ORDER BY s.code`).all() as Record<string, unknown>[];
     const teachers = database.prepare(`SELECT
-      t.id, t.code, t.name, t.email, COUNT(se.id) AS sessionCount
+      t.id, t.code, t.name, t.email, t.is_admin AS isAdmin, COUNT(se.id) AS sessionCount
       FROM teachers t
       LEFT JOIN sessions se ON se.teacher_id = t.id
       GROUP BY t.id
@@ -225,7 +225,7 @@ export async function GET() {
         practiceCodes: String(subject.practiceCodes || "").split(",").filter(Boolean),
         practiceIds: String(subject.practiceIds || "").split(",").filter(Boolean).map(Number),
       })),
-      teachers,
+      teachers: teachers.map((teacher) => ({ ...teacher, isAdmin: Boolean(teacher.isAdmin) })),
       sessions: sessions.map((session) => ({
         ...session,
         degreePracticeIds: String(session.degreePracticeIds || "").split(",").filter(Boolean).map(Number),
@@ -239,7 +239,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
+  const authenticatedTeacher = await getAuthenticatedTeacher();
+  if (!authenticatedTeacher) return unauthorizedResponse();
+  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     const entity = payload.entity;
@@ -306,8 +308,9 @@ export async function POST(request: Request) {
       if (!email) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
       const passwordError = passwordValidationError(payload.password);
       if (passwordError) return Response.json({ error: passwordError }, { status: 400 });
-      database.prepare("INSERT INTO teachers (code, name, email, password_hash) VALUES (?, ?, ?, ?)")
-        .run(code, name, email, hashPassword(String(payload.password)));
+      const isAdmin = payload.isAdmin === true ? 1 : 0;
+      database.prepare("INSERT INTO teachers (code, name, email, password_hash, is_admin) VALUES (?, ?, ?, ?, ?)")
+        .run(code, name, email, hashPassword(String(payload.password)), isAdmin);
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
       const practiceIds = positiveIntegerList(payload.practiceIds);
@@ -333,7 +336,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
+  const authenticatedTeacher = await getAuthenticatedTeacher();
+  if (!authenticatedTeacher) return unauthorizedResponse();
+  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     const entity = payload.entity;
@@ -422,14 +427,24 @@ export async function PUT(request: Request) {
     } else if (entity === "teachers") {
       const email = validEmail(payload.email);
       if (!email) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
+      const existingTeacher = database.prepare("SELECT is_admin AS isAdmin FROM teachers WHERE id = ?")
+        .get(id) as { isAdmin: number };
+      const isAdmin = typeof payload.isAdmin === "boolean" ? payload.isAdmin : Boolean(existingTeacher.isAdmin);
+      if (existingTeacher.isAdmin && !isAdmin) {
+        const adminCount = database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE is_admin = 1").get() as { total: number };
+        if (Number(adminCount.total) <= 1) {
+          return Response.json({ error: "Debe existir al menos un profesor administrador." }, { status: 409 });
+        }
+      }
       const password = typeof payload.password === "string" ? payload.password : "";
       if (password) {
         const passwordError = passwordValidationError(password);
         if (passwordError) return Response.json({ error: passwordError }, { status: 400 });
-        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, password_hash = ? WHERE id = ?")
-          .run(code, name, email, hashPassword(password), id);
+        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, password_hash = ?, is_admin = ? WHERE id = ?")
+          .run(code, name, email, hashPassword(password), isAdmin ? 1 : 0, id);
       } else {
-        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ? WHERE id = ?").run(code, name, email, id);
+        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, is_admin = ? WHERE id = ?")
+          .run(code, name, email, isAdmin ? 1 : 0, id);
       }
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
@@ -466,7 +481,9 @@ export async function PUT(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
+  const authenticatedTeacher = await getAuthenticatedTeacher();
+  if (!authenticatedTeacher) return unauthorizedResponse();
+  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     if (payload.entity !== "sessions") {
@@ -583,6 +600,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const authenticatedTeacher = await getAuthenticatedTeacher();
   if (!authenticatedTeacher) return unauthorizedResponse();
+  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as { entity?: Entity; id?: unknown; ids?: unknown; semesterId?: unknown };
     const entity = payload.entity;

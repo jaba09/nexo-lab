@@ -86,9 +86,12 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(loginResponse.status, 200);
   sessionCookie = loginResponse.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
   assert.match(sessionCookie, /^nexo_lab_session=/);
-  assert.equal((await loginResponse.json()).teacher.email, bootstrapEmail);
+  const loginPayload = await loginResponse.json();
+  assert.equal(loginPayload.teacher.email, bootstrapEmail);
+  assert.equal(loginPayload.teacher.isAdmin, true);
   const authenticatedSessionResponse = await fetch(`${origin}/api/auth/session`);
   assert.equal(authenticatedSessionResponse.status, 200);
+  assert.equal((await authenticatedSessionResponse.json()).teacher.isAdmin, true);
 
   const initialData = await (await fetch(`${origin}/api/data`)).json();
   assert.equal(initialData.laboratories.length, 3);
@@ -105,6 +108,8 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     "sergio.lozano@example.test",
   ]);
   assert.ok(initialData.teachers.every((teacher) => !("passwordHash" in teacher) && !("password_hash" in teacher)));
+  assert.equal(initialData.teachers.find((teacher) => teacher.email === bootstrapEmail).isAdmin, true);
+  assert.ok(initialData.teachers.filter((teacher) => teacher.email !== bootstrapEmail).every((teacher) => teacher.isAdmin === false));
   assert.deepEqual(
     initialData.teachers.map((teacher) => teacher.name),
     [...initialData.teachers.map((teacher) => teacher.name)].sort((left, right) => (
@@ -193,6 +198,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       code: "PRO-01A",
       name: "Dra. Elena Martín actualizada",
       email: "Elena.Martin@Universidad.es",
+      isAdmin: true,
     },
   ];
 
@@ -228,6 +234,22 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(editedTeacher.code, "PRO-01A");
   assert.equal(editedTeacher.name, "Dra. Elena Martín actualizada");
   assert.equal(editedTeacher.email, "elena.martin@universidad.es");
+  assert.equal(editedTeacher.isAdmin, true);
+
+  const removeLastAdministratorResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "teachers",
+      id: editedTeacher.id,
+      code: editedTeacher.code,
+      name: editedTeacher.name,
+      email: editedTeacher.email,
+      isAdmin: false,
+    }),
+  });
+  assert.equal(removeLastAdministratorResponse.status, 409);
+  assert.match((await removeLastAdministratorResponse.json()).error, /al menos un profesor administrador/);
 
   const incompatibleSessionResponse = await fetch(`${origin}/api/data`, {
     method: "POST",
@@ -451,6 +473,7 @@ END:VCALENDAR\r
   const temporaryTeacher = dataWithTemporaryTeacher.teachers.find((teacher) => teacher.code === "PRO-99");
   assert.ok(temporaryTeacher);
   assert.equal(temporaryTeacher.email, "temporal@universidad.es");
+  assert.equal(temporaryTeacher.isAdmin, false);
   const administratorCookie = sessionCookie;
   const temporaryTeacherLogin = await fetch(`${origin}/api/auth/session`, {
     method: "POST",
@@ -459,13 +482,24 @@ END:VCALENDAR\r
   });
   assert.equal(temporaryTeacherLogin.status, 200);
   sessionCookie = temporaryTeacherLogin.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
-  assert.equal((await (await fetch(`${origin}/api/auth/session`)).json()).teacher.id, temporaryTeacher.id);
+  const temporaryTeacherSession = await (await fetch(`${origin}/api/auth/session`)).json();
+  assert.equal(temporaryTeacherSession.teacher.id, temporaryTeacher.id);
+  assert.equal(temporaryTeacherSession.teacher.isAdmin, false);
+  const readOnlyDataResponse = await fetch(`${origin}/api/data`);
+  assert.equal(readOnlyDataResponse.status, 200);
   const selfDeleteResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ entity: "teachers", id: temporaryTeacher.id }),
   });
-  assert.equal(selfDeleteResponse.status, 409);
+  assert.equal(selfDeleteResponse.status, 403);
+  assert.match((await selfDeleteResponse.json()).error, /solo lectura/);
+  const readOnlyImportResponse = await fetch(`${origin}/api/import/ics`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "preview", content: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n" }),
+  });
+  assert.equal(readOnlyImportResponse.status, 403);
   sessionCookie = administratorCookie;
   const deleteTeacherResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",

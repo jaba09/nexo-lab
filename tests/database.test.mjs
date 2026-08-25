@@ -7,6 +7,7 @@ import test from "node:test";
 test("creates the independent SQLite database with the migrated hierarchy", async () => {
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "nexo-lab-db-"));
   process.env.NEXO_LAB_DB_PATH = join(temporaryDirectory, "nexo-lab.sqlite");
+  process.env.NEXO_LAB_BOOTSTRAP_EMAIL = "elena.martin@example.test";
 
   const { getDatabase, getDatabasePath } = await import(`../lib/database.ts?test=${Date.now()}`);
   const database = getDatabase();
@@ -30,6 +31,9 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE email = ''").get().total, 0);
   assert.equal(teacherColumns.find((column) => column.name === "password_hash").notnull, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE password_hash = ''").get().total, 3);
+  assert.equal(teacherColumns.find((column) => column.name === "is_admin").notnull, 1);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE is_admin = 1").get().total, 1);
+  assert.equal(database.prepare("SELECT is_admin AS isAdmin FROM teachers WHERE email = ?").get("elena.martin@example.test").isAdmin, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM auth_sessions").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM password_reset_tokens").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM sessions").get().total, 4);

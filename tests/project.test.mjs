@@ -117,6 +117,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Profesores/);
   assert.match(page, /Correo electrónico/);
   assert.match(page, /type="email"/);
+  assert.match(page, /Administrador/);
+  assert.match(page, /Solo lectura/);
+  assert.match(page, /checked=\{form\.isAdmin\}/);
+  assert.match(page, /canEdit=\{authenticatedTeacher\.isAdmin\}/);
+  assert.match(page, /Modo de solo lectura/);
   assert.match(page, /Iniciar sesión/);
   assert.match(page, /He olvidado mi contraseña/);
   assert.match(page, /Recuperar acceso/);
@@ -145,11 +150,14 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /subjectId/);
   assert.match(page, /Editar/);
   assert.doesNotMatch(page, /edit-button/);
-  assert.equal([...page.matchAll(/className="[^"]*editable-record[^"]*"/g)].length, 6);
+  assert.equal([...page.matchAll(/\? "[^"]*editable-record[^"]*"/g)].length, 6);
   assert.match(page, /function editRecordWithKeyboard/);
   assert.match(page, /event\.target !== event\.currentTarget/);
   assert.match(page, /event\.stopPropagation\(\); onDelete/);
   assert.match(styles, /\.editable-record/);
+  assert.match(styles, /\.read-only-badge/);
+  assert.match(styles, /\.permission-checkbox/);
+  assert.match(styles, /\.permission-tag\.admin/);
   assert.match(styles, /\.entity-table tr\.editable-record:hover td/);
   assert.match(page, /Calendario de sesiones/);
   assert.match(page, /sessionPracticeId/);

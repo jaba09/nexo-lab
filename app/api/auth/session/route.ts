@@ -45,9 +45,9 @@ export async function POST(request: Request) {
   }
 
   const database = getDatabase();
-  const teacher = database.prepare(`SELECT id, code, name, email, password_hash AS passwordHash
+  const teacher = database.prepare(`SELECT id, code, name, email, is_admin AS isAdmin, password_hash AS passwordHash
     FROM teachers WHERE email = ? COLLATE NOCASE`
-  ).get(email) as (AuthenticatedTeacherRow & { passwordHash: string }) | undefined;
+  ).get(email) as (AuthenticatedTeacherRow & { passwordHash: string; isAdmin: number }) | undefined;
 
   if (!teacher) {
     return NextResponse.json({ error: "El correo o la contraseña no son correctos." }, { status: 401 });
@@ -67,15 +67,16 @@ export async function POST(request: Request) {
     }
     const validationError = passwordValidationError(password);
     if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
-    database.prepare("UPDATE teachers SET password_hash = ? WHERE id = ? AND password_hash = ''")
+    database.prepare("UPDATE teachers SET password_hash = ?, is_admin = 1 WHERE id = ? AND password_hash = ''")
       .run(hashPassword(password), teacher.id);
+    teacher.isAdmin = 1;
   } else if (!verifyPassword(password, teacher.passwordHash)) {
     return NextResponse.json({ error: "El correo o la contraseña no son correctos." }, { status: 401 });
   }
 
   const session = createAuthenticationSession(teacher.id);
   const response = NextResponse.json({
-    teacher: { id: teacher.id, code: teacher.code, name: teacher.name, email: teacher.email },
+    teacher: { id: teacher.id, code: teacher.code, name: teacher.name, email: teacher.email, isAdmin: Boolean(teacher.isAdmin) },
   });
   response.cookies.set(authenticationCookie(session.token));
   return response;
