@@ -84,6 +84,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /session\.groupCode \? `G\$\{session\.groupCode\}` : "G—"/);
   assert.match(page, /draggedSession\.groupCode \? `G\$\{draggedSession\.groupCode\}` : "G—"/);
   assert.match(page, /function selectOverviewSession/);
+  assert.match(page, /function selectOverviewSession\(session: Session, event: ReactMouseEvent<HTMLButtonElement>, selectionScope\?: Session\[\]\)/);
+  assert.match(page, /const subjectSessions = selectionScope \?\? sessionsBySubject\.get\(session\.subjectId\) \?\? \[\]/);
+  assert.match(page, /onSelect=\{\(session, event\) => onSelect\(session, event, group\.sessions\)\}/);
+  assert.match(page, /sessionSelectionRangeIds\(subjectSessions, anchorId, session\.id\)/);
   assert.match(page, /function assignOverviewTeacher/);
   assert.match(page, /function assignOverviewPractice/);
   assert.match(page, /function deleteOverviewSessions/);

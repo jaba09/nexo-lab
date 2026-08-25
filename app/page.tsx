@@ -3,6 +3,7 @@
 import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 import { downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
+import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
 type Entity = Exclude<Section, "overview">;
@@ -1798,7 +1799,7 @@ function OverviewGroupedSubjectSessions({
   sessions: Session[];
   dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
-  onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>, selectionScope?: Session[]) => void;
 }) {
   if (!sessions.length) {
     return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
@@ -1893,7 +1894,7 @@ function OverviewGroupedSubjectSessions({
               sessions={group.sessions}
               dayTypesByDate={dayTypesByDate}
               selectedIds={selectedIds}
-              onSelect={onSelect}
+              onSelect={(session, event) => onSelect(session, event, group.sessions)}
             />
           </details>
         );
@@ -2033,15 +2034,12 @@ function Overview({
     onSelectedSemesterChange(semesterId);
   }
 
-  function selectOverviewSession(session: Session, event: ReactMouseEvent<HTMLButtonElement>) {
-    const subjectSessions = sessionsBySubject.get(session.subjectId) ?? [];
+  function selectOverviewSession(session: Session, event: ReactMouseEvent<HTMLButtonElement>, selectionScope?: Session[]) {
+    const subjectSessions = selectionScope ?? sessionsBySubject.get(session.subjectId) ?? [];
     if (event.shiftKey && anchorId !== null) {
-      const anchorIndex = subjectSessions.findIndex((item) => item.id === anchorId);
-      const sessionIndex = subjectSessions.findIndex((item) => item.id === session.id);
-      if (anchorIndex >= 0 && sessionIndex >= 0) {
-        const first = Math.min(anchorIndex, sessionIndex);
-        const last = Math.max(anchorIndex, sessionIndex);
-        setSelectedIds(new Set(subjectSessions.slice(first, last + 1).map((item) => item.id)));
+      const rangeIds = sessionSelectionRangeIds(subjectSessions, anchorId, session.id);
+      if (rangeIds) {
+        setSelectedIds(new Set(rangeIds));
         return;
       }
     }
