@@ -4,6 +4,7 @@ import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as Reac
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 import { downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
+import { downloadTeachersCsv } from "../lib/teacherExports";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
 type Entity = Exclude<Section, "overview">;
@@ -2482,6 +2483,11 @@ function EntityView({
           <p>{entityCopy[entity].description}</p>
         </div>
         <div className="entity-hero-actions">
+          {entity === "teachers" && (
+            <button className="secondary-button" type="button" onClick={() => downloadTeachersCsv([...catalog.teachers].sort(compareTeachersBySurname))}>
+              Exportar CSV
+            </button>
+          )}
           {canEdit ? (
             <>
               {entity === "sessions" && <button className="secondary-button" type="button" onClick={onImport}>Importar ICS</button>}
