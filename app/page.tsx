@@ -2,7 +2,7 @@
 
 import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
-import { downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
+import { downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 
@@ -2171,7 +2171,12 @@ function Overview({
       <section className="panel overview-degree-panel">
         <div className="panel-head">
           <div><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></div>
-          <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
+          <div className="panel-head-actions">
+            <button className="secondary-button overview-export-button" type="button" disabled={!semesterSessions.length} onClick={() => downloadSessionsCsv(semesterSessions, selectedSemester)}>
+              Exportar CSV
+            </button>
+            <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
+          </div>
         </div>
         {orderedDegrees.length ? (
           <div className="overview-degree-list">

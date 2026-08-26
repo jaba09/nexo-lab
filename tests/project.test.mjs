@@ -95,10 +95,13 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.equal([...page.matchAll(/<SessionSelectionActions/g)].length, 2);
   assert.match(page, /downloadSessionsIcs/);
   assert.match(page, /downloadSessionsPdf/);
+  assert.match(page, /downloadSessionsCsv/);
   assert.match(page, /downloadTeachersCsv/);
   assert.match(page, /entity === "teachers"[\s\S]*?Exportar CSV/);
   assert.match(page, /Exportar ICS/);
   assert.match(page, /Exportar PDF/);
+  assert.match(page, /downloadSessionsCsv\(semesterSessions, selectedSemester\)/);
+  assert.match(page, /panel-head-actions/);
   assert.match(styles, /\.calendar-selection-bar \.export-action/);
   assert.match(page, /function practicesAvailableToSessions/);
   assert.match(page, /session\.degreePracticeIds\?\.map\(Number\)/);

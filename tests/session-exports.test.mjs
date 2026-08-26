@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sessionsToIcs, sessionsToPdfArrayBuffer } from "../lib/sessionExports.ts";
+import { sessionsToCsv, sessionsToIcs, sessionsToPdfArrayBuffer } from "../lib/sessionExports.ts";
 
 const sampleSession = {
   id: 42,
@@ -37,4 +37,14 @@ test("exports selected sessions as a valid PDF document", async () => {
   const signature = new TextDecoder().decode(new Uint8Array(content, 0, 4));
   assert.equal(signature, "%PDF");
   assert.ok(content.byteLength > 1_000);
+});
+
+test("exports semester sessions as chronological CSV rows", () => {
+  const laterSession = { ...sampleSession, id: 43, sessionDate: "2026-09-15", startTime: "09:00", duration: 90, subjectCode: "30018" };
+  const content = sessionsToCsv([laterSession, sampleSession]);
+
+  assert.equal(
+    content,
+    "\uFEFFcodigo,fecha,hora_ini,duracion\r\n30013,2026-09-14,10:00,120\r\n30018,2026-09-15,09:00,90\r\n",
+  );
 });

@@ -120,6 +120,20 @@ function exportDateSuffix() {
   return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
 }
 
+function escapeCsvField(value: string) {
+  return /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+export function sessionsToCsv(sessions: ExportableSession[]) {
+  const rows = orderedSessions(sessions).map((session) => [
+    session.subjectCode,
+    session.sessionDate,
+    session.startTime,
+    String(session.duration),
+  ].map(escapeCsvField).join(","));
+  return `\uFEFF${["codigo,fecha,hora_ini,duracion", ...rows].join("\r\n")}\r\n`;
+}
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -132,6 +146,13 @@ function downloadBlob(blob: Blob, filename: string) {
 export function downloadSessionsIcs(sessions: ExportableSession[]) {
   const content = sessionsToIcs(sessions);
   downloadBlob(new Blob([content], { type: "text/calendar;charset=utf-8" }), `sesiones-seleccionadas-${exportDateSuffix()}.ics`);
+}
+
+export function downloadSessionsCsv(sessions: ExportableSession[], semesterId: string) {
+  const content = sessionsToCsv(sessions);
+  const semester = semesterId.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+  const filename = `sesiones-${semester || exportDateSuffix()}.csv`;
+  downloadBlob(new Blob([content], { type: "text/csv;charset=utf-8" }), filename);
 }
 
 async function createSessionsPdf(sessions: ExportableSession[]) {
