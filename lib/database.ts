@@ -279,6 +279,33 @@ function migrateDegreePractices(database: DatabaseSync) {
   }
 }
 
+export function migrateRequestedSessionTimes(database: DatabaseSync) {
+  const migrationKey = "requested_session_times_30013_30018_version";
+  const migrated = database.prepare("SELECT value FROM app_meta WHERE key = ?").get(migrationKey);
+  if (migrated) return;
+
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    database.prepare(`UPDATE sessions
+      SET start_time = '09:00', duration = 120
+      WHERE start_time = '08:00'
+        AND subject_id IN (SELECT id FROM subjects WHERE code = '30013')`).run();
+    database.prepare(`UPDATE sessions
+      SET start_time = '09:00', duration = 120
+      WHERE start_time = '08:00'
+        AND subject_id IN (SELECT id FROM subjects WHERE code = '30018')`).run();
+    database.prepare(`UPDATE sessions
+      SET duration = 120
+      WHERE start_time = '11:00'
+        AND subject_id IN (SELECT id FROM subjects WHERE code = '30018')`).run();
+    database.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?)").run(migrationKey, "1");
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 function migrateSessionTeachers(database: DatabaseSync) {
   const sessionColumns = database.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
   if (sessionColumns.some((column) => column.name === "teacher_id")) return;
@@ -478,6 +505,8 @@ function initializeDatabase(database: DatabaseSync) {
       throw error;
     }
   }
+
+  migrateRequestedSessionTimes(database);
 
   const teacherRolesInitialized = database.prepare("SELECT value FROM app_meta WHERE key = ?")
     .get("teacher_roles_version");
