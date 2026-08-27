@@ -169,6 +169,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /ORDER BY p\.name COLLATE NOCASE, p\.code COLLATE NOCASE/);
   assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /compareSpanish\(left\.name, right\.name\)[\s\S]*?compareSpanish\(left\.code, right\.code\)/);
   assert.match(await readFile(new URL("../lib/database.ts", import.meta.url), "utf8"), /migrateRequestedSessionTimes[\s\S]*?code = '30013'[\s\S]*?code = '30018'/);
+  assert.match(await readFile(new URL("../lib/database.ts", import.meta.url), "utf8"), /migrateRequested29716SessionDurations[\s\S]*?duration = 180[\s\S]*?code = '29716'/);
   assert.match(page, /function comparePracticesByName[\s\S]*?left\.name\.localeCompare\(right\.name[\s\S]*?left\.code\.localeCompare\(right\.code/);
   assert.match(page, /function practiceOptionLabel\(practice: Practice\)[\s\S]*?`\$\{practice\.name\} · \$\{practice\.code\}`/);
   assert.match(page, /function practicesAvailableToSessions[\s\S]*?\.sort\(comparePracticesByName\)/);

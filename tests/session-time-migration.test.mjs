@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { migrateRequestedSessionTimes } from "../lib/database.ts";
+import {
+  migrateRequested29716SessionDurations,
+  migrateRequestedSessionTimes,
+} from "../lib/database.ts";
 
 test("adjusts only the requested subject session times", () => {
   const database = new DatabaseSync(":memory:");
@@ -52,4 +55,42 @@ test("adjusts only the requested subject session times", () => {
     { ...database.prepare("SELECT start_time AS startTime, duration FROM sessions WHERE id = 3").get() },
     { startTime: "08:00", duration: 180 },
   );
+});
+
+test("reduces only 180-minute sessions for subject 29716", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(`
+    CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE subjects (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE);
+    CREATE TABLE sessions (
+      id INTEGER PRIMARY KEY,
+      start_time TEXT NOT NULL,
+      duration INTEGER NOT NULL,
+      subject_id INTEGER NOT NULL
+    );
+    INSERT INTO subjects (id, code) VALUES (1, '29716'), (2, '29717');
+    INSERT INTO sessions (id, start_time, duration, subject_id) VALUES
+      (1, '08:00', 180, 1),
+      (2, '11:00', 120, 1),
+      (3, '08:00', 180, 2);
+  `);
+
+  migrateRequested29716SessionDurations(database);
+
+  assert.deepEqual(
+    database.prepare("SELECT id, duration FROM sessions ORDER BY id").all().map((session) => ({ ...session })),
+    [
+      { id: 1, duration: 120 },
+      { id: 2, duration: 120 },
+      { id: 3, duration: 180 },
+    ],
+  );
+  assert.equal(
+    database.prepare("SELECT value FROM app_meta WHERE key = 'requested_session_duration_29716_version'").get().value,
+    "1",
+  );
+
+  database.prepare("UPDATE sessions SET duration = 180 WHERE id = 1").run();
+  migrateRequested29716SessionDurations(database);
+  assert.equal(database.prepare("SELECT duration FROM sessions WHERE id = 1").get().duration, 180);
 });
