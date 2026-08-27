@@ -74,6 +74,14 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /scheduleSummary/);
   assert.match(page, /groupUnassignedTeacherSessionCount = group\.sessions\.filter\(\(session\) => session\.teacherId === null\)\.length/);
   assert.match(page, /group\.sessions\.length\}<UnassignedTeacherSessionCount count=\{groupUnassignedTeacherSessionCount\}/);
+  assert.match(page, /function OverviewTeacherGroupedSubjectSessions/);
+  assert.match(page, /teacherGroupedSubjectIds/);
+  assert.match(page, /Por profesor/);
+  assert.match(page, /Agrupar las sesiones de \$\{subject\.name\} por profesor/);
+  assert.match(page, /Sesiones de la asignatura agrupadas por profesor/);
+  assert.match(page, /toggleSubjectTeacherGrouping\(subject\.id\)/);
+  assert.match(page, /teacherGroupedSubjectIds\.has\(subject\.id\)[\s\S]*?<OverviewTeacherGroupedSubjectSessions/);
+  assert.match(styles, /\.overview-session-teacher-group/);
   assert.match(styles, /\.overview-subject-group-toggle/);
   assert.match(styles, /\.overview-subject-toggles/);
   assert.match(styles, /\.overview-session-groups/);

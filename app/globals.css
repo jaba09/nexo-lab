@@ -163,6 +163,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-session-group-head > b { text-align: right; font-size: 17px; }
 .overview-session-group-head > b small { display: block; color: var(--muted); font: 650 7px var(--font-geist-mono); text-transform: uppercase; }
 .overview-session-group .overview-session-list.calendar-list { margin: 0; border: 0; border-top: 1px solid #d8ddcc; border-radius: 0; background: transparent; }
+.overview-session-teacher-group .overview-session-group-head { background: #f4eadf; }
+.overview-session-teacher-group .overview-session-group-head:hover { background: #eee0d1; }
+.overview-session-teacher-group .overview-session-group-head > strong { background: var(--coral); color: var(--ink); }
 .overview-session-row { grid-template-columns: 42px minmax(0, 1fr); }
 .overview-session-row .calendar-list-main { padding-left: 4px; }
 .overview-session-empty { margin: 0 0 12px 31px; padding: 14px; border-radius: 8px; background: #efeee8; color: var(--muted); font-size: 9px; }

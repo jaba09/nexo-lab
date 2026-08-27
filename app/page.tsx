@@ -1970,6 +1970,78 @@ function OverviewGroupedSubjectSessions({
   );
 }
 
+function OverviewTeacherGroupedSubjectSessions({
+  subjectId,
+  sessions,
+  dayTypesByDate,
+  selectedIds,
+  onSelect,
+}: {
+  subjectId: number;
+  sessions: Session[];
+  dayTypesByDate: Map<string, "A" | "B">;
+  selectedIds: Set<number>;
+  onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>, selectionScope?: Session[]) => void;
+}) {
+  if (!sessions.length) {
+    return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
+  }
+
+  type TeacherGroup = {
+    teacherId: number | null;
+    teacherCode: string | null;
+    teacherName: string | null;
+    sessions: Session[];
+  };
+  const sessionsByTeacher = new Map<string, TeacherGroup>();
+  for (const session of sessions) {
+    const teacherKey = session.teacherId === null ? "__unassigned__" : String(session.teacherId);
+    const group = sessionsByTeacher.get(teacherKey) ?? {
+      teacherId: session.teacherId,
+      teacherCode: session.teacherCode,
+      teacherName: session.teacherName,
+      sessions: [],
+    };
+    group.sessions.push(session);
+    sessionsByTeacher.set(teacherKey, group);
+  }
+  const orderedGroups = [...sessionsByTeacher.entries()].sort(([, left], [, right]) => {
+    if (left.teacherId === null && right.teacherId !== null) return 1;
+    if (left.teacherId !== null && right.teacherId === null) return -1;
+    return String(left.teacherName ?? "").localeCompare(String(right.teacherName ?? ""), "es", { sensitivity: "base" })
+      || String(left.teacherCode ?? "").localeCompare(String(right.teacherCode ?? ""), "es", { sensitivity: "base" });
+  });
+
+  return (
+    <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por profesor">
+      {orderedGroups.map(([teacherKey, group], groupIndex) => {
+        const teacherName = group.teacherName ?? "Sin profesor asignado";
+        const teacherCode = group.teacherCode ?? "—";
+        const unassignedCount = group.teacherId === null ? group.sessions.length : 0;
+        return (
+          <details className="overview-session-group overview-session-teacher-group" key={teacherKey}>
+            <summary className="overview-session-group-head">
+              <span className="overview-session-group-chevron" aria-hidden="true">›</span>
+              <strong>{teacherCode}</strong>
+              <span className={`overview-session-group-schedule${group.teacherId === null ? " session-teacher-unassigned" : ""}`}>{teacherName}</span>
+              <b>{group.sessions.length}<UnassignedTeacherSessionCount count={unassignedCount} /><small>{group.sessions.length === 1 ? "sesión" : "sesiones"}</small></b>
+            </summary>
+            <OverviewSessionsList
+              headingPrefix={`overview-subject-${subjectId}-teacher-${groupIndex}`}
+              ariaLabel={`Sesiones de ${teacherName} ordenadas cronológicamente`}
+              emptyMessage="Este profesor no tiene sesiones en el semestre seleccionado."
+              sessions={group.sessions}
+              dayTypesByDate={dayTypesByDate}
+              selectedIds={selectedIds}
+              onSelect={(session, event) => onSelect(session, event, group.sessions)}
+            />
+          </details>
+        );
+      })}
+    </div>
+  );
+}
+
 function OverviewTeacherSessions({
   teacherKey,
   teacherName,
@@ -2023,6 +2095,7 @@ function Overview({
   const [deleting, setDeleting] = useState(false);
   const [expandedTeacherKeys, setExpandedTeacherKeys] = useState<Set<string>>(() => new Set());
   const [groupedSubjectIds, setGroupedSubjectIds] = useState<Set<number>>(() => new Set());
+  const [teacherGroupedSubjectIds, setTeacherGroupedSubjectIds] = useState<Set<number>>(() => new Set());
   const dayTypesByDate = useMemo(() => (
     new Map(data.academicDayTypes.map((item) => [item.date, item.dayType]))
   ), [data.academicDayTypes]);
@@ -2142,12 +2215,37 @@ function Overview({
   }
 
   function toggleSubjectGrouping(subjectId: number) {
+    const enableGrouping = !groupedSubjectIds.has(subjectId);
     setGroupedSubjectIds((current) => {
       const next = new Set(current);
-      if (next.has(subjectId)) next.delete(subjectId);
-      else next.add(subjectId);
+      if (enableGrouping) next.add(subjectId);
+      else next.delete(subjectId);
       return next;
     });
+    if (enableGrouping) {
+      setTeacherGroupedSubjectIds((current) => {
+        const next = new Set(current);
+        next.delete(subjectId);
+        return next;
+      });
+    }
+  }
+
+  function toggleSubjectTeacherGrouping(subjectId: number) {
+    const enableGrouping = !teacherGroupedSubjectIds.has(subjectId);
+    setTeacherGroupedSubjectIds((current) => {
+      const next = new Set(current);
+      if (enableGrouping) next.add(subjectId);
+      else next.delete(subjectId);
+      return next;
+    });
+    if (enableGrouping) {
+      setGroupedSubjectIds((current) => {
+        const next = new Set(current);
+        next.delete(subjectId);
+        return next;
+      });
+    }
   }
 
   function toggleFirstUnassignedSubgroups(subjectSessions: Session[]) {
@@ -2301,6 +2399,21 @@ function Overview({
                                   <span className="overview-subject-toggle-label">Por subgrupos</span>
                                 </button>
                                 <button
+                                  className="overview-subject-group-toggle"
+                                  type="button"
+                                  role="checkbox"
+                                  aria-checked={teacherGroupedSubjectIds.has(subject.id)}
+                                  aria-label={`Agrupar las sesiones de ${subject.name} por profesor`}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    toggleSubjectTeacherGrouping(subject.id);
+                                  }}
+                                >
+                                  <span className="overview-subject-group-box" aria-hidden="true">{teacherGroupedSubjectIds.has(subject.id) ? "✓" : ""}</span>
+                                  <span className="overview-subject-toggle-label">Por profesor</span>
+                                </button>
+                                <button
                                   className="overview-subject-group-toggle overview-subject-select-toggle"
                                   type="button"
                                   role="checkbox"
@@ -2322,7 +2435,15 @@ function Overview({
                               </span>
                               <b>{subjectSessionCount}<UnassignedTeacherSessionCount count={subjectUnassignedTeacherSessionCount} /><small>{subjectSessionCount === 1 ? "sesión" : "sesiones"}</small></b>
                             </summary>
-                            {groupedSubjectIds.has(subject.id) ? (
+                            {teacherGroupedSubjectIds.has(subject.id) ? (
+                              <OverviewTeacherGroupedSubjectSessions
+                                subjectId={subject.id}
+                                sessions={subjectSessions}
+                                dayTypesByDate={dayTypesByDate}
+                                selectedIds={selectedIds}
+                                onSelect={selectOverviewSession}
+                              />
+                            ) : groupedSubjectIds.has(subject.id) ? (
                               <OverviewGroupedSubjectSessions
                                 subjectId={subject.id}
                                 sessions={subjectSessions}
