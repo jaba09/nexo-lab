@@ -186,6 +186,47 @@ type IcsImportResult = {
   createdDegreeCount: number;
 };
 
+type SessionAssignmentPreview = {
+  totalRows: number;
+  matchedCount: number;
+  assignedTeacherRows: number;
+  unassignedTeacherRows: number;
+  alreadyAssignedCount: number;
+  sameAssignmentCount: number;
+  conflictingAssignmentCount: number;
+  durationMismatchCount: number;
+  unmatchedCount: number;
+  invalidCount: number;
+  invalidRows: { rowNumber: number; message: string }[];
+  unmatchedRows: { rowNumber: number; message: string }[];
+  unknownTeacherCodes: string[];
+};
+
+type SessionAssignmentImportResult = {
+  matchedCount: number;
+  updatedCount: number;
+  assignedCount: number;
+  clearedCount: number;
+  preservedCount: number;
+  unchangedCount: number;
+  durationMismatchCount: number;
+};
+
+function sessionAssignmentImportMessage(result: SessionAssignmentImportResult) {
+  const details = [
+    result.updatedCount === 0
+      ? "No fue necesario cambiar ninguna asignación."
+      : result.updatedCount === 1
+        ? "Se actualizó una sesión."
+        : `Se actualizaron ${result.updatedCount} sesiones.`,
+  ];
+  if (result.assignedCount) details.push(`${result.assignedCount} quedaron con profesor asignado.`);
+  if (result.clearedCount) details.push(`${result.clearedCount} quedaron sin profesor.`);
+  if (result.preservedCount) details.push(`Se conservaron ${result.preservedCount} asignaciones existentes.`);
+  if (result.durationMismatchCount) details.push(`Se ignoraron ${result.durationMismatchCount} diferencias de duración.`);
+  return `Importación completada. ${details.join(" ")}`;
+}
+
 function icsImportMessage(result: IcsImportResult) {
   const details = [
     result.importedCount === 0
@@ -698,6 +739,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [assignmentImportOpen, setAssignmentImportOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
@@ -1104,6 +1146,13 @@ export default function Home() {
     });
   }
 
+  async function finishSessionAssignmentImport(result: SessionAssignmentImportResult) {
+    setAssignmentImportOpen(false);
+    await loadData();
+    setActive("overview");
+    setNotice({ kind: "success", message: sessionAssignmentImportMessage(result) });
+  }
+
   const activeTitle = active === "overview" ? "Vista general" : entityCopy[active].plural;
 
   if (!authenticationChecked) {
@@ -1189,6 +1238,7 @@ export default function Home() {
               onAssignPractice={assignPracticeToSessions}
               onAssignTeacher={assignTeacherToSessions}
               onDeleteSessions={deleteSessions}
+              onImportAssignments={() => setAssignmentImportOpen(true)}
             />
           ) : (
             <EntityView
@@ -1538,6 +1588,13 @@ export default function Home() {
           data={data}
           onClose={() => setImportOpen(false)}
           onImported={finishIcsImport}
+        />
+      )}
+
+      {assignmentImportOpen && authenticatedTeacher.isAdmin && (
+        <SessionAssignmentImportDialog
+          onClose={() => setAssignmentImportOpen(false)}
+          onImported={finishSessionAssignmentImport}
         />
       )}
     </div>
@@ -1949,6 +2006,7 @@ function Overview({
   onAssignPractice,
   onAssignTeacher,
   onDeleteSessions,
+  onImportAssignments,
 }: {
   data: AppData;
   canEdit: boolean;
@@ -1957,6 +2015,7 @@ function Overview({
   onAssignPractice: (ids: number[], practiceId: number | null) => Promise<boolean>;
   onAssignTeacher: (ids: number[], teacherId: number | null) => Promise<boolean>;
   onDeleteSessions: (request: SessionDeleteRequest, confirmation: string) => Promise<boolean>;
+  onImportAssignments: () => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [anchorId, setAnchorId] = useState<number | null>(null);
@@ -2172,6 +2231,11 @@ function Overview({
         <div className="panel-head">
           <div><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></div>
           <div className="panel-head-actions">
+            {canEdit && (
+              <button className="secondary-button overview-import-button" type="button" onClick={onImportAssignments}>
+                Importar asignación sesiones
+              </button>
+            )}
             <button className="secondary-button overview-export-button" type="button" disabled={!semesterSessions.length} onClick={() => downloadSessionsCsv(semesterSessions, selectedSemester)}>
               Exportar CSV
             </button>
@@ -3417,6 +3481,181 @@ function CalendarView({
         </div>
       )}
     </section>
+  );
+}
+
+function SessionAssignmentImportDialog({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: (result: SessionAssignmentImportResult) => void | Promise<void>;
+}) {
+  const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<SessionAssignmentPreview | null>(null);
+  const [conflictMode, setConflictMode] = useState<"" | "keep-existing" | "overwrite-existing">("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function assignmentImportResponse<T>(response: Response, fallbackMessage: string) {
+    const body = await response.text();
+    if (!body) throw new Error(fallbackMessage);
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      throw new Error(fallbackMessage);
+    }
+  }
+
+  function friendlyAssignmentImportError(problem: unknown, fallbackMessage: string) {
+    const message = problem instanceof Error ? problem.message : fallbackMessage;
+    if (/expected pattern|unexpected end|failed to fetch|networkerror|load failed/i.test(message)) {
+      return "No se pudo transferir el CSV. Vuelve a seleccionarlo y comprueba que tenga el formato esperado.";
+    }
+    return message || fallbackMessage;
+  }
+
+  async function selectAssignmentFile(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    setPreview(null);
+    setConflictMode("");
+    try {
+      if (!file.name.toLowerCase().endsWith(".csv")) throw new Error("El archivo debe tener extensión .csv.");
+      setFileName(file.name);
+      setSelectedFile(file);
+      const formData = new FormData();
+      formData.append("action", "preview");
+      formData.append("file", file, file.name);
+      const response = await fetch(apiUrl("/api/import/session-assignments"), { method: "POST", body: formData });
+      const result = await assignmentImportResponse<SessionAssignmentPreview & { error?: string }>(
+        response,
+        "El servidor no pudo analizar el archivo CSV.",
+      );
+      if (!response.ok) throw new Error(result.error || "No se pudo analizar el archivo CSV.");
+      setPreview(result);
+      if (result.alreadyAssignedCount === 0) setConflictMode("overwrite-existing");
+    } catch (problem) {
+      setError(friendlyAssignmentImportError(problem, "No se pudo analizar el archivo CSV."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importAssignments(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!preview || !selectedFile || !conflictMode) return;
+    setBusy(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("action", "import");
+      formData.append("conflictMode", conflictMode);
+      formData.append("file", selectedFile, selectedFile.name);
+      const response = await fetch(apiUrl("/api/import/session-assignments"), { method: "POST", body: formData });
+      const result = await assignmentImportResponse<SessionAssignmentImportResult & { error?: string }>(
+        response,
+        "El servidor no pudo importar las asignaciones.",
+      );
+      if (!response.ok) throw new Error(result.error || "No se pudieron importar las asignaciones.");
+      await onImported(result);
+    } catch (problem) {
+      setError(friendlyAssignmentImportError(problem, "No se pudieron importar las asignaciones."));
+      setBusy(false);
+    }
+  }
+
+  const hasBlockingProblems = Boolean(
+    preview && (preview.invalidCount || preview.unmatchedCount || preview.unknownTeacherCodes.length),
+  );
+
+  return (
+    <div className="import-dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
+      <section className="import-dialog assignment-import-dialog" role="dialog" aria-modal="true" aria-labelledby="assignment-import-title">
+        <div className="drawer-head">
+          <div>
+            <span className="entity-pill">CSV</span>
+            <h2 id="assignment-import-title">Importar asignación de sesiones</h2>
+            <p>Asigna profesores a las sesiones existentes usando las siglas incluidas en el CSV.</p>
+          </div>
+          <button className="icon-button" type="button" disabled={busy} onClick={onClose} aria-label="Cerrar importación">×</button>
+        </div>
+
+        <form className="ics-import-form" onSubmit={importAssignments}>
+          <label className="ics-file-picker">
+            <input type="file" accept=".csv,text/csv" disabled={busy} onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => void selectAssignmentFile(event.target.files?.[0])} />
+            <span>{busy && !preview ? "Analizando…" : fileName || "Seleccionar archivo CSV"}</span>
+            <strong>Examinar</strong>
+          </label>
+
+          {error && <div className="ics-error" role="alert">{error}</div>}
+
+          {preview && (
+            <>
+              <div className="ics-summary assignment-import-summary">
+                <div><strong>{preview.totalRows}</strong><span>filas del CSV</span></div>
+                <div><strong>{preview.matchedCount}</strong><span>sesiones encontradas</span></div>
+                <div><strong>{preview.assignedTeacherRows}</strong><span>con profesor</span></div>
+                <div><strong>{preview.alreadyAssignedCount}</strong><span>ya asignadas</span></div>
+              </div>
+
+              {preview.durationMismatchCount > 0 && (
+                <div className="dependency-message assignment-import-warning">
+                  <strong>{preview.durationMismatchCount} {preview.durationMismatchCount === 1 ? "duración no coincide" : "duraciones no coinciden"}.</strong>
+                  <span>Las sesiones se han identificado por asignatura, fecha y hora. La importación no modificará su duración.</span>
+                </div>
+              )}
+              {preview.invalidCount > 0 && (
+                <div className="ics-error" role="alert">
+                  <strong>{preview.invalidCount} {preview.invalidCount === 1 ? "fila no es válida" : "filas no son válidas"}.</strong>
+                  {preview.invalidRows.map((issue) => <span key={`${issue.rowNumber}-${issue.message}`}>Fila {issue.rowNumber}: {issue.message}</span>)}
+                </div>
+              )}
+              {preview.unmatchedCount > 0 && (
+                <div className="ics-error" role="alert">
+                  <strong>{preview.unmatchedCount} {preview.unmatchedCount === 1 ? "fila no corresponde" : "filas no corresponden"} a una sesión existente.</strong>
+                  {preview.unmatchedRows.map((issue) => <span key={`${issue.rowNumber}-${issue.message}`}>Fila {issue.rowNumber}: {issue.message}</span>)}
+                </div>
+              )}
+              {preview.unknownTeacherCodes.length > 0 && (
+                <div className="ics-error" role="alert">
+                  <strong>Hay profesores que no existen.</strong>
+                  <span>Crea primero estos profesores o corrige sus siglas: {preview.unknownTeacherCodes.join(", ")}.</span>
+                </div>
+              )}
+
+              {preview.alreadyAssignedCount > 0 && !hasBlockingProblems && (
+                <fieldset className="assignment-conflict-options">
+                  <legend>Hay {preview.alreadyAssignedCount} {preview.alreadyAssignedCount === 1 ? "sesión que ya tiene" : "sesiones que ya tienen"} profesor. ¿Qué quieres hacer?</legend>
+                  <label className={conflictMode === "keep-existing" ? "selected" : ""}>
+                    <input type="radio" name="assignment-conflict" value="keep-existing" checked={conflictMode === "keep-existing"} onChange={() => setConflictMode("keep-existing")} />
+                    <span><strong>Conservar asignaciones existentes</strong><small>Solo completa sesiones sin profesor; no modifica ninguna sesión ya asignada.</small></span>
+                  </label>
+                  <label className={conflictMode === "overwrite-existing" ? "selected" : ""}>
+                    <input type="radio" name="assignment-conflict" value="overwrite-existing" checked={conflictMode === "overwrite-existing"} onChange={() => setConflictMode("overwrite-existing")} />
+                    <span><strong>Aplicar las asignaciones del CSV</strong><small>Sustituye el profesor actual; una celda de siglas vacía deja la sesión sin profesor.</small></span>
+                  </label>
+                </fieldset>
+              )}
+
+              <div className="form-summary">
+                <span aria-hidden="true">i</span>
+                <p>Las sesiones se emparejan por código de asignatura, fecha y hora; cuando coinciden varias, se respeta el orden de subgrupo. Solo cambia el profesor. El CSV debe incluir las columnas codigo, fecha, hora_ini, duracion y siglas.</p>
+              </div>
+            </>
+          )}
+
+          <div className="form-actions">
+            <button className="secondary-button" type="button" disabled={busy} onClick={onClose}>Cancelar</button>
+            <button className="primary-button" type="submit" disabled={busy || !preview || !preview.matchedCount || hasBlockingProblems || !conflictMode}>
+              {busy && preview ? "Importando…" : "Importar asignaciones"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 

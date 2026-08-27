@@ -139,6 +139,73 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     { date: "2027-03-08", dayType: "A" },
   );
 
+  const assignmentSession = initialData.sessions[0];
+  const originalAssignmentTeacher = initialData.teachers.find((teacher) => teacher.id === assignmentSession.teacherId);
+  const importedAssignmentTeacher = initialData.teachers.find((teacher) => teacher.id !== assignmentSession.teacherId);
+  assert.ok(originalAssignmentTeacher && importedAssignmentTeacher);
+  function assignmentCsv(teacherCode, duration = assignmentSession.duration + 1) {
+    return `codigo,fecha,hora_ini,duracion,siglas\n${assignmentSession.subjectCode},${assignmentSession.sessionDate},${assignmentSession.startTime},${duration},${teacherCode}\n`;
+  }
+  function assignmentFormData(action, teacherCode, conflictMode) {
+    const formData = new FormData();
+    formData.append("action", action);
+    if (conflictMode) formData.append("conflictMode", conflictMode);
+    formData.append("file", new Blob([assignmentCsv(teacherCode)], { type: "text/csv" }), "asignaciones.csv");
+    return formData;
+  }
+
+  const assignmentPreviewResponse = await fetch(`${origin}/api/import/session-assignments`, {
+    method: "POST",
+    body: assignmentFormData("preview", importedAssignmentTeacher.code),
+  });
+  assert.equal(assignmentPreviewResponse.status, 200);
+  const assignmentPreview = await assignmentPreviewResponse.json();
+  assert.equal(assignmentPreview.totalRows, 1);
+  assert.equal(assignmentPreview.matchedCount, 1);
+  assert.equal(assignmentPreview.alreadyAssignedCount, 1);
+  assert.equal(assignmentPreview.conflictingAssignmentCount, 1);
+  assert.equal(assignmentPreview.durationMismatchCount, 1);
+
+  const assignmentWithoutDecisionResponse = await fetch(`${origin}/api/import/session-assignments`, {
+    method: "POST",
+    body: assignmentFormData("import", importedAssignmentTeacher.code),
+  });
+  assert.equal(assignmentWithoutDecisionResponse.status, 400);
+  assert.match((await assignmentWithoutDecisionResponse.json()).error, /Elige qué hacer/);
+
+  const keepAssignmentResponse = await fetch(`${origin}/api/import/session-assignments`, {
+    method: "POST",
+    body: assignmentFormData("import", importedAssignmentTeacher.code, "keep-existing"),
+  });
+  assert.equal(keepAssignmentResponse.status, 200);
+  assert.deepEqual(await keepAssignmentResponse.json(), {
+    matchedCount: 1,
+    updatedCount: 0,
+    assignedCount: 0,
+    clearedCount: 0,
+    preservedCount: 1,
+    unchangedCount: 0,
+    durationMismatchCount: 1,
+  });
+
+  const overwriteAssignmentResponse = await fetch(`${origin}/api/import/session-assignments`, {
+    method: "POST",
+    body: assignmentFormData("import", importedAssignmentTeacher.code, "overwrite-existing"),
+  });
+  assert.equal(overwriteAssignmentResponse.status, 200);
+  assert.equal((await overwriteAssignmentResponse.json()).updatedCount, 1);
+  const dataWithImportedAssignment = await (await fetch(`${origin}/api/data`)).json();
+  assert.equal(
+    dataWithImportedAssignment.sessions.find((session) => session.id === assignmentSession.id).teacherId,
+    importedAssignmentTeacher.id,
+  );
+
+  const restoreAssignmentResponse = await fetch(`${origin}/api/import/session-assignments`, {
+    method: "POST",
+    body: assignmentFormData("import", originalAssignmentTeacher.code, "overwrite-existing"),
+  });
+  assert.equal(restoreAssignmentResponse.status, 200);
+
   const protectedSubjectResponse = await fetch(`${origin}/api/data`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
@@ -506,6 +573,11 @@ END:VCALENDAR\r
     body: JSON.stringify({ action: "preview", content: "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n" }),
   });
   assert.equal(readOnlyImportResponse.status, 403);
+  const readOnlyAssignmentImportResponse = await fetch(`${origin}/api/import/session-assignments`, {
+    method: "POST",
+    body: assignmentFormData("preview", originalAssignmentTeacher.code),
+  });
+  assert.equal(readOnlyAssignmentImportResponse.status, 403);
   sessionCookie = administratorCookie;
   const deleteTeacherResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",

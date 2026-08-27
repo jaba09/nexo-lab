@@ -203,6 +203,18 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Calendario de sesiones/);
   assert.match(page, /sessionPracticeId/);
   assert.match(page, /Importar ICS/);
+  assert.match(page, /Importar asignación sesiones/);
+  assert.match(page, /canEdit && \([\s\S]*?Importar asignación sesiones/);
+  assert.match(page, /function SessionAssignmentImportDialog/);
+  assert.match(page, /Hay \{preview\.alreadyAssignedCount\}[\s\S]*?¿Qué quieres hacer\?/);
+  assert.match(page, /Conservar asignaciones existentes/);
+  assert.match(page, /Aplicar las asignaciones del CSV/);
+  assert.match(page, /\/api\/import\/session-assignments/);
+  assert.match(styles, /\.assignment-conflict-options/);
+  const assignmentImportRoute = await readFile(new URL("../app/api/import/session-assignments/route.ts", import.meta.url), "utf8");
+  assert.match(assignmentImportRoute, /authenticatedTeacher\.isAdmin/);
+  assert.match(assignmentImportRoute, /keep-existing/);
+  assert.match(assignmentImportRoute, /overwrite-existing/);
   assert.match(page, /Prácticas de laboratorio/);
   assert.match(page, /SUMMARY comienza por “Día festivo”/);
   assert.match(page, /preview\.holidayCount/);
