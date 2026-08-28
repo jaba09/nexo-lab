@@ -146,7 +146,17 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Administrador/);
   assert.match(page, /Solo lectura/);
   assert.match(page, /checked=\{form\.isAdmin\}/);
-  assert.match(page, /canEdit=\{authenticatedTeacher\.isAdmin\}/);
+  assert.match(page, /Profesores editores/);
+  assert.match(page, /form\.editorIds\.includes\(teacher\.id\)/);
+  assert.match(page, /Editor \{code\}/);
+  assert.match(page, /editableSubjectIds/);
+  assert.match(page, /hasSubjectEditorRole/);
+  assert.match(page, /canEditSession/);
+  assert.match(page, /Asignatura a la que se vincula/);
+  assert.match(styles, /\.subject-editor-tag/);
+  assert.match(styles, /\.permission-tag\.editor/);
+  assert.match(styles, /\.editor-picker-help/);
+  assert.match(page, /canDelete=\{authenticatedTeacher\.isAdmin\}/);
   assert.match(page, /Modo de solo lectura/);
   assert.match(page, /Iniciar sesión/);
   assert.match(page, /He olvidado mi contraseña/);

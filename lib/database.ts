@@ -66,6 +66,12 @@ const schemaStatements = [
     is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS subject_editors (
+    subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (subject_id, teacher_id)
+  )`,
   `CREATE TABLE IF NOT EXISTS auth_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     token_hash TEXT NOT NULL UNIQUE,
@@ -119,6 +125,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_installations_laboratory_id ON installations(laboratory_id)",
   "CREATE INDEX IF NOT EXISTS idx_subjects_degree_id ON subjects(degree_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_practices_practice_id ON subject_practices(practice_id)",
+  "CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)",
 ];
 
 const seedStatements = [
@@ -454,6 +461,7 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_practice_installations_installation_id ON practice_installations(installation_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_sessions_subject_practice ON sessions(subject_id, practice_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_sessions_teacher_id ON sessions(teacher_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_teacher_id ON auth_sessions(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_teacher_id ON password_reset_tokens(teacher_id)");

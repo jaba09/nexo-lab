@@ -65,6 +65,8 @@ type Subject = {
   practiceCount: number;
   practiceCodes: string[];
   practiceIds: number[];
+  editorCodes: string[];
+  editorIds: number[];
 };
 
 type Teacher = {
@@ -272,6 +274,7 @@ type AppData = {
   sessions: Session[];
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
+  editableSubjectIds: number[];
 };
 
 type CalendarFilters = {
@@ -326,6 +329,7 @@ const emptyData: AppData = {
   sessions: [],
   holidays: [],
   academicDayTypes: [],
+  editableSubjectIds: [],
 };
 
 const emptyCalendarFilters: CalendarFilters = {
@@ -525,6 +529,7 @@ const initialForm = {
   level: "Grado",
   icsCode: "",
   practiceIds: [] as number[],
+  editorIds: [] as number[],
   sessionDate: "",
   startTime: "09:00",
   degreeId: "",
@@ -837,6 +842,7 @@ export default function Home() {
       sessions: data.sessions.filter(matches),
       holidays: data.holidays,
       academicDayTypes: data.academicDayTypes,
+      editableSubjectIds: data.editableSubjectIds,
     };
   }, [data, search]);
 
@@ -844,6 +850,21 @@ export default function Home() {
     () => [...data.practices].sort(comparePracticesByName),
     [data.practices],
   );
+  const editableSubjectIdSet = useMemo(
+    () => new Set(data.editableSubjectIds.map(Number)),
+    [data.editableSubjectIds],
+  );
+  const hasSubjectEditorRole = !authenticatedTeacher?.isAdmin && editableSubjectIdSet.size > 0;
+
+  function canCreateEntity(entity: Entity) {
+    return Boolean(authenticatedTeacher?.isAdmin || (
+      hasSubjectEditorRole && ["installations", "practices", "sessions"].includes(entity)
+    ));
+  }
+
+  function canEditSession(session: Session) {
+    return Boolean(authenticatedTeacher?.isAdmin || editableSubjectIdSet.has(session.subjectId));
+  }
 
   const counts = {
     laboratories: data.laboratories.length,
@@ -856,6 +877,8 @@ export default function Home() {
   };
 
   const sessionSubjectOptions = data.subjects.filter((subject) => (
+    (authenticatedTeacher?.isAdmin || editableSubjectIdSet.has(subject.id))
+    &&
     String(subject.degreeId) === form.degreeId
     && (editingId !== null || subject.practiceIds.length > 0)
   ));
@@ -869,8 +892,12 @@ export default function Home() {
   );
 
   function openCreate(entity: Entity) {
-    if (!authenticatedTeacher?.isAdmin) return;
-    const schedulableSubject = data.subjects.find((subject) => subject.practiceIds.length > 0);
+    if (!canCreateEntity(entity)) return;
+    const availableSubjects = authenticatedTeacher?.isAdmin
+      ? data.subjects
+      : data.subjects.filter((subject) => editableSubjectIdSet.has(subject.id));
+    const schedulableSubject = availableSubjects.find((subject) => subject.practiceIds.length > 0)
+      ?? availableSubjects[0];
     setForm({
       ...initialForm,
       laboratoryId: data.laboratories[0]?.id.toString() ?? "",
@@ -878,7 +905,7 @@ export default function Home() {
       sessionDate: localIsoDate(),
       degreeId: (entity === "subjects" ? data.degrees[0]?.id : schedulableSubject?.degreeId)?.toString() ?? "",
       subjectId: schedulableSubject?.id.toString() ?? "",
-      teacherId: data.teachers[0]?.id.toString() ?? "",
+      teacherId: (hasSubjectEditorRole ? authenticatedTeacher?.id : data.teachers[0]?.id)?.toString() ?? "",
       sessionPracticeId: schedulableSubject?.practiceIds[0]?.toString() ?? "",
     });
     setEditingId(null);
@@ -887,7 +914,7 @@ export default function Home() {
   }
 
   function openEdit(entity: Entity, item: EntityRecord) {
-    if (!authenticatedTeacher?.isAdmin) return;
+    if (!authenticatedTeacher?.isAdmin && (entity !== "sessions" || !canEditSession(item as Session))) return;
     if (entity === "laboratories") {
       const laboratory = item as Laboratory;
       setForm({
@@ -936,6 +963,7 @@ export default function Home() {
         name: subject.name,
         degreeId: String(subject.degreeId),
         practiceIds: subject.practiceIds,
+        editorIds: subject.editorIds,
       });
     } else if (entity === "teachers") {
       const teacher = item as Teacher;
@@ -967,7 +995,13 @@ export default function Home() {
 
   async function submitEntity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!drawer || !authenticatedTeacher?.isAdmin) return;
+    if (!drawer) return;
+    const editingAllowed = editingId === null
+      ? canCreateEntity(drawer)
+      : drawer === "sessions" && editingSession
+        ? canEditSession(editingSession)
+        : Boolean(authenticatedTeacher?.isAdmin);
+    if (!editingAllowed) return;
     if (sessionDateBlocked) {
       setNotice({ kind: "error", message: "No se puede crear ni mover una sesión a un día festivo." });
       return;
@@ -1053,7 +1087,8 @@ export default function Home() {
   }
 
   async function assignPracticeToSessions(ids: number[], practiceId: number | null) {
-    if (!authenticatedTeacher?.isAdmin) return false;
+    const selectedSessions = data.sessions.filter((session) => ids.includes(session.id));
+    if (!ids.length || selectedSessions.length !== ids.length || selectedSessions.some((session) => !canEditSession(session))) return false;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
@@ -1082,7 +1117,8 @@ export default function Home() {
   }
 
   async function assignTeacherToSessions(ids: number[], teacherId: number | null) {
-    if (!authenticatedTeacher?.isAdmin) return false;
+    const selectedSessions = data.sessions.filter((session) => ids.includes(session.id));
+    if (!ids.length || selectedSessions.length !== ids.length || selectedSessions.some((session) => !canEditSession(session))) return false;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
@@ -1112,7 +1148,8 @@ export default function Home() {
   }
 
   async function moveSession(id: number, sessionDate: string, startTime: string) {
-    if (!authenticatedTeacher?.isAdmin) return false;
+    const session = data.sessions.find((item) => item.id === id);
+    if (!session || !canEditSession(session)) return false;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
@@ -1164,7 +1201,7 @@ export default function Home() {
   }
 
   return (
-    <div className={authenticatedTeacher.isAdmin ? "app-shell" : "app-shell read-only"}>
+    <div className={authenticatedTeacher.isAdmin || hasSubjectEditorRole ? "app-shell" : "app-shell read-only"}>
       <aside className="sidebar">
         <button className="brand" type="button" onClick={() => showSection("overview")} aria-label="Ir a la vista general">
           <span className="brand-mark">N</span>
@@ -1212,7 +1249,7 @@ export default function Home() {
             )}
             <div className="account-summary">
               <span className="profile-button" aria-hidden="true">{authenticatedTeacher.code}</span>
-              <span><strong>{authenticatedTeacher.name}</strong><small>{authenticatedTeacher.isAdmin ? "Administrador" : "Solo lectura"} · {authenticatedTeacher.email}</small></span>
+              <span><strong>{authenticatedTeacher.name}</strong><small>{authenticatedTeacher.isAdmin ? "Administrador" : hasSubjectEditorRole ? `Editor · ${editableSubjectIdSet.size} ${editableSubjectIdSet.size === 1 ? "asignatura" : "asignaturas"}` : "Solo lectura"} · {authenticatedTeacher.email}</small></span>
               <button type="button" onClick={logout}>Salir</button>
             </div>
           </div>
@@ -1232,7 +1269,9 @@ export default function Home() {
           ) : active === "overview" ? (
             <Overview
               data={data}
-              canEdit={authenticatedTeacher.isAdmin}
+              canEdit={authenticatedTeacher.isAdmin || hasSubjectEditorRole}
+              canDelete={authenticatedTeacher.isAdmin}
+              editableSubjectIds={data.editableSubjectIds}
               selectedSemester={selectedSemester}
               onSelectedSemesterChange={setSelectedSemester}
               onAssignPractice={assignPracticeToSessions}
@@ -1243,7 +1282,10 @@ export default function Home() {
           ) : (
             <EntityView
               entity={active}
-              canEdit={authenticatedTeacher.isAdmin}
+              canCreate={canCreateEntity(active)}
+              canEditItem={(item) => authenticatedTeacher.isAdmin || (active === "sessions" && canEditSession(item as Session))}
+              canDelete={authenticatedTeacher.isAdmin}
+              editableSubjectIds={data.editableSubjectIds}
               data={filtered}
               catalog={data}
               search={search}
@@ -1255,7 +1297,10 @@ export default function Home() {
                     : active === "subjects"
                       ? data.degrees.length === 0
                     : active === "sessions"
-                      ? !data.subjects.some((subject) => subject.practiceIds.length > 0) || data.teachers.length === 0
+                      ? !data.subjects.some((subject) => (
+                        (authenticatedTeacher.isAdmin || editableSubjectIdSet.has(subject.id))
+                        && subject.practiceIds.length > 0
+                      )) || data.teachers.length === 0
                       : false
               }
               onCreate={openCreate}
@@ -1273,7 +1318,9 @@ export default function Home() {
         </div>
       </main>
 
-      {drawer && authenticatedTeacher.isAdmin && (
+      {drawer && (editingId === null
+        ? canCreateEntity(drawer)
+        : authenticatedTeacher.isAdmin || (drawer === "sessions" && editingSession && canEditSession(editingSession))) && (
         <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDrawer(null)}>
           <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
             <div className="drawer-head">
@@ -1386,6 +1433,17 @@ export default function Home() {
 
               {drawer === "practices" && (
                 <>
+                  {!authenticatedTeacher.isAdmin && (
+                    <label>
+                      <span>Asignatura a la que se vincula</span>
+                      <select required value={form.subjectId} onChange={(event) => setForm({ ...form, subjectId: event.target.value })}>
+                        <option value="">Selecciona una asignatura</option>
+                        {data.subjects.filter((subject) => editableSubjectIdSet.has(subject.id)).map((subject) => (
+                          <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <fieldset className="practice-picker">
                     <legend>Instalaciones que utiliza <small>Una o más</small></legend>
                     {data.installations.map((installation) => (
@@ -1465,6 +1523,25 @@ export default function Home() {
                       </label>
                     ))}
                   </fieldset>
+                  <fieldset className="practice-picker editor-picker">
+                    <legend>Profesores editores <small>Opcional</small></legend>
+                    {data.teachers.length === 0 ? <p>Crea primero un profesor para poder darle permisos.</p> : [...data.teachers].sort(compareTeachersBySurname).map((teacher) => (
+                      <label key={teacher.id}>
+                        <input
+                          type="checkbox"
+                          checked={form.editorIds.includes(teacher.id)}
+                          onChange={(event) => setForm({
+                            ...form,
+                            editorIds: event.target.checked
+                              ? [...form.editorIds, teacher.id]
+                              : form.editorIds.filter((id) => id !== teacher.id),
+                          })}
+                        />
+                        <span><strong>{teacher.code}</strong>{teacher.name}</span>
+                      </label>
+                    ))}
+                    <p className="editor-picker-help">Pueden añadir instalaciones y prácticas, y crear o editar únicamente las sesiones de esta asignatura.</p>
+                  </fieldset>
                 </>
               )}
 
@@ -1492,6 +1569,8 @@ export default function Home() {
                       value={form.degreeId}
                       onChange={(event) => {
                         const subject = data.subjects.find((item) => (
+                          (authenticatedTeacher.isAdmin || editableSubjectIdSet.has(item.id))
+                          &&
                           String(item.degreeId) === event.target.value
                           && (editingId !== null || item.practiceIds.length > 0)
                         ));
@@ -1508,6 +1587,8 @@ export default function Home() {
                     >
                       <option value="">Selecciona un grado</option>
                       {data.degrees.filter((degree) => data.subjects.some((subject) => (
+                        (authenticatedTeacher.isAdmin || editableSubjectIdSet.has(subject.id))
+                        &&
                         subject.degreeId === degree.id
                         && (editingId !== null || subject.practiceIds.length > 0)
                       ))).map((degree) => (
@@ -1654,6 +1735,7 @@ function SessionSelectionActions({
   subjects,
   teachers,
   canEdit,
+  canDelete,
   assigning,
   deleting,
   onAssignTeacher,
@@ -1666,6 +1748,7 @@ function SessionSelectionActions({
   subjects: Subject[];
   teachers: Teacher[];
   canEdit: boolean;
+  canDelete: boolean;
   assigning: boolean;
   deleting: boolean;
   onAssignTeacher: (teacherId: number | null) => void;
@@ -1726,7 +1809,7 @@ function SessionSelectionActions({
         Exportar PDF
       </button>
       <button type="button" onClick={onClear}>Limpiar selección</button>
-      {canEdit && <button className="danger-action" type="button" disabled={deleting} onClick={onDelete}>Borrar selección</button>}
+      {canDelete && <button className="danger-action" type="button" disabled={deleting} onClick={onDelete}>Borrar selección</button>}
     </div>
   );
 }
@@ -2073,6 +2156,8 @@ function OverviewTeacherSessions({
 function Overview({
   data,
   canEdit,
+  canDelete,
+  editableSubjectIds,
   selectedSemester,
   onSelectedSemesterChange,
   onAssignPractice,
@@ -2082,6 +2167,8 @@ function Overview({
 }: {
   data: AppData;
   canEdit: boolean;
+  canDelete: boolean;
+  editableSubjectIds: number[];
   selectedSemester: string;
   onSelectedSemesterChange: (semesterId: string) => void;
   onAssignPractice: (ids: number[], practiceId: number | null) => Promise<boolean>;
@@ -2155,6 +2242,9 @@ function Overview({
   ));
   const orderedTeachers = [...data.teachers].sort(compareTeachersBySurname);
   const selectedSessions = semesterSessions.filter((session) => selectedIds.has(session.id));
+  const editableSubjectIdSet = new Set(editableSubjectIds.map(Number));
+  const canEditSelectedSessions = selectedSessions.length > 0
+    && selectedSessions.every((session) => editableSubjectIdSet.has(session.subjectId));
 
   useEffect(() => {
     const clearSelectionWithEscape = (event: KeyboardEvent) => {
@@ -2312,7 +2402,8 @@ function Overview({
               practices={data.practices}
               subjects={data.subjects}
               teachers={data.teachers}
-              canEdit={canEdit}
+              canEdit={canEditSelectedSessions}
+              canDelete={canDelete}
               assigning={assigning}
               deleting={deleting}
               onAssignTeacher={(teacherId) => void assignOverviewTeacher(teacherId)}
@@ -2329,7 +2420,7 @@ function Overview({
         <div className="panel-head">
           <div><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></div>
           <div className="panel-head-actions">
-            {canEdit && (
+            {canDelete && (
               <button className="secondary-button overview-import-button" type="button" onClick={onImportAssignments}>
                 Importar asignación sesiones
               </button>
@@ -2615,7 +2706,10 @@ function SemesterFocus({
 
 function EntityView({
   entity,
-  canEdit,
+  canCreate,
+  canEditItem,
+  canDelete,
+  editableSubjectIds,
   data,
   catalog,
   search,
@@ -2632,7 +2726,10 @@ function EntityView({
   onSelectedSemesterChange,
 }: {
   entity: Entity;
-  canEdit: boolean;
+  canCreate: boolean;
+  canEditItem: (item: EntityRecord) => boolean;
+  canDelete: boolean;
+  editableSubjectIds: number[];
   data: AppData;
   catalog: AppData;
   search: string;
@@ -2660,7 +2757,7 @@ function EntityView({
     teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
   }
   function editRecordWithKeyboard(event: ReactKeyboardEvent<HTMLElement>, item: EntityRecord) {
-    if (!canEdit || event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+    if (!canEditItem(item) || event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
     onEdit(entity, item);
   }
@@ -2678,9 +2775,9 @@ function EntityView({
               Exportar CSV
             </button>
           )}
-          {canEdit ? (
+          {canCreate ? (
             <>
-              {entity === "sessions" && <button className="secondary-button" type="button" onClick={onImport}>Importar ICS</button>}
+              {entity === "sessions" && canDelete && <button className="secondary-button" type="button" onClick={onImport}>Importar ICS</button>}
               <button className="primary-button" type="button" disabled={dependencyMissing} onClick={() => onCreate(entity)}>
                 <span>+</span> Añadir {entityCopy[entity].singular}
               </button>
@@ -2689,7 +2786,7 @@ function EntityView({
         </div>
       </section>
 
-      {canEdit && dependencyMissing && (
+      {canCreate && dependencyMissing && (
         <div className="dependency-message">Para crear este elemento, añade antes su nivel superior en la jerarquía.</div>
       )}
 
@@ -2705,7 +2802,9 @@ function EntityView({
           subjects={catalog.subjects}
           practices={catalog.practices}
           teachers={catalog.teachers}
-          canEdit={canEdit}
+          canEdit={canCreate}
+          canDelete={canDelete}
+          editableSubjectIds={editableSubjectIds}
           onEdit={(session) => onEdit(entity, session)}
           onDelete={(session) => onDelete(entity, session.id, `${session.practiceCode || session.subjectCode || "Sesión incompleta"} · ${session.sessionDate} ${session.startTime}`)}
           onAssignPractice={onAssignPractice}
@@ -2720,13 +2819,13 @@ function EntityView({
           <span>{search ? "⌕" : "+"}</span>
           <h2>{search ? "No hay coincidencias" : `Aún no hay ${entityCopy[entity].plural.toLowerCase()}`}</h2>
           <p>{search ? "Prueba con otro código, nombre o relación." : "Crea el primer registro para empezar a construir la estructura."}</p>
-          {canEdit && !search && !dependencyMissing && <button className="primary-button" type="button" onClick={() => onCreate(entity)}>Crear ahora</button>}
+          {canCreate && !search && !dependencyMissing && <button className="primary-button" type="button" onClick={() => onCreate(entity)}>Crear ahora</button>}
         </div>
       ) : entity === "laboratories" ? (
         <div className="laboratory-grid">
           {(items as Laboratory[]).map((lab) => (
-            <div className={canEdit ? "laboratory-card editable-record" : "laboratory-card"} key={lab.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${lab.name}` : undefined} onClick={canEdit ? () => onEdit(entity, lab) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, lab) : undefined}>
-              <div className="card-top"><span className="entity-pill">{lab.code}</span>{canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, lab.id, lab.name); }} aria-label={`Eliminar ${lab.name}`}>×</button></div>}</div>
+            <div className={canEditItem(lab) ? "laboratory-card editable-record" : "laboratory-card"} key={lab.id} role={canEditItem(lab) ? "button" : undefined} tabIndex={canEditItem(lab) ? 0 : undefined} aria-label={canEditItem(lab) ? `Editar ${lab.name}` : undefined} onClick={canEditItem(lab) ? () => onEdit(entity, lab) : undefined} onKeyDown={canEditItem(lab) ? (event) => editRecordWithKeyboard(event, lab) : undefined}>
+              <div className="card-top"><span className="entity-pill">{lab.code}</span>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, lab.id, lab.name); }} aria-label={`Eliminar ${lab.name}`}>×</button></div>}</div>
               <h2>{lab.name}</h2>
               <p><span>Ubicación</span>{lab.location}</p>
               <p><span>Responsable</span>{lab.manager}</p>
@@ -2737,22 +2836,22 @@ function EntityView({
       ) : entity === "degrees" ? (
         <div className="degree-list">
           {(items as Degree[]).map((degree) => (
-            <div className={canEdit ? "degree-card editable-record" : "degree-card"} key={degree.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${degree.name}` : undefined} onClick={canEdit ? () => onEdit(entity, degree) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, degree) : undefined}>
+            <div className={canEditItem(degree) ? "degree-card editable-record" : "degree-card"} key={degree.id} role={canEditItem(degree) ? "button" : undefined} tabIndex={canEditItem(degree) ? 0 : undefined} aria-label={canEditItem(degree) ? `Editar ${degree.name}` : undefined} onClick={canEditItem(degree) ? () => onEdit(entity, degree) : undefined} onKeyDown={canEditItem(degree) ? (event) => editRecordWithKeyboard(event, degree) : undefined}>
               <div className="degree-code"><span>{degree.code}</span><small>{degree.level}</small></div>
               <div className="degree-main"><h2>{degree.name}</h2><p>{degree.icsCode ? `ICS ${degree.icsCode}` : "Sin código ICS"} · {degree.subjectCount} {degree.subjectCount === 1 ? "asignatura" : "asignaturas"}</p></div>
               <div className="tag-list">{degree.subjectCodes.length ? degree.subjectCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin asignaturas</em>}</div>
-              {canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, degree.id, degree.name); }} aria-label={`Eliminar ${degree.name}`}>×</button></div>}
+              {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, degree.id, degree.name); }} aria-label={`Eliminar ${degree.name}`}>×</button></div>}
             </div>
           ))}
         </div>
       ) : entity === "subjects" ? (
         <div className="degree-list">
           {(items as Subject[]).map((subject) => (
-            <div className={canEdit ? "degree-card editable-record" : "degree-card"} key={subject.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${subject.name}` : undefined} onClick={canEdit ? () => onEdit(entity, subject) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, subject) : undefined}>
+            <div className={canEditItem(subject) ? "degree-card editable-record" : "degree-card"} key={subject.id} role={canEditItem(subject) ? "button" : undefined} tabIndex={canEditItem(subject) ? 0 : undefined} aria-label={canEditItem(subject) ? `Editar ${subject.name}` : undefined} onClick={canEditItem(subject) ? () => onEdit(entity, subject) : undefined} onKeyDown={canEditItem(subject) ? (event) => editRecordWithKeyboard(event, subject) : undefined}>
               <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
               <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation ? `${subject.abbreviation} · ` : "Sin abreviatura · "}{subject.degreeCode} · {subject.degreeName}</p></div>
-              <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin prácticas</em>}</div>
-              {canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
+              <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
+              {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
             </div>
           ))}
         </div>
@@ -2775,12 +2874,13 @@ function EntityView({
           <div className="degree-list">
             {[...(items as Teacher[])].sort(compareTeachersBySurname).map((teacher) => {
               const semesterSessionCount = teacherSessionCounts.get(teacher.id) ?? 0;
+              const editorSubjectCount = catalog.subjects.filter((subject) => subject.editorIds.includes(teacher.id)).length;
               return (
-                <div className={canEdit ? "degree-card editable-record" : "degree-card"} key={teacher.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${teacher.name}` : undefined} onClick={canEdit ? () => onEdit(entity, teacher) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, teacher) : undefined}>
+                <div className={canEditItem(teacher) ? "degree-card editable-record" : "degree-card"} key={teacher.id} role={canEditItem(teacher) ? "button" : undefined} tabIndex={canEditItem(teacher) ? 0 : undefined} aria-label={canEditItem(teacher) ? `Editar ${teacher.name}` : undefined} onClick={canEditItem(teacher) ? () => onEdit(entity, teacher) : undefined} onKeyDown={canEditItem(teacher) ? (event) => editRecordWithKeyboard(event, teacher) : undefined}>
                   <div className="degree-code teacher"><span>{teacher.code}</span><small>PRO</small></div>
                   <div className="degree-main"><h2>{teacher.name}</h2><p>{teacher.email || "Sin correo electrónico"}</p></div>
-                  <div className="tag-list"><span className={teacher.isAdmin ? "permission-tag admin" : "permission-tag"}>{teacher.isAdmin ? "Administrador" : "Solo lectura"}</span><span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
-                  {canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, teacher.id, teacher.name); }} aria-label={`Eliminar ${teacher.name}`}>×</button></div>}
+                  <div className="tag-list"><span className={teacher.isAdmin ? "permission-tag admin" : editorSubjectCount ? "permission-tag editor" : "permission-tag"}>{teacher.isAdmin ? "Administrador" : editorSubjectCount ? `Editor · ${editorSubjectCount} ${editorSubjectCount === 1 ? "asignatura" : "asignaturas"}` : "Solo lectura"}</span><span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
+                  {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, teacher.id, teacher.name); }} aria-label={`Eliminar ${teacher.name}`}>×</button></div>}
                 </div>
               );
             })}
@@ -2798,20 +2898,20 @@ function EntityView({
             </tr></thead>
             <tbody>
               {entity === "installations" ? (items as Installation[]).map((item) => (
-                <tr className={canEdit ? "editable-record" : undefined} key={item.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${item.name}` : undefined} onClick={canEdit ? () => onEdit(entity, item) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, item) : undefined}>
+                <tr className={canEditItem(item) ? "editable-record" : undefined} key={item.id} role={canEditItem(item) ? "button" : undefined} tabIndex={canEditItem(item) ? 0 : undefined} aria-label={canEditItem(item) ? `Editar ${item.name}` : undefined} onClick={canEditItem(item) ? () => onEdit(entity, item) : undefined} onKeyDown={canEditItem(item) ? (event) => editRecordWithKeyboard(event, item) : undefined}>
                   <td><span className="table-code">{item.code}</span><strong>{item.name}</strong><small>{item.practiceCount} prácticas</small></td>
                   <td>{item.laboratoryName}</td>
                   <td>{item.category}<small>{item.capacity} personas</small></td>
                   <td><span className={`status-chip ${item.status === "Operativa" ? "ok" : "warn"}`}>{item.status}</span></td>
-                  <td>{canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
+                  <td>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
                 </tr>
               )) : (items as Practice[]).map((item) => (
-                <tr className={canEdit ? "editable-record" : undefined} key={item.id} role={canEdit ? "button" : undefined} tabIndex={canEdit ? 0 : undefined} aria-label={canEdit ? `Editar ${item.name}` : undefined} onClick={canEdit ? () => onEdit(entity, item) : undefined} onKeyDown={canEdit ? (event) => editRecordWithKeyboard(event, item) : undefined}>
+                <tr className={canEditItem(item) ? "editable-record" : undefined} key={item.id} role={canEditItem(item) ? "button" : undefined} tabIndex={canEditItem(item) ? 0 : undefined} aria-label={canEditItem(item) ? `Editar ${item.name}` : undefined} onClick={canEditItem(item) ? () => onEdit(entity, item) : undefined} onKeyDown={canEditItem(item) ? (event) => editRecordWithKeyboard(event, item) : undefined}>
                   <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} asignaturas</small></td>
                   <td>{item.installationNames}<small>{item.installationCount} instalaciones</small></td>
                   <td>{item.laboratoryNames}</td>
                   <td>{item.duration} min<small>Riesgo {item.riskLevel.toLowerCase()}</small></td>
-                  <td>{canEdit && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
+                  <td>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
                 </tr>
               ))}
             </tbody>
@@ -2826,6 +2926,8 @@ function CalendarView({
   sessions,
   allSessions,
   canEdit,
+  canDelete,
+  editableSubjectIds,
   holidays,
   academicDayTypes,
   laboratories,
@@ -2846,6 +2948,8 @@ function CalendarView({
   sessions: Session[];
   allSessions: Session[];
   canEdit: boolean;
+  canDelete: boolean;
+  editableSubjectIds: number[];
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
   laboratories: Laboratory[];
@@ -2880,6 +2984,11 @@ function CalendarView({
   const [movingSessionId, setMovingSessionId] = useState<number | null>(null);
   const [monthDropDate, setMonthDropDate] = useState<string | null>(null);
   const [weekDropPreview, setWeekDropPreview] = useState<CalendarDropPreview | null>(null);
+  const editableSubjectIdSet = useMemo(
+    () => new Set(editableSubjectIds.map(Number)),
+    [editableSubjectIds],
+  );
+  const canEditSession = (session: Session) => editableSubjectIdSet.has(session.subjectId);
   const dayTypesByDate = useMemo(() => (
     new Map(academicDayTypes.map((item) => [item.date, item.dayType]))
   ), [academicDayTypes]);
@@ -2989,6 +3098,8 @@ function CalendarView({
   const selectedSessions = useMemo(() => (
     filteredSemesterSessions.filter((session) => selectedIds.has(session.id))
   ), [filteredSemesterSessions, selectedIds]);
+  const canEditSelectedSessions = selectedSessions.length > 0
+    && selectedSessions.every(canEditSession);
 
   useEffect(() => {
     if (calendarView !== "list") return;
@@ -3166,7 +3277,7 @@ function CalendarView({
   }
 
   function beginSessionDrag(event: ReactDragEvent<HTMLElement>, session: Session) {
-    if (!canEdit) return;
+    if (!canEditSession(session)) return;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(session.id));
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -3274,6 +3385,7 @@ function CalendarView({
   }
 
   function renderSession(session: Session, weekly = false, weeklyPosition?: WeeklySessionPosition) {
+    const editable = canEditSession(session);
     const start = calendarSessionStartMinutes(session);
     const clippedStart = Math.max(start, calendarWeekStartHour * 60);
     const clippedEnd = Math.min(start + session.duration, calendarWeekEndHour * 60);
@@ -3292,19 +3404,19 @@ function CalendarView({
         className={`session-event ${weekly ? "weekly-session" : "monthly-session"}${weeklyPosition && weeklyPosition.laneCount > 1 ? ` overlapping-session overlap-lane-${weeklyPosition.lane % 4}` : ""}${session.practiceId === null ? " incomplete" : ""}${selectedIds.has(session.id) ? " selected" : ""}${draggedSessionId === session.id ? " dragging" : ""}${movingSessionId === session.id ? " moving" : ""}`}
         key={session.id}
         style={weeklyStyle}
-        draggable={canEdit && movingSessionId === null}
-        aria-roledescription={canEdit ? "Sesión arrastrable" : undefined}
-        onDragStart={canEdit ? (event) => beginSessionDrag(event, session) : undefined}
-        onDragEnd={canEdit ? endSessionDrag : undefined}
+        draggable={editable && movingSessionId === null}
+        aria-roledescription={editable ? "Sesión arrastrable" : undefined}
+        onDragStart={editable ? (event) => beginSessionDrag(event, session) : undefined}
+        onDragEnd={editable ? endSessionDrag : undefined}
       >
         <button
           className="session-event-main"
           type="button"
           aria-pressed={selectedIds.has(session.id)}
           onClick={(event) => selectSession(session, event)}
-          onDoubleClick={canEdit ? () => onEdit(session) : undefined}
+          onDoubleClick={editable ? () => onEdit(session) : undefined}
           aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
-          title={canEdit ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar"}
+          title={editable ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar"}
         >
           {weekly ? (
             <>
@@ -3326,7 +3438,7 @@ function CalendarView({
             </span>
           )}
         </button>
-        {canEdit && <button className="session-event-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>}
+        {canDelete && <button className="session-event-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>}
       </article>
     );
   }
@@ -3347,12 +3459,12 @@ function CalendarView({
           aria-pressed={selected}
           aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"} del ${formattedDate} a las ${session.startTime}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
           onClick={(event) => selectSession(session, event)}
-          onDoubleClick={canEdit ? () => onEdit(session) : undefined}
-          title={canEdit ? "Clic para seleccionar · doble clic para editar" : "Clic para seleccionar y exportar"}
+          onDoubleClick={canEditSession(session) ? () => onEdit(session) : undefined}
+          title={canEditSession(session) ? "Clic para seleccionar · doble clic para editar" : "Clic para seleccionar y exportar"}
         >
           <SessionListColumns session={session} />
         </button>
-        {canEdit && <button className="calendar-list-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>}
+        {canDelete && <button className="calendar-list-delete" type="button" onClick={() => { clearSelection(); onDelete(session); }} aria-label={`Eliminar sesión de ${session.practiceName || session.subjectCode || "laboratorio"}`}>×</button>}
       </article>
     );
   }
@@ -3376,7 +3488,7 @@ function CalendarView({
             <button type="button" aria-pressed={calendarView === "week"} onClick={() => changeCalendarView("week")}>Semana</button>
             <button type="button" aria-pressed={calendarView === "list"} onClick={() => changeCalendarView("list")}>Lista</button>
           </div>
-          {canEdit && <button className="calendar-delete-button" type="button" disabled={!allSemesterSessionIds.length || deleting} onClick={() => void deleteSemesterSessions()}>Borrar semestre</button>}
+          {canDelete && <button className="calendar-delete-button" type="button" disabled={!allSemesterSessionIds.length || deleting} onClick={() => void deleteSemesterSessions()}>Borrar semestre</button>}
           <span className="incomplete-legend"><i /> Incompleta: sin práctica</span>
           {calendarView !== "list" && (
             <div className="calendar-navigation" aria-label={calendarView === "month" ? "Navegar por meses" : "Navegar por semanas"}>
@@ -3435,7 +3547,7 @@ function CalendarView({
         {selectedIds.size ? (
           <>
             <strong>{selectedIds.size} {selectedIds.size === 1 ? "sesión seleccionada" : "sesiones seleccionadas"}</strong>
-            <span>{canEdit
+            <span>{canEditSelectedSessions
               ? calendarView === "list" ? "Shift + clic amplía el rango · Esc limpia" : "Arrastra para mover · Shift + clic amplía el rango"
               : "Exporta la selección en PDF o ICS · Esc limpia"}</span>
             <SessionSelectionActions
@@ -3443,7 +3555,8 @@ function CalendarView({
               practices={practices}
               subjects={subjects}
               teachers={teachers}
-              canEdit={canEdit}
+              canEdit={canEditSelectedSessions}
+              canDelete={canDelete}
               assigning={assigning}
               deleting={deleting}
               onAssignTeacher={(teacherId) => void assignTeacher(teacherId)}
@@ -3750,12 +3863,12 @@ function SessionAssignmentImportDialog({
               {preview.alreadyAssignedCount > 0 && !hasBlockingProblems && (
                 <fieldset className="assignment-conflict-options">
                   <legend>Hay {preview.alreadyAssignedCount} {preview.alreadyAssignedCount === 1 ? "sesión que ya tiene" : "sesiones que ya tienen"} profesor. ¿Qué quieres hacer?</legend>
-                  <label className={conflictMode === "keep-existing" ? "selected" : ""}>
-                    <input type="radio" name="assignment-conflict" value="keep-existing" checked={conflictMode === "keep-existing"} onChange={() => setConflictMode("keep-existing")} />
+                  <label aria-label="Conservar asignaciones existentes" htmlFor="assignment-conflict-keep" className={conflictMode === "keep-existing" ? "selected" : ""}>
+                    <input id="assignment-conflict-keep" type="radio" name="assignment-conflict" value="keep-existing" checked={conflictMode === "keep-existing"} onChange={() => setConflictMode("keep-existing")} />
                     <span><strong>Conservar asignaciones existentes</strong><small>Solo completa sesiones sin profesor; no modifica ninguna sesión ya asignada.</small></span>
                   </label>
-                  <label className={conflictMode === "overwrite-existing" ? "selected" : ""}>
-                    <input type="radio" name="assignment-conflict" value="overwrite-existing" checked={conflictMode === "overwrite-existing"} onChange={() => setConflictMode("overwrite-existing")} />
+                  <label aria-label="Aplicar las asignaciones del CSV" htmlFor="assignment-conflict-overwrite" className={conflictMode === "overwrite-existing" ? "selected" : ""}>
+                    <input id="assignment-conflict-overwrite" type="radio" name="assignment-conflict" value="overwrite-existing" checked={conflictMode === "overwrite-existing"} onChange={() => setConflictMode("overwrite-existing")} />
                     <span><strong>Aplicar las asignaciones del CSV</strong><small>Sustituye el profesor actual; una celda de siglas vacía deja la sesión sin profesor.</small></span>
                   </label>
                 </fieldset>

@@ -125,6 +125,7 @@ test("migrates degree-practice relations to subjects without losing sessions", a
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM auth_sessions").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM password_reset_tokens").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_practices").get().total, 1);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_editors").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM holidays").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM academic_day_types").get().total, 120);
   assert.equal(database.prepare("SELECT day_type AS dayType FROM academic_day_types WHERE day_date = ?").get("2027-03-01").dayType, "A");

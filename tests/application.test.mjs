@@ -547,6 +547,25 @@ END:VCALENDAR\r
   assert.ok(temporaryTeacher);
   assert.equal(temporaryTeacher.email, "temporal@universidad.es");
   assert.equal(temporaryTeacher.isAdmin, false);
+  const subjectForEditor = dataWithTemporaryTeacher.subjects.find((subject) => subject.id === 1);
+  const grantSubjectEditorResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "subjects",
+      id: subjectForEditor.id,
+      code: subjectForEditor.code,
+      abbreviation: subjectForEditor.abbreviation,
+      name: subjectForEditor.name,
+      degreeId: subjectForEditor.degreeId,
+      practiceIds: subjectForEditor.practiceIds,
+      editorIds: [temporaryTeacher.id],
+    }),
+  });
+  assert.equal(grantSubjectEditorResponse.status, 200);
+  const dataWithSubjectEditor = await (await fetch(`${origin}/api/data`)).json();
+  assert.deepEqual(dataWithSubjectEditor.subjects.find((subject) => subject.id === 1).editorIds, [temporaryTeacher.id]);
+  assert.deepEqual(dataWithSubjectEditor.subjects.find((subject) => subject.id === 1).editorCodes, [temporaryTeacher.code]);
   const administratorCookie = sessionCookie;
   const temporaryTeacherLogin = await fetch(`${origin}/api/auth/session`, {
     method: "POST",
@@ -560,13 +579,120 @@ END:VCALENDAR\r
   assert.equal(temporaryTeacherSession.teacher.isAdmin, false);
   const readOnlyDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(readOnlyDataResponse.status, 200);
+  const editorData = await readOnlyDataResponse.json();
+  assert.deepEqual(editorData.editableSubjectIds, [subjectForEditor.id]);
+
+  const editorInstallationResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "installations",
+      code: "INS-EDITOR",
+      name: "Instalación creada por editor",
+      laboratoryId: 1,
+      category: "Docente",
+      capacity: 12,
+      status: "Operativa",
+    }),
+  });
+  assert.equal(editorInstallationResponse.status, 201);
+  const dataWithEditorInstallation = await (await fetch(`${origin}/api/data`)).json();
+  const editorInstallation = dataWithEditorInstallation.installations.find((installation) => installation.code === "INS-EDITOR");
+  assert.ok(editorInstallation);
+
+  const editorPracticeResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "practices",
+      code: "PRA-EDITOR",
+      name: "Práctica creada por editor",
+      subjectId: subjectForEditor.id,
+      installationIds: [editorInstallation.id],
+      duration: 120,
+      riskLevel: "Bajo",
+    }),
+  });
+  assert.equal(editorPracticeResponse.status, 201);
+  const dataWithEditorPractice = await (await fetch(`${origin}/api/data`)).json();
+  const editorPractice = dataWithEditorPractice.practices.find((practice) => practice.code === "PRA-EDITOR");
+  assert.ok(editorPractice);
+  assert.ok(dataWithEditorPractice.subjects.find((subject) => subject.id === subjectForEditor.id).practiceIds.includes(editorPractice.id));
+
+  const editorSessionResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      sessionDate: "2099-10-01",
+      startTime: "09:00",
+      duration: 120,
+      subjectId: subjectForEditor.id,
+      teacherId: temporaryTeacher.id,
+      practiceId: editorPractice.id,
+    }),
+  });
+  assert.equal(editorSessionResponse.status, 201);
+  const dataWithEditorSession = await (await fetch(`${origin}/api/data`)).json();
+  const editorSession = dataWithEditorSession.sessions.find((session) => session.sessionDate === "2099-10-01");
+  assert.ok(editorSession);
+
+  const editorEditSessionResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      id: editorSession.id,
+      sessionDate: editorSession.sessionDate,
+      startTime: "10:00",
+      duration: editorSession.duration,
+      subjectId: editorSession.subjectId,
+      teacherId: editorSession.teacherId,
+      practiceId: editorSession.practiceId,
+    }),
+  });
+  assert.equal(editorEditSessionResponse.status, 200);
+  const editorMoveSessionResponse = await fetch(`${origin}/api/data`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      action: "move",
+      id: editorSession.id,
+      sessionDate: "2099-10-02",
+      startTime: "11:00",
+    }),
+  });
+  assert.equal(editorMoveSessionResponse.status, 200);
+
+  const forbiddenEditorSessionResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      sessionDate: "2099-10-03",
+      startTime: "09:00",
+      duration: 120,
+      subjectId: 3,
+      teacherId: temporaryTeacher.id,
+      practiceId: 3,
+    }),
+  });
+  assert.equal(forbiddenEditorSessionResponse.status, 403);
+  assert.match((await forbiddenEditorSessionResponse.json()).error, /No tienes permiso/);
+  const forbiddenEditorSubjectResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "subjects", id: subjectForEditor.id }),
+  });
+  assert.equal(forbiddenEditorSubjectResponse.status, 403);
   const selfDeleteResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ entity: "teachers", id: temporaryTeacher.id }),
   });
   assert.equal(selfDeleteResponse.status, 403);
-  assert.match((await selfDeleteResponse.json()).error, /solo lectura/);
+  assert.match((await selfDeleteResponse.json()).error, /Solo los administradores/);
   const readOnlyImportResponse = await fetch(`${origin}/api/import/ics`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -579,6 +705,40 @@ END:VCALENDAR\r
   });
   assert.equal(readOnlyAssignmentImportResponse.status, 403);
   sessionCookie = administratorCookie;
+  const deleteEditorSessionResponse = await fetch(`${origin}/api/data`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "sessions", id: editorSession.id }),
+  });
+  assert.equal(deleteEditorSessionResponse.status, 200);
+  const subjectAfterEditorCreates = (await (await fetch(`${origin}/api/data`)).json()).subjects.find((subject) => subject.id === subjectForEditor.id);
+  const revokeSubjectEditorResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "subjects",
+      id: subjectAfterEditorCreates.id,
+      code: subjectAfterEditorCreates.code,
+      abbreviation: subjectAfterEditorCreates.abbreviation,
+      name: subjectAfterEditorCreates.name,
+      degreeId: subjectAfterEditorCreates.degreeId,
+      practiceIds: subjectAfterEditorCreates.practiceIds.filter((practiceId) => practiceId !== editorPractice.id),
+      editorIds: [],
+    }),
+  });
+  assert.equal(revokeSubjectEditorResponse.status, 200);
+  const deleteEditorPracticeResponse = await fetch(`${origin}/api/data`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "practices", id: editorPractice.id }),
+  });
+  assert.equal(deleteEditorPracticeResponse.status, 200);
+  const deleteEditorInstallationResponse = await fetch(`${origin}/api/data`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "installations", id: editorInstallation.id }),
+  });
+  assert.equal(deleteEditorInstallationResponse.status, 200);
   const deleteTeacherResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",
     headers: { "content-type": "application/json" },

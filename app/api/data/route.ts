@@ -92,8 +92,24 @@ function isHoliday(database: ReturnType<typeof getDatabase>, date: string) {
   return Boolean(database.prepare("SELECT 1 FROM holidays WHERE holiday_date = ?").get(date));
 }
 
+function editableSubjectIds(database: ReturnType<typeof getDatabase>, teacherId: number) {
+  return (database.prepare("SELECT subject_id AS subjectId FROM subject_editors WHERE teacher_id = ?")
+    .all(teacherId) as { subjectId: number }[]).map(({ subjectId }) => Number(subjectId));
+}
+
+function canEditSubject(database: ReturnType<typeof getDatabase>, teacherId: number, subjectId: number) {
+  return Boolean(database.prepare(
+    "SELECT 1 FROM subject_editors WHERE teacher_id = ? AND subject_id = ?",
+  ).get(teacherId, subjectId));
+}
+
+function editorPermissionResponse(message = "No tienes permiso para modificar esta asignatura.") {
+  return Response.json({ error: message }, { status: 403 });
+}
+
 export async function GET() {
-  if (!await getAuthenticatedTeacher()) return unauthorizedResponse();
+  const authenticatedTeacher = await getAuthenticatedTeacher();
+  if (!authenticatedTeacher) return unauthorizedResponse();
   try {
     const database = getDatabase();
     const laboratories = database.prepare(`SELECT
@@ -158,7 +174,9 @@ export async function GET() {
       d.code AS degreeCode, d.name AS degreeName,
       COUNT(sp.practice_id) AS practiceCount,
       COALESCE(GROUP_CONCAT(p.code, ','), '') AS practiceCodes,
-      COALESCE(GROUP_CONCAT(p.id, ','), '') AS practiceIds
+      COALESCE(GROUP_CONCAT(p.id, ','), '') AS practiceIds,
+      COALESCE((SELECT GROUP_CONCAT(se.teacher_id, ',') FROM subject_editors se WHERE se.subject_id = s.id), '') AS editorIds,
+      COALESCE((SELECT GROUP_CONCAT(t.code, ',') FROM subject_editors se JOIN teachers t ON t.id = se.teacher_id WHERE se.subject_id = s.id), '') AS editorCodes
       FROM subjects s
       JOIN degrees d ON d.id = s.degree_id
       LEFT JOIN subject_practices sp ON sp.subject_id = s.id
@@ -228,6 +246,8 @@ export async function GET() {
         ...subject,
         practiceCodes: String(subject.practiceCodes || "").split(",").filter(Boolean),
         practiceIds: String(subject.practiceIds || "").split(",").filter(Boolean).map(Number),
+        editorIds: String(subject.editorIds || "").split(",").filter(Boolean).map(Number),
+        editorCodes: String(subject.editorCodes || "").split(",").filter(Boolean),
       })),
       teachers: teachers.map((teacher) => ({ ...teacher, isAdmin: Boolean(teacher.isAdmin) })),
       sessions: sessions.map((session) => ({
@@ -236,6 +256,9 @@ export async function GET() {
       })),
       holidays,
       academicDayTypes,
+      editableSubjectIds: authenticatedTeacher.isAdmin
+        ? subjects.map((subject) => Number(subject.id))
+        : editableSubjectIds(database, authenticatedTeacher.id),
     });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
@@ -245,13 +268,19 @@ export async function GET() {
 export async function POST(request: Request) {
   const authenticatedTeacher = await getAuthenticatedTeacher();
   if (!authenticatedTeacher) return unauthorizedResponse();
-  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     const entity = payload.entity;
     if (!isEntity(entity)) return Response.json({ error: "Tipo de elemento no válido." }, { status: 400 });
 
     const database = getDatabase();
+    const editorSubjects = authenticatedTeacher.isAdmin
+      ? []
+      : editableSubjectIds(database, authenticatedTeacher.id);
+    if (!authenticatedTeacher.isAdmin && !editorSubjects.length) return readOnlyResponse();
+    if (!authenticatedTeacher.isAdmin && !["installations", "practices", "sessions"].includes(entity)) {
+      return editorPermissionResponse("Como editor de asignatura solo puedes añadir instalaciones, prácticas y sesiones.");
+    }
     if (entity === "sessions") {
       const { sessionDate, startTime, duration, subjectId, teacherId, practiceId } = sessionFields(payload);
       if (!sessionDate || !startTime || !duration || !subjectId || !teacherId || !practiceId) {
@@ -262,6 +291,9 @@ export async function POST(request: Request) {
       }
       if (!subjectPracticeRelationExists(subjectId, practiceId)) {
         return Response.json({ error: "La práctica seleccionada no está asignada a esa asignatura." }, { status: 409 });
+      }
+      if (!authenticatedTeacher.isAdmin && !editorSubjects.includes(subjectId)) {
+        return editorPermissionResponse();
       }
       if (!database.prepare("SELECT 1 FROM teachers WHERE id = ?").get(teacherId)) {
         return Response.json({ error: "El profesor seleccionado ya no está disponible." }, { status: 409 });
@@ -288,15 +320,23 @@ export async function POST(request: Request) {
       database.prepare("INSERT INTO installations (code, name, laboratory_id, category, capacity, status) VALUES (?, ?, ?, ?, ?, ?)").run(code, name, laboratoryId, category, capacity, status);
     } else if (entity === "practices") {
       const installationIds = positiveIntegerList(payload.installationIds);
+      const editorSubjectId = positiveInteger(payload.subjectId);
       const duration = positiveInteger(payload.duration);
       const riskLevel = cleanString(payload.riskLevel);
       if (!installationIds.length || !duration || !riskLevel) return Response.json({ error: "Selecciona al menos una instalación y completa los datos de la práctica." }, { status: 400 });
+      if (!authenticatedTeacher.isAdmin && (!editorSubjectId || !editorSubjects.includes(editorSubjectId))) {
+        return editorPermissionResponse("Selecciona una asignatura de la que seas editor para vincular la nueva práctica.");
+      }
       database.exec("BEGIN IMMEDIATE");
       try {
         const result = database.prepare("INSERT INTO practices (code, name, duration, risk_level) VALUES (?, ?, ?, ?)").run(code, name, duration, riskLevel);
         const practiceId = Number(result.lastInsertRowid);
         const relation = database.prepare("INSERT INTO practice_installations (practice_id, installation_id) VALUES (?, ?)");
         for (const installationId of installationIds) relation.run(practiceId, installationId);
+        if (editorSubjectId) {
+          database.prepare("INSERT INTO subject_practices (subject_id, practice_id) VALUES (?, ?)")
+            .run(editorSubjectId, practiceId);
+        }
         database.exec("COMMIT");
       } catch (error) {
         database.exec("ROLLBACK");
@@ -318,6 +358,7 @@ export async function POST(request: Request) {
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
       const practiceIds = positiveIntegerList(payload.practiceIds);
+      const editorIds = positiveIntegerList(payload.editorIds);
       const abbreviation = cleanString(payload.abbreviation).toUpperCase().slice(0, 16);
       if (!degreeId) return Response.json({ error: "Selecciona el grado al que pertenece la asignatura." }, { status: 400 });
       database.exec("BEGIN IMMEDIATE");
@@ -326,6 +367,8 @@ export async function POST(request: Request) {
         const subjectId = Number(result.lastInsertRowid);
         const relation = database.prepare("INSERT INTO subject_practices (subject_id, practice_id) VALUES (?, ?)");
         for (const practiceId of practiceIds) relation.run(subjectId, practiceId);
+        const editorRelation = database.prepare("INSERT INTO subject_editors (subject_id, teacher_id) VALUES (?, ?)");
+        for (const editorId of editorIds) editorRelation.run(subjectId, editorId);
         database.exec("COMMIT");
       } catch (error) {
         database.exec("ROLLBACK");
@@ -342,7 +385,6 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const authenticatedTeacher = await getAuthenticatedTeacher();
   if (!authenticatedTeacher) return unauthorizedResponse();
-  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     const entity = payload.entity;
@@ -362,10 +404,14 @@ export async function PUT(request: Request) {
     };
     const existing = database.prepare(`SELECT id FROM ${tableByEntity[entity]} WHERE id = ?`).get(id);
     if (!existing) return Response.json({ error: "El registro que intentas editar ya no existe." }, { status: 404 });
+    if (!authenticatedTeacher.isAdmin && entity !== "sessions") {
+      return editorPermissionResponse("Como editor de asignatura solo puedes editar sus sesiones.");
+    }
 
     if (entity === "sessions") {
       const { sessionDate, startTime, duration, subjectId, teacherId, practiceId } = sessionFields(payload);
-      const currentSession = database.prepare("SELECT session_date AS sessionDate, practice_id AS practiceId FROM sessions WHERE id = ?").get(id) as { sessionDate: string; practiceId: number | null };
+      const currentSession = database.prepare("SELECT session_date AS sessionDate, subject_id AS subjectId, practice_id AS practiceId FROM sessions WHERE id = ?")
+        .get(id) as { sessionDate: string; subjectId: number; practiceId: number | null };
       if (!sessionDate || !startTime || !duration || !subjectId) {
         return Response.json({ error: "Completa el día, la hora, la duración y la asignatura." }, { status: 400 });
       }
@@ -374,6 +420,12 @@ export async function PUT(request: Request) {
       }
       if (!database.prepare("SELECT 1 FROM subjects WHERE id = ?").get(subjectId)) {
         return Response.json({ error: "La asignatura seleccionada ya no está disponible." }, { status: 409 });
+      }
+      if (!authenticatedTeacher.isAdmin && (
+        !canEditSubject(database, authenticatedTeacher.id, currentSession.subjectId)
+        || !canEditSubject(database, authenticatedTeacher.id, subjectId)
+      )) {
+        return editorPermissionResponse();
       }
       if (practiceId !== null && !subjectPracticeRelationExists(subjectId, practiceId)) {
         return Response.json({ error: "La práctica seleccionada no está asignada a esa asignatura." }, { status: 409 });
@@ -453,6 +505,7 @@ export async function PUT(request: Request) {
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
       const practiceIds = positiveIntegerList(payload.practiceIds);
+      const editorIds = Array.isArray(payload.editorIds) ? positiveIntegerList(payload.editorIds) : null;
       const abbreviation = cleanString(payload.abbreviation).toUpperCase().slice(0, 16);
       if (!degreeId) return Response.json({ error: "Selecciona el grado al que pertenece la asignatura." }, { status: 400 });
       const scheduledPractices = database.prepare("SELECT DISTINCT practice_id AS practiceId FROM sessions WHERE subject_id = ? AND practice_id IS NOT NULL").all(id) as { practiceId: number }[];
@@ -471,6 +524,16 @@ export async function PUT(request: Request) {
         } else {
           database.prepare("DELETE FROM subject_practices WHERE subject_id = ?").run(id);
         }
+        if (editorIds !== null) {
+          const editorRelation = database.prepare("INSERT OR IGNORE INTO subject_editors (subject_id, teacher_id) VALUES (?, ?)");
+          for (const editorId of editorIds) editorRelation.run(id, editorId);
+          if (editorIds.length) {
+            const placeholders = editorIds.map(() => "?").join(", ");
+            database.prepare(`DELETE FROM subject_editors WHERE subject_id = ? AND teacher_id NOT IN (${placeholders})`).run(id, ...editorIds);
+          } else {
+            database.prepare("DELETE FROM subject_editors WHERE subject_id = ?").run(id);
+          }
+        }
         database.exec("COMMIT");
       } catch (error) {
         database.exec("ROLLBACK");
@@ -487,7 +550,6 @@ export async function PUT(request: Request) {
 export async function PATCH(request: Request) {
   const authenticatedTeacher = await getAuthenticatedTeacher();
   if (!authenticatedTeacher) return unauthorizedResponse();
-  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
   try {
     const payload = await request.json() as Record<string, unknown>;
     if (payload.entity !== "sessions") {
@@ -502,15 +564,20 @@ export async function PATCH(request: Request) {
         return Response.json({ error: "El destino de la sesión no es válido." }, { status: 400 });
       }
       const database = getDatabase();
+      const session = database.prepare("SELECT subject_id AS subjectId FROM sessions WHERE id = ?")
+        .get(id) as { subjectId: number } | undefined;
+      if (!session) {
+        return Response.json({ error: "La sesión que intentas mover ya no existe." }, { status: 404 });
+      }
+      if (!authenticatedTeacher.isAdmin && !canEditSubject(database, authenticatedTeacher.id, session.subjectId)) {
+        return editorPermissionResponse();
+      }
       if (isHoliday(database, sessionDate)) {
         return Response.json({ error: "No se puede mover una sesión a un día festivo." }, { status: 409 });
       }
-      const result = database.prepare(
+      database.prepare(
         "UPDATE sessions SET session_date = ?, start_time = ? WHERE id = ?",
       ).run(sessionDate, startTime, id);
-      if (!result.changes) {
-        return Response.json({ error: "La sesión que intentas mover ya no existe." }, { status: 404 });
-      }
       return Response.json({ ok: true });
     }
 
@@ -528,6 +595,11 @@ export async function PATCH(request: Request) {
     ).all(...ids) as { id: number; subjectId: number; degreeId: number }[];
     if (selectedSessions.length !== ids.length) {
       return Response.json({ error: "Alguna de las sesiones seleccionadas ya no existe." }, { status: 404 });
+    }
+    if (!authenticatedTeacher.isAdmin && selectedSessions.some((session) => (
+      !canEditSubject(database, authenticatedTeacher.id, session.subjectId)
+    ))) {
+      return editorPermissionResponse("La selección contiene sesiones de una asignatura que no puedes editar.");
     }
 
     if (payload.action === "assign-teacher") {
@@ -604,7 +676,9 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const authenticatedTeacher = await getAuthenticatedTeacher();
   if (!authenticatedTeacher) return unauthorizedResponse();
-  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
+  if (!authenticatedTeacher.isAdmin) {
+    return editorPermissionResponse("Solo los administradores pueden borrar registros o sesiones.");
+  }
   try {
     const payload = await request.json() as { entity?: Entity; id?: unknown; ids?: unknown; semesterId?: unknown };
     const entity = payload.entity;
