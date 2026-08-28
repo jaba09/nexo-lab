@@ -88,6 +88,17 @@ function subjectPracticeRelationExists(subjectId: number, practiceId: number) {
   ).get(subjectId, practiceId));
 }
 
+function nextSubjectPracticePosition(database: ReturnType<typeof getDatabase>, subjectId: number) {
+  const row = database.prepare("SELECT COALESCE(MAX(position), 0) + 1 AS position FROM subject_practices WHERE subject_id = ?")
+    .get(subjectId) as { position: number };
+  return Number(row.position);
+}
+
+function linkSubjectPractice(database: ReturnType<typeof getDatabase>, subjectId: number, practiceId: number) {
+  return database.prepare("INSERT OR IGNORE INTO subject_practices (subject_id, practice_id, position) VALUES (?, ?, ?)")
+    .run(subjectId, practiceId, nextSubjectPracticePosition(database, subjectId));
+}
+
 function isHoliday(database: ReturnType<typeof getDatabase>, date: string) {
   return Boolean(database.prepare("SELECT 1 FROM holidays WHERE holiday_date = ?").get(date));
 }
@@ -172,16 +183,25 @@ export async function GET() {
     const subjects = database.prepare(`SELECT
       s.id, s.code, s.abbreviation, s.name, s.degree_id AS degreeId,
       d.code AS degreeCode, d.name AS degreeName,
-      COUNT(sp.practice_id) AS practiceCount,
-      COALESCE(GROUP_CONCAT(p.code, ','), '') AS practiceCodes,
-      COALESCE(GROUP_CONCAT(p.id, ','), '') AS practiceIds,
+      (SELECT COUNT(*) FROM subject_practices count_sp WHERE count_sp.subject_id = s.id) AS practiceCount,
+      COALESCE((SELECT GROUP_CONCAT(ordered_practices.code, ',') FROM (
+        SELECT p2.code
+        FROM subject_practices sp2
+        JOIN practices p2 ON p2.id = sp2.practice_id
+        WHERE sp2.subject_id = s.id
+        ORDER BY sp2.position, p2.name COLLATE NOCASE, p2.code COLLATE NOCASE, p2.id
+      ) ordered_practices), '') AS practiceCodes,
+      COALESCE((SELECT GROUP_CONCAT(ordered_practices.id, ',') FROM (
+        SELECT p3.id
+        FROM subject_practices sp3
+        JOIN practices p3 ON p3.id = sp3.practice_id
+        WHERE sp3.subject_id = s.id
+        ORDER BY sp3.position, p3.name COLLATE NOCASE, p3.code COLLATE NOCASE, p3.id
+      ) ordered_practices), '') AS practiceIds,
       COALESCE((SELECT GROUP_CONCAT(se.teacher_id, ',') FROM subject_editors se WHERE se.subject_id = s.id), '') AS editorIds,
       COALESCE((SELECT GROUP_CONCAT(t.code, ',') FROM subject_editors se JOIN teachers t ON t.id = se.teacher_id WHERE se.subject_id = s.id), '') AS editorCodes
       FROM subjects s
       JOIN degrees d ON d.id = s.degree_id
-      LEFT JOIN subject_practices sp ON sp.subject_id = s.id
-      LEFT JOIN practices p ON p.id = sp.practice_id
-      GROUP BY s.id
       ORDER BY s.code`).all() as Record<string, unknown>[];
     const teachers = database.prepare(`SELECT
       t.id, t.code, t.name, t.email, t.is_admin AS isAdmin, COUNT(se.id) AS sessionCount
@@ -200,7 +220,7 @@ export async function GET() {
       s.abbreviation AS subjectAbbreviation, s.name AS subjectName,
       s.degree_id AS degreeId, d.code AS degreeCode,
       d.name AS degreeName, se.practice_id AS practiceId,
-      p.code AS practiceCode, p.name AS practiceName,
+      p.code AS practiceCode, p.name AS practiceName, sp.position AS practiceOrder,
       loc.installationName, se.teacher_id AS teacherId,
       t.code AS teacherCode, t.name AS teacherName, se.group_code AS groupCode,
       COALESCE((
@@ -214,6 +234,7 @@ export async function GET() {
       JOIN degrees d ON d.id = s.degree_id
       LEFT JOIN teachers t ON t.id = se.teacher_id
       LEFT JOIN practices p ON p.id = se.practice_id
+      LEFT JOIN subject_practices sp ON sp.subject_id = se.subject_id AND sp.practice_id = se.practice_id
       LEFT JOIN (
         SELECT pi.practice_id, GROUP_CONCAT(i.name, ' · ') AS installationName
         FROM practice_installations pi
@@ -334,8 +355,7 @@ export async function POST(request: Request) {
         const relation = database.prepare("INSERT INTO practice_installations (practice_id, installation_id) VALUES (?, ?)");
         for (const installationId of installationIds) relation.run(practiceId, installationId);
         if (editorSubjectId) {
-          database.prepare("INSERT INTO subject_practices (subject_id, practice_id) VALUES (?, ?)")
-            .run(editorSubjectId, practiceId);
+          linkSubjectPractice(database, editorSubjectId, practiceId);
         }
         database.exec("COMMIT");
       } catch (error) {
@@ -365,8 +385,8 @@ export async function POST(request: Request) {
       try {
         const result = database.prepare("INSERT INTO subjects (code, abbreviation, name, degree_id) VALUES (?, ?, ?, ?)").run(code, abbreviation, name, degreeId);
         const subjectId = Number(result.lastInsertRowid);
-        const relation = database.prepare("INSERT INTO subject_practices (subject_id, practice_id) VALUES (?, ?)");
-        for (const practiceId of practiceIds) relation.run(subjectId, practiceId);
+        const relation = database.prepare("INSERT INTO subject_practices (subject_id, practice_id, position) VALUES (?, ?, ?)");
+        practiceIds.forEach((practiceId, index) => relation.run(subjectId, practiceId, index + 1));
         const editorRelation = database.prepare("INSERT INTO subject_editors (subject_id, teacher_id) VALUES (?, ?)");
         for (const editorId of editorIds) editorRelation.run(subjectId, editorId);
         database.exec("COMMIT");
@@ -516,8 +536,10 @@ export async function PUT(request: Request) {
       database.exec("BEGIN IMMEDIATE");
       try {
         database.prepare("UPDATE subjects SET code = ?, abbreviation = ?, name = ?, degree_id = ? WHERE id = ?").run(code, abbreviation, name, degreeId, id);
-        const relation = database.prepare("INSERT OR IGNORE INTO subject_practices (subject_id, practice_id) VALUES (?, ?)");
-        for (const practiceId of practiceIds) relation.run(id, practiceId);
+        const relation = database.prepare(`INSERT INTO subject_practices (subject_id, practice_id, position)
+          VALUES (?, ?, ?)
+          ON CONFLICT(subject_id, practice_id) DO UPDATE SET position = excluded.position`);
+        practiceIds.forEach((practiceId, index) => relation.run(id, practiceId, index + 1));
         if (practiceIds.length) {
           const placeholders = practiceIds.map(() => "?").join(", ");
           database.prepare(`DELETE FROM subject_practices WHERE subject_id = ? AND practice_id NOT IN (${placeholders})`).run(id, ...practiceIds);
@@ -652,9 +674,8 @@ export async function PATCH(request: Request) {
         ? database.prepare("UPDATE sessions SET practice_id = NULL WHERE id = ?")
         : database.prepare("UPDATE sessions SET practice_id = ?, duration = ? WHERE id = ?");
       if (practiceId !== null) {
-        const linkPractice = database.prepare("INSERT OR IGNORE INTO subject_practices (subject_id, practice_id) VALUES (?, ?)");
         for (const subjectId of new Set(selectedSessions.map((session) => session.subjectId))) {
-          linkedSubjectCount += Number(linkPractice.run(subjectId, practiceId).changes);
+          linkedSubjectCount += Number(linkSubjectPractice(database, subjectId, practiceId).changes);
         }
       }
       for (const selectedId of ids) {

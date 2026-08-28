@@ -55,6 +55,7 @@ const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS subject_practices (
     subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
     practice_id INTEGER NOT NULL REFERENCES practices(id) ON DELETE RESTRICT,
+    position INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0),
     PRIMARY KEY (subject_id, practice_id)
   )`,
   `CREATE TABLE IF NOT EXISTS teachers (
@@ -283,6 +284,37 @@ function migrateDegreePractices(database: DatabaseSync) {
     throw error;
   } finally {
     database.exec("PRAGMA foreign_keys = ON");
+  }
+}
+
+function migrateSubjectPracticePositions(database: DatabaseSync) {
+  const columns = database.prepare("PRAGMA table_info(subject_practices)").all() as { name: string }[];
+  if (!columns.some((column) => column.name === "position")) {
+    database.exec("ALTER TABLE subject_practices ADD COLUMN position INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0)");
+  }
+
+  const migrationKey = "subject_practice_positions_version";
+  if (database.prepare("SELECT value FROM app_meta WHERE key = ?").get(migrationKey)) return;
+
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const subjects = database.prepare("SELECT DISTINCT subject_id AS subjectId FROM subject_practices ORDER BY subject_id")
+      .all() as { subjectId: number }[];
+    const practices = database.prepare(`SELECT sp.practice_id AS practiceId
+      FROM subject_practices sp
+      JOIN practices p ON p.id = sp.practice_id
+      WHERE sp.subject_id = ?
+      ORDER BY p.name COLLATE NOCASE, p.code COLLATE NOCASE, p.id`);
+    const update = database.prepare("UPDATE subject_practices SET position = ? WHERE subject_id = ? AND practice_id = ?");
+    for (const { subjectId } of subjects) {
+      const ordered = practices.all(subjectId) as { practiceId: number }[];
+      ordered.forEach(({ practiceId }, index) => update.run(index + 1, subjectId, practiceId));
+    }
+    database.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?)").run(migrationKey, "1");
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
   }
 }
 
@@ -532,6 +564,8 @@ function initializeDatabase(database: DatabaseSync) {
       throw error;
     }
   }
+
+  migrateSubjectPracticePositions(database);
 
   migrateRequestedSessionTimes(database);
   migrateRequested29716SessionDurations(database);

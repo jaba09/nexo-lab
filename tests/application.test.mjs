@@ -124,6 +124,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     )),
   );
   assert.equal(initialData.sessions.length, 4);
+  assert.equal(initialData.sessions.find((session) => session.subjectId === 1 && session.practiceId === 1).practiceOrder, 1);
   assert.deepEqual(
     initialData.sessions.find((session) => session.subjectId === 1).degreePracticeIds.sort((left, right) => left - right),
     [1, 2, 5],
@@ -263,7 +264,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       abbreviation: "mma",
       name: "Mecánica de materiales avanzada",
       degreeId: 1,
-      practiceIds: [1, 2, 4],
+      practiceIds: [4, 2, 1],
     },
     {
       entity: "teachers",
@@ -302,8 +303,9 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(editedDegree.icsCode, "101");
   assert.equal(editedSubject.degreeCode, "GRA-01A");
   assert.equal(editedSubject.abbreviation, "MMA");
-  assert.deepEqual(editedSubject.practiceIds, [1, 2, 4]);
-  assert.deepEqual(editedSubject.practiceCodes, ["PRA-01A", "PRA-02", "PRA-04"]);
+  assert.deepEqual(editedSubject.practiceIds, [4, 2, 1]);
+  assert.deepEqual(editedSubject.practiceCodes, ["PRA-04", "PRA-02", "PRA-01A"]);
+  assert.equal(editedData.sessions.find((session) => session.subjectId === 1 && session.practiceId === 1).practiceOrder, 3);
   assert.equal(editedTeacher.code, "PRO-01A");
   assert.equal(editedTeacher.name, "Dra. Elena Martín actualizada");
   assert.equal(editedTeacher.email, "elena.martin@universidad.es");

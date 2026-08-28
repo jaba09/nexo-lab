@@ -10,6 +10,7 @@ export type ExportableSession = {
   degreeName: string;
   practiceCode: string | null;
   practiceName: string | null;
+  practiceOrder?: number | null;
   installationName: string | null;
   teacherCode: string | null;
   teacherName: string | null;
@@ -67,11 +68,15 @@ function utcIcsDateTime(value: Date) {
   return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+function practiceDisplayName(session: ExportableSession) {
+  if (!session.practiceName) return "Sin práctica asignada";
+  const prefix = session.practiceOrder ? `P${session.practiceOrder} ` : "";
+  return `${prefix}${session.practiceName}${session.practiceCode ? ` · ${session.practiceCode}` : ""}`;
+}
+
 function summaryForSession(session: ExportableSession) {
   const group = session.groupCode ? `Grupo: ${session.groupCode}` : "Grupo sin asignar";
-  const practice = session.practiceName
-    ? ` - ${session.practiceCode ? `${session.practiceCode} · ` : ""}${session.practiceName}`
-    : "";
+  const practice = session.practiceName ? ` - ${practiceDisplayName(session)}` : "";
   return `${session.subjectCode} - ${session.subjectName} ${group} - Prácticas de laboratorio${practice}`;
 }
 
@@ -79,7 +84,7 @@ function descriptionForSession(session: ExportableSession) {
   return [
     `Grado: ${session.degreeCode} · ${session.degreeName}`,
     `Asignatura: ${session.subjectAbbreviation || session.subjectCode} · ${session.subjectName}`,
-    `Práctica: ${session.practiceName ?? "Sin práctica asignada"}`,
+    `Práctica: ${practiceDisplayName(session)}`,
     `Profesor: ${session.teacherName ?? "Sin profesor asignado"}`,
     `Grupo: ${session.groupCode ?? "Sin asignar"}`,
     `Duración: ${session.duration} min`,
@@ -167,7 +172,7 @@ async function createSessionsPdf(sessions: ExportableSession[]) {
     { label: "Dur.", width: 18, value: (session: ExportableSession) => `${session.duration} min` },
     { label: "Grado / asignatura", width: 39, value: (session: ExportableSession) => `${session.degreeCode} · ${session.subjectAbbreviation || session.subjectCode}` },
     { label: "Grupo", width: 17, value: (session: ExportableSession) => session.groupCode ? `G${session.groupCode}` : "—" },
-    { label: "Práctica", width: 59, value: (session: ExportableSession) => session.practiceName ? `${session.practiceCode ? `${session.practiceCode} · ` : ""}${session.practiceName}` : "Sin práctica asignada" },
+    { label: "Práctica", width: 59, value: (session: ExportableSession) => practiceDisplayName(session) },
     { label: "Profesor", width: 49, value: (session: ExportableSession) => session.teacherName ? `${session.teacherCode ? `${session.teacherCode} · ` : ""}${session.teacherName}` : "Sin profesor asignado" },
     { label: "Instalación", width: 41, value: (session: ExportableSession) => session.installationName ?? "—" },
   ];

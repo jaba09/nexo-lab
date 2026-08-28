@@ -92,8 +92,13 @@ function comparePracticesByName(left: Practice, right: Practice) {
     || left.code.localeCompare(right.code, "es", { sensitivity: "base" });
 }
 
-function practiceOptionLabel(practice: Practice) {
-  return `${practice.name} · ${practice.code}`;
+function practiceOptionLabel(practice: Practice, position?: number | null) {
+  return `${position ? `P${position} ` : ""}${practice.name} · ${practice.code}`;
+}
+
+function practicePositionInSubject(subject: Subject | undefined, practiceId: number) {
+  const index = subject?.practiceIds.findIndex((id) => Number(id) === practiceId) ?? -1;
+  return index >= 0 ? index + 1 : null;
 }
 
 type Session = {
@@ -109,6 +114,7 @@ type Session = {
   practiceId: number | null;
   practiceCode: string | null;
   practiceName: string | null;
+  practiceOrder: number | null;
   installationName: string | null;
   subjectCode: string;
   subjectAbbreviation: string;
@@ -121,7 +127,8 @@ type Session = {
 
 function sessionPracticeTitle(session: Session) {
   if (!session.practiceName) return "Sin práctica";
-  return session.practiceCode ? `${session.practiceName} · ${session.practiceCode}` : session.practiceName;
+  const prefix = session.practiceOrder ? `P${session.practiceOrder} ` : "";
+  return session.practiceCode ? `${prefix}${session.practiceName} · ${session.practiceCode}` : `${prefix}${session.practiceName}`;
 }
 
 function UnassignedTeacherSessionCount({ count }: { count: number }) {
@@ -883,7 +890,9 @@ export default function Home() {
     && (editingId !== null || subject.practiceIds.length > 0)
   ));
   const selectedSessionSubject = data.subjects.find((subject) => String(subject.id) === form.subjectId);
-  const sessionPracticeOptions = orderedPractices.filter((practice) => selectedSessionSubject?.practiceIds.includes(practice.id));
+  const sessionPracticeOptions = (selectedSessionSubject?.practiceIds ?? [])
+    .map((practiceId) => data.practices.find((practice) => practice.id === practiceId))
+    .filter((practice): practice is Practice => Boolean(practice));
   const editingSession = editingId === null ? undefined : data.sessions.find((session) => session.id === editingId);
   const selectedSessionHoliday = data.holidays.find((holiday) => holiday.holidayDate === form.sessionDate);
   const sessionDateBlocked = drawer === "sessions" && Boolean(
@@ -911,6 +920,17 @@ export default function Home() {
     setEditingId(null);
     setNotice(null);
     setDrawer(entity);
+  }
+
+  function moveSelectedPractice(practiceId: number, direction: -1 | 1) {
+    setForm((current) => {
+      const currentIndex = current.practiceIds.indexOf(practiceId);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= current.practiceIds.length) return current;
+      const practiceIds = [...current.practiceIds];
+      [practiceIds[currentIndex], practiceIds[targetIndex]] = [practiceIds[targetIndex], practiceIds[currentIndex]];
+      return { ...current, practiceIds };
+    });
   }
 
   function openEdit(entity: Entity, item: EntityRecord) {
@@ -1507,6 +1527,25 @@ export default function Home() {
                   </label>
                   <fieldset className="practice-picker">
                     <legend>Prácticas asignadas <small>Opcional</small></legend>
+                    {form.practiceIds.length > 0 && (
+                      <div className="subject-practice-order" aria-label="Orden de las prácticas seleccionadas">
+                        <p>Orden de las prácticas seleccionadas</p>
+                        {form.practiceIds.map((practiceId, index) => {
+                          const practice = data.practices.find((item) => item.id === practiceId);
+                          if (!practice) return null;
+                          return (
+                            <div className="subject-practice-order-row" key={`ordered-${practice.id}`}>
+                              <strong className="subject-practice-position">P{index + 1}</strong>
+                              <span><strong>{practice.name}</strong><small>{practice.code}</small></span>
+                              <div className="subject-practice-order-actions">
+                                <button type="button" disabled={index === 0} onClick={() => moveSelectedPractice(practice.id, -1)} aria-label={`Subir ${practice.name}`}>↑</button>
+                                <button type="button" disabled={index === form.practiceIds.length - 1} onClick={() => moveSelectedPractice(practice.id, 1)} aria-label={`Bajar ${practice.name}`}>↓</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     {orderedPractices.length === 0 ? <p>Crea primero una práctica para poder vincularla.</p> : orderedPractices.map((practice) => (
                       <label key={practice.id}>
                         <input
@@ -1635,7 +1674,7 @@ export default function Home() {
                     >
                       <option value="">{editingId === null ? "Selecciona una práctica de la asignatura" : "Sin práctica asignada"}</option>
                       {sessionPracticeOptions.map((practice) => (
-                        <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice)}</option>
+                        <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice, practicePositionInSubject(selectedSessionSubject, practice.id))}</option>
                       ))}
                     </select>
                   </label>
@@ -1757,6 +1796,10 @@ function SessionSelectionActions({
   onClear: () => void;
 }) {
   const degreePractices = practicesAvailableToSessions({ sessions, practices, subjects });
+  const selectedSubjectIds = [...new Set(sessions.map((session) => session.subjectId))];
+  const selectedSubject = selectedSubjectIds.length === 1
+    ? subjects.find((subject) => subject.id === selectedSubjectIds[0])
+    : undefined;
 
   return (
     <div className="session-selection-actions" aria-label="Acciones para las sesiones seleccionadas">
@@ -1776,7 +1819,7 @@ function SessionSelectionActions({
               <option value="">Asignar práctica…</option>
               <option value="none">Sin práctica</option>
               {degreePractices.map((practice) => (
-                <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice)}</option>
+                <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice, practicePositionInSubject(selectedSubject, practice.id))}</option>
               ))}
             </select>
           </label>
@@ -2850,7 +2893,7 @@ function EntityView({
             <div className={canEditItem(subject) ? "degree-card editable-record" : "degree-card"} key={subject.id} role={canEditItem(subject) ? "button" : undefined} tabIndex={canEditItem(subject) ? 0 : undefined} aria-label={canEditItem(subject) ? `Editar ${subject.name}` : undefined} onClick={canEditItem(subject) ? () => onEdit(entity, subject) : undefined} onKeyDown={canEditItem(subject) ? (event) => editRecordWithKeyboard(event, subject) : undefined}>
               <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
               <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation ? `${subject.abbreviation} · ` : "Sin abreviatura · "}{subject.degreeCode} · {subject.degreeName}</p></div>
-              <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
+              <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code, index) => <span key={code}>P{index + 1} · {code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
               {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
             </div>
           ))}
@@ -3028,9 +3071,15 @@ function CalendarView({
     const subjectPracticeIds = selectedSubject
       ? new Set(selectedSubject.practiceIds.map(Number))
       : null;
+    const positions = selectedSubject
+      ? new Map(selectedSubject.practiceIds.map((practiceId, index) => [Number(practiceId), index]))
+      : null;
     return practices
       .filter((practice) => subjectPracticeIds === null || subjectPracticeIds.has(practice.id))
-      .sort(comparePracticesByName);
+      .sort((left, right) => positions
+        ? (positions.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+          || comparePracticesByName(left, right)
+        : comparePracticesByName(left, right));
   }, [filters.subjectId, practices, subjects]);
   const filteredSemesterSessions = useMemo(() => semesterSessions.filter((session) => {
     if (filters.degreeId && String(session.degreeId) !== filters.degreeId) return false;
@@ -3537,7 +3586,12 @@ function CalendarView({
             <span>Práctica</span>
             <select aria-label="Filtrar por práctica" value={filters.practiceId} disabled={Boolean(filters.subjectId) && !filterPractices.length} onChange={(event) => changeFilter("practiceId", event.target.value)}>
               <option value="">{filters.subjectId ? filterPractices.length ? "Todas las prácticas de la asignatura" : "Esta asignatura no tiene prácticas" : "Todas las prácticas"}</option>
-              {filterPractices.map((practice) => <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice)}</option>)}
+              {filterPractices.map((practice) => {
+                const selectedSubject = filters.subjectId
+                  ? subjects.find((subject) => String(subject.id) === filters.subjectId)
+                  : undefined;
+                return <option key={practice.id} value={practice.id}>{practiceOptionLabel(practice, practicePositionInSubject(selectedSubject, practice.id))}</option>;
+              })}
             </select>
           </label>
           <button type="button" disabled={!hasActiveFilters} onClick={clearFilters}>Limpiar filtros</button>

@@ -14,6 +14,7 @@ const sampleSession = {
   degreeName: "Grado en Ingeniería Química",
   practiceCode: "VIS",
   practiceName: "Viscosidad",
+  practiceOrder: 2,
   installationName: "Laboratorio de fluidos",
   teacherCode: "JBA",
   teacherName: "J. Blasco",
@@ -27,6 +28,7 @@ test("exports selected sessions as an interoperable ICS calendar", () => {
   assert.match(content, /DTSTART;TZID=Europe\/Madrid:20260914T100000/);
   assert.match(content, /DTEND;TZID=Europe\/Madrid:20260914T120000/);
   assert.match(content, /SUMMARY:30013 - Mecánica de fluidos Grupo: 36 - Prácticas de laborat/);
+  assert.match(content, /P2 Viscosidad · VIS/);
   assert.match(content, /LOCATION:Laboratorio de fluidos/);
   assert.match(content, /UID:nexo-lab-session-42@nexo-lab/);
   assert.match(content, /END:VCALENDAR\r\n$/);

@@ -25,6 +25,12 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.equal(subjectColumns.find((column) => column.name === "abbreviation").notnull, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subjects WHERE abbreviation = ''").get().total, 4);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_practices").get().total, 8);
+  const subjectPracticeColumns = database.prepare("PRAGMA table_info(subject_practices)").all();
+  assert.equal(subjectPracticeColumns.find((column) => column.name === "position").notnull, 1);
+  assert.deepEqual(
+    database.prepare("SELECT practice_id AS practiceId, position FROM subject_practices WHERE subject_id = 1 ORDER BY position").all().map((row) => ({ ...row })),
+    [{ practiceId: 1, position: 1 }, { practiceId: 5, position: 2 }],
+  );
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_editors").get().total, 0);
   database.prepare("INSERT INTO subject_editors (subject_id, teacher_id) VALUES (?, ?)").run(1, 2);
   const subjectEditor = database.prepare("SELECT subject_id AS subjectId, teacher_id AS teacherId FROM subject_editors").get();
