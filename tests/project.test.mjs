@@ -192,6 +192,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /function comparePracticesByName[\s\S]*?left\.name\.localeCompare\(right\.name[\s\S]*?left\.code\.localeCompare\(right\.code/);
   assert.match(page, /function practiceOptionLabel\(practice: Practice, position\?: number \| null\)[\s\S]*?P\$\{position\}[\s\S]*?\$\{practice\.name\} · \$\{practice\.code\}/);
   assert.match(page, /function practicesAvailableToSessions[\s\S]*?\.sort\(comparePracticesByName\)/);
+  assert.match(page, /const subjectPracticePositions = selectedSubject[\s\S]*?selectedSubject\.practiceIds\.map[\s\S]*?subjectPracticePositions\.get\(left\.id\)/);
   assert.ok(page.match(/practiceOptionLabel\(practice,/g)?.length >= 3);
   assert.match(page, /const orderedPractices = useMemo[\s\S]*?sort\(comparePracticesByName\)/);
   assert.match(page, /const filterPractices = useMemo[\s\S]*?selectedSubject\.practiceIds\.map\(Number\)[\s\S]*?positions\.get\(left\.id\)/);

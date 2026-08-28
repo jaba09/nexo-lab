@@ -1795,11 +1795,19 @@ function SessionSelectionActions({
   onDelete: () => void;
   onClear: () => void;
 }) {
-  const degreePractices = practicesAvailableToSessions({ sessions, practices, subjects });
   const selectedSubjectIds = [...new Set(sessions.map((session) => session.subjectId))];
   const selectedSubject = selectedSubjectIds.length === 1
     ? subjects.find((subject) => subject.id === selectedSubjectIds[0])
     : undefined;
+  const subjectPracticePositions = selectedSubject
+    ? new Map(selectedSubject.practiceIds.map((practiceId, index) => [Number(practiceId), index]))
+    : null;
+  const degreePractices = practicesAvailableToSessions({ sessions, practices, subjects })
+    .sort((left, right) => subjectPracticePositions
+      ? (subjectPracticePositions.get(left.id) ?? Number.MAX_SAFE_INTEGER)
+        - (subjectPracticePositions.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+        || comparePracticesByName(left, right)
+      : comparePracticesByName(left, right));
 
   return (
     <div className="session-selection-actions" aria-label="Acciones para las sesiones seleccionadas">
