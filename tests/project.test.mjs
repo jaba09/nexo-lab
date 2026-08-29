@@ -32,6 +32,16 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.semester-focus h1 > small/);
   assert.match(page, /Sesiones por grado/);
   assert.match(page, /Sesiones por profesor/);
+  assert.match(page, /<h2>Asignaturas<\/h2>/);
+  assert.match(page, /Profesor editor/);
+  assert.match(page, /Sesiones por profesor/);
+  assert.match(page, /subjectTeacherSessionCounts/);
+  assert.match(page, /overview-subject-summary-table/);
+  assert.match(page, /overview-subject-editor-chip/);
+  assert.match(page, /overview-subject-session-chip/);
+  assert.match(page, /overview-subject-unassigned-count/);
+  assert.match(styles, /\.overview-subject-summary-table/);
+  assert.match(styles, /\.overview-subject-unassigned-count\.has-sessions/);
   assert.match(page, /teacherSessionCounts/);
   assert.match(page, /unassignedTeacherSessionCount/);
   assert.match(page, /function UnassignedTeacherSessionCount/);

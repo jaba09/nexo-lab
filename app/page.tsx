@@ -2254,6 +2254,7 @@ function Overview({
   const degreeUnassignedTeacherSessionCounts = new Map<number, number>();
   const subjectUnassignedTeacherSessionCounts = new Map<number, number>();
   const teacherSessionCounts = new Map<number, number>();
+  const subjectTeacherSessionCounts = new Map<number, Map<number, number>>();
   let unassignedTeacherSessionCount = 0;
   const sessionsBySubject = new Map<number, Session[]>();
   const sessionsByTeacher = new Map<number | null, Session[]>();
@@ -2272,6 +2273,9 @@ function Overview({
       );
     } else {
       teacherSessionCounts.set(session.teacherId, (teacherSessionCounts.get(session.teacherId) ?? 0) + 1);
+      const subjectTeacherCounts = subjectTeacherSessionCounts.get(session.subjectId) ?? new Map<number, number>();
+      subjectTeacherCounts.set(session.teacherId, (subjectTeacherCounts.get(session.teacherId) ?? 0) + 1);
+      subjectTeacherSessionCounts.set(session.subjectId, subjectTeacherCounts);
     }
     const teacherSessions = sessionsByTeacher.get(session.teacherId) ?? [];
     teacherSessions.push(session);
@@ -2292,6 +2296,11 @@ function Overview({
     || left.code.localeCompare(right.code, "es")
   ));
   const orderedTeachers = [...data.teachers].sort(compareTeachersBySurname);
+  const orderedSubjects = [...data.subjects].sort((left, right) => (
+    left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+    || left.code.localeCompare(right.code, "es", { sensitivity: "base" })
+  ));
+  const teachersById = new Map(data.teachers.map((teacher) => [teacher.id, teacher]));
   const selectedSessions = semesterSessions.filter((session) => selectedIds.has(session.id));
   const editableSubjectIdSet = new Set(editableSubjectIds.map(Number));
   const canEditSelectedSessions = selectedSessions.length > 0
@@ -2714,6 +2723,73 @@ function Overview({
           </div>
         ) : (
           <p className="overview-subject-empty standalone">Todavía no hay profesores creados.</p>
+        )}
+      </section>
+      <section className="panel overview-subject-summary-panel">
+        <div className="panel-head">
+          <div><span className="section-kicker">Resumen docente</span><h2>Asignaturas</h2></div>
+          <span className="panel-tag">{orderedSubjects.length} {orderedSubjects.length === 1 ? "asignatura" : "asignaturas"}</span>
+        </div>
+        {orderedSubjects.length ? (
+          <div className="overview-subject-summary-table-wrap">
+            <table className="overview-subject-summary-table">
+              <thead>
+                <tr>
+                  <th>Asignatura</th>
+                  <th>Profesor editor</th>
+                  <th>Sesiones por profesor</th>
+                  <th>Sin profesor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orderedSubjects.map((subject) => {
+                  const editors = subject.editorIds
+                    .map((editorId) => teachersById.get(editorId))
+                    .filter((teacher): teacher is Teacher => Boolean(teacher))
+                    .sort(compareTeachersBySurname);
+                  const teacherCounts = subjectTeacherSessionCounts.get(subject.id) ?? new Map<number, number>();
+                  const teachersWithSessions = orderedTeachers.filter((teacher) => (teacherCounts.get(teacher.id) ?? 0) > 0);
+                  const unassignedCount = subjectUnassignedTeacherSessionCounts.get(subject.id) ?? 0;
+                  return (
+                    <tr key={subject.id}>
+                      <td>
+                        <span className="overview-subject-summary-identity">
+                          <strong>{subject.abbreviation || subject.code}</strong>
+                          <span>{subject.name}<small>{subject.code} · {subject.degreeCode}</small></span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="overview-subject-summary-tags">
+                          {editors.length ? editors.map((teacher) => (
+                            <span className="overview-subject-editor-chip" key={teacher.id} title={teacher.name}>
+                              <strong>{teacher.code}</strong>{teacher.name}
+                            </span>
+                          )) : <em>Sin editor</em>}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="overview-subject-summary-tags">
+                          {teachersWithSessions.length ? teachersWithSessions.map((teacher) => {
+                            const count = teacherCounts.get(teacher.id) ?? 0;
+                            return (
+                              <span className="overview-subject-session-chip" key={teacher.id} title={`${teacher.name}: ${count} ${count === 1 ? "sesión" : "sesiones"}`}>
+                                <strong>{teacher.code}</strong><b>{count}</b>
+                              </span>
+                            );
+                          }) : <em>Sin sesiones asignadas</em>}
+                        </span>
+                      </td>
+                      <td className={unassignedCount > 0 ? "overview-subject-unassigned-count has-sessions" : "overview-subject-unassigned-count"}>
+                        {unassignedCount > 0 ? <><strong>{unassignedCount}</strong><small>{unassignedCount === 1 ? "sesión" : "sesiones"}</small></> : <span>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="overview-subject-empty standalone">Todavía no hay asignaturas creadas.</p>
         )}
       </section>
     </>

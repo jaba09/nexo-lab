@@ -192,6 +192,30 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-teacher-unassigned td { background: #f3f2ec; }
 .overview-teacher-session-row > td { padding: 0 12px 14px 46px; background: #f7f9ef; }
 .overview-teacher-session-row .overview-session-list.calendar-list { margin: 0; }
+.overview-subject-summary-panel { margin-top: 14px; overflow: hidden; }
+.overview-subject-summary-table-wrap { padding: 0 20px 12px; overflow-x: auto; }
+.overview-subject-summary-table { width: 100%; border-collapse: collapse; text-align: left; }
+.overview-subject-summary-table th { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font: 650 7px var(--font-geist-mono); letter-spacing: .08em; text-transform: uppercase; }
+.overview-subject-summary-table th:last-child { text-align: right; }
+.overview-subject-summary-table td { padding: 8px 10px; border-bottom: 1px solid #e8e8e2; font-size: 9px; vertical-align: middle; }
+.overview-subject-summary-table tbody tr:last-child td { border-bottom: 0; }
+.overview-subject-summary-table tbody tr:hover { background: #fafbf6; }
+.overview-subject-summary-identity { min-width: 210px; display: grid; grid-template-columns: 58px minmax(135px, 1fr); align-items: center; gap: 9px; }
+.overview-subject-summary-identity > strong { min-height: 28px; padding: 0 7px; border-radius: 6px; background: var(--lime); display: grid; place-items: center; overflow: hidden; font: 750 8px var(--font-geist-mono); text-overflow: ellipsis; white-space: nowrap; }
+.overview-subject-summary-identity > span { min-width: 0; font-weight: 700; }
+.overview-subject-summary-identity small { margin-top: 2px; display: block; color: var(--muted); font: 600 7px var(--font-geist-mono); }
+.overview-subject-summary-tags { min-width: 160px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.overview-subject-summary-tags > em { color: #909590; font-size: 8px; font-style: normal; }
+.overview-subject-editor-chip, .overview-subject-session-chip { min-height: 26px; padding: 0 8px; border: 1px solid #d9ddd1; border-radius: 6px; background: #f8f9f4; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.overview-subject-editor-chip strong, .overview-subject-session-chip strong { font: 750 7px var(--font-geist-mono); }
+.overview-subject-editor-chip { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.overview-subject-session-chip { border-color: #cad6ab; background: #f1f6e4; }
+.overview-subject-session-chip b { min-width: 18px; min-height: 18px; padding: 0 4px; border-radius: 5px; background: #607f1e; display: grid; place-items: center; color: var(--white); font: 750 7px var(--font-geist-mono); }
+.overview-subject-unassigned-count { width: 100px; text-align: right; white-space: nowrap; }
+.overview-subject-unassigned-count > span { color: #a6aaa5; }
+.overview-subject-unassigned-count strong { font-size: 15px; }
+.overview-subject-unassigned-count small { margin-left: 4px; color: var(--muted); font: 650 7px var(--font-geist-mono); text-transform: uppercase; }
+.overview-subject-unassigned-count.has-sessions strong, .overview-subject-unassigned-count.has-sessions small { color: #a23e34; }
 .primary-button, .secondary-button { min-height: 45px; padding: 0 19px; border-radius: 8px; border: 1px solid var(--ink); font-weight: 650; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px; transition: transform .15s, background .15s; }
 .primary-button { color: #fff; background: var(--ink); }
 .primary-button:hover:not(:disabled) { background: #32423c; transform: translateY(-1px); }
