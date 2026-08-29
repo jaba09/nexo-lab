@@ -193,6 +193,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .overview-teacher-session-row > td { padding: 0 12px 14px 46px; background: #f7f9ef; }
 .overview-teacher-session-row .overview-session-list.calendar-list { margin: 0; }
 .overview-subject-summary-panel { margin-top: 14px; overflow: hidden; }
+.overview-subject-summary-head-actions { display: flex; align-items: center; gap: 8px; }
+.overview-subject-summary-sort { display: flex; align-items: center; gap: 7px; color: var(--muted); font: 650 7px var(--font-geist-mono); letter-spacing: .06em; text-transform: uppercase; }
+.overview-subject-summary-sort select { min-width: 90px; min-height: 30px; padding: 0 28px 0 9px; border: 1px solid #d5d8cf; border-radius: 6px; background-color: #f8f9f4; color: var(--ink); font: 650 8px var(--font-geist-sans); text-transform: none; cursor: pointer; }
 .overview-subject-summary-table-wrap { padding: 0 20px 12px; overflow-x: auto; }
 .overview-subject-summary-table { width: 100%; border-collapse: collapse; text-align: left; }
 .overview-subject-summary-table th { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font: 650 7px var(--font-geist-mono); letter-spacing: .08em; text-transform: uppercase; }

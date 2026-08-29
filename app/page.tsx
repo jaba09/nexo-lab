@@ -2234,6 +2234,7 @@ function Overview({
   const [expandedTeacherKeys, setExpandedTeacherKeys] = useState<Set<string>>(() => new Set());
   const [groupedSubjectIds, setGroupedSubjectIds] = useState<Set<number>>(() => new Set());
   const [teacherGroupedSubjectIds, setTeacherGroupedSubjectIds] = useState<Set<number>>(() => new Set());
+  const [subjectSummarySort, setSubjectSummarySort] = useState<"name" | "code">("name");
   const dayTypesByDate = useMemo(() => (
     new Map(data.academicDayTypes.map((item) => [item.date, item.dayType]))
   ), [data.academicDayTypes]);
@@ -2297,8 +2298,11 @@ function Overview({
   ));
   const orderedTeachers = [...data.teachers].sort(compareTeachersBySurname);
   const orderedSubjects = [...data.subjects].sort((left, right) => (
-    left.name.localeCompare(right.name, "es", { sensitivity: "base" })
-    || left.code.localeCompare(right.code, "es", { sensitivity: "base" })
+    subjectSummarySort === "code"
+      ? left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+        || left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+      : left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+        || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
   ));
   const teachersById = new Map(data.teachers.map((teacher) => [teacher.id, teacher]));
   const selectedSessions = semesterSessions.filter((session) => selectedIds.has(session.id));
@@ -2728,7 +2732,16 @@ function Overview({
       <section className="panel overview-subject-summary-panel">
         <div className="panel-head">
           <div><span className="section-kicker">Resumen docente</span><h2>Asignaturas</h2></div>
-          <span className="panel-tag">{orderedSubjects.length} {orderedSubjects.length === 1 ? "asignatura" : "asignaturas"}</span>
+          <div className="overview-subject-summary-head-actions">
+            <label className="overview-subject-summary-sort">
+              <span>Ordenar por</span>
+              <select value={subjectSummarySort} onChange={(event) => setSubjectSummarySort(event.target.value as "name" | "code")}>
+                <option value="name">Nombre</option>
+                <option value="code">Código</option>
+              </select>
+            </label>
+            <span className="panel-tag">{orderedSubjects.length} {orderedSubjects.length === 1 ? "asignatura" : "asignaturas"}</span>
+          </div>
         </div>
         {orderedSubjects.length ? (
           <div className="overview-subject-summary-table-wrap">
