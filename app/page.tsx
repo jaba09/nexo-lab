@@ -4,6 +4,7 @@ import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as Reac
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 import { downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
+import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
@@ -2013,6 +2014,8 @@ function OverviewGroupedSubjectSessions({
     endTime: string;
     dayTypes: Set<"A" | "B">;
     hasUntypedDays: boolean;
+    count: number;
+    firstDate: string;
   };
   type SessionGroup = {
     groupCode: string;
@@ -2043,7 +2046,11 @@ function OverviewGroupedSubjectSessions({
       endTime,
       dayTypes: new Set<"A" | "B">(),
       hasUntypedDays: false,
+      count: 0,
+      firstDate: session.sessionDate,
     };
+    schedule.count += 1;
+    if (session.sessionDate < schedule.firstDate) schedule.firstDate = session.sessionDate;
     if (dayType) schedule.dayTypes.add(dayType);
     else schedule.hasUntypedDays = true;
     group.schedulesByKey.set(scheduleKey, schedule);
@@ -2057,28 +2064,24 @@ function OverviewGroupedSubjectSessions({
   });
 
   return (
-    <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por subgrupo y horario">
+    <div className="overview-session-groups" aria-label="Sesiones de la asignatura agrupadas por subgrupo; se muestra el horario más frecuente">
       {orderedGroups.map(([groupKey, group], groupIndex) => {
         const groupLabel = group.groupCode
           ? `G${group.groupCode}`
           : "Sin grupo";
-        const scheduleLabels = [...group.schedulesByKey.values()]
-          .sort((left, right) => (
-            left.weekdayIndex - right.weekdayIndex
-            || left.startTime.localeCompare(right.startTime)
-            || left.endTime.localeCompare(right.endTime)
-          ))
-          .map((schedule) => {
-            const dayTypes = [...schedule.dayTypes].sort();
-            const typedWeekday = dayTypes.length
-              ? `${schedule.weekday}-${dayTypes.join("/")}`
-              : schedule.weekday;
-            const weekdayLabel = schedule.hasUntypedDays && dayTypes.length
-              ? `${typedWeekday} y ${schedule.weekday} sin tipo`
-              : typedWeekday;
-            return `${weekdayLabel} ${schedule.startTime}–${schedule.endTime}`;
-          });
-        const scheduleSummary = scheduleLabels.join(" · ");
+        const schedule = mostFrequentGroupSchedule(group.schedulesByKey.values());
+        const dayTypes = schedule ? [...schedule.dayTypes].sort() : [];
+        const typedWeekday = schedule
+          ? dayTypes.length
+            ? `${schedule.weekday}-${dayTypes.join("/")}`
+            : schedule.weekday
+          : "Sin horario";
+        const weekdayLabel = schedule?.hasUntypedDays && dayTypes.length
+          ? `${typedWeekday} y ${schedule.weekday} sin tipo`
+          : typedWeekday;
+        const scheduleSummary = schedule
+          ? `${weekdayLabel} ${schedule.startTime}–${schedule.endTime}`
+          : typedWeekday;
         const groupUnassignedTeacherSessionCount = group.sessions.filter((session) => session.teacherId === null).length;
         return (
           <details className="overview-session-group" key={groupKey}>

@@ -80,10 +80,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Seleccionar la primera sesión sin práctica de cada subgrupo de \$\{subject\.name\}/);
   assert.match(page, /toggleFirstUnassignedSubgroups\(subjectSessions\)/);
   assert.match(page, /Agrupar las sesiones de \$\{subject\.name\} por subgrupos/);
-  assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo y horario/);
+  assert.match(page, /Sesiones de la asignatura agrupadas por subgrupo; se muestra el horario más frecuente/);
   assert.match(page, /sessionsByGroup/);
   assert.match(page, /const groupKey = groupCode \|\| "__unassigned__"/);
   assert.match(page, /schedulesByKey/);
+  assert.match(page, /mostFrequentGroupSchedule\(group\.schedulesByKey\.values\(\)\)/);
   assert.match(page, /dayTypes\.join\("\/"\)/);
   assert.match(page, /scheduleSummary/);
   assert.match(page, /groupUnassignedTeacherSessionCount = group\.sessions\.filter\(\(session\) => session\.teacherId === null\)\.length/);
