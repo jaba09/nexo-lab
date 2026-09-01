@@ -48,10 +48,17 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.overview-subject-unassigned-count\.has-sessions/);
   assert.match(page, /function InstallationHierarchy/);
   assert.match(page, /Instalaciones agrupadas por laboratorio/);
+  assert.doesNotMatch(page, /key: "laboratories", label: "Laboratorios"/);
+  assert.match(page, /key: "installations", label: "Lab\/instalaciones", short: "L\/I"/);
+  assert.match(page, /Crear laboratorio/);
+  assert.match(page, /onCreate\("laboratories"\)/);
+  assert.match(page, /Editar laboratorio/);
+  assert.match(page, /onEdit\("laboratories", laboratory\)/);
   assert.match(page, /installation-laboratory-group/);
   assert.match(page, /laboratoryInstallations\.length === 1 \? "instalación" : "instalaciones"/);
   assert.match(page, /entity === "installations" && catalog\.laboratories\.length > 0/);
   assert.match(styles, /\.installation-laboratory-group\[open\] \.installation-laboratory-chevron/);
+  assert.match(styles, /\.installation-laboratory-management/);
   assert.match(page, /function SubjectHierarchy/);
   assert.match(page, /Asignaturas agrupadas por grado/);
   assert.match(page, /entity === "subjects" && catalog\.degrees\.length > 0/);
