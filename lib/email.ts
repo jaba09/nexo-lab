@@ -9,16 +9,45 @@ type PasswordResetEmail = {
   resetUrl: string;
 };
 
-function smtpSettings() {
-  const user = process.env.SMTP_USER?.trim() ?? "";
-  const password = process.env.SMTP_PASSWORD ?? "";
+type TeacherGroupEmail = {
+  smtpUser: string;
+  smtpPassword: string;
+  senderName: string;
+  recipients: string[];
+  subject: string;
+  body: string;
+};
+
+function smtpServerSettings() {
   const host = process.env.SMTP_HOST?.trim() || defaultSmtpHost;
   const parsedPort = Number(process.env.SMTP_PORT || defaultSmtpPort);
   const port = Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65_535
     ? parsedPort
     : defaultSmtpPort;
+  return { host, port };
+}
+
+function smtpSettings() {
+  const user = process.env.SMTP_USER?.trim() ?? "";
+  const password = process.env.SMTP_PASSWORD ?? "";
+  const { host, port } = smtpServerSettings();
   const from = process.env.EMAIL_FROM?.trim() || `Nexo Lab <${user}>`;
   return { user, password, host, port, from };
+}
+
+function smtpTransport(user: string, password: string) {
+  const { host, port } = smtpServerSettings();
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    requireTLS: port !== 465,
+    auth: { user, pass: password },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
+    tls: { minVersion: "TLSv1.2", servername: host },
+  });
 }
 
 export function passwordEmailConfigurationError() {
@@ -40,20 +69,10 @@ function escapedHtml(value: string) {
 }
 
 export async function sendPasswordResetEmail({ to, teacherName, resetUrl }: PasswordResetEmail) {
-  const { user, password, host, port, from } = smtpSettings();
+  const { user, password, from } = smtpSettings();
   if (!user || !password) throw new Error("SMTP_NOT_CONFIGURED");
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    requireTLS: port !== 465,
-    auth: { user, pass: password },
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 20_000,
-    tls: { minVersion: "TLSv1.2", servername: host },
-  });
+  const transporter = smtpTransport(user, password);
   const safeName = escapedHtml(teacherName);
   const safeUrl = escapedHtml(resetUrl);
   await transporter.sendMail({
@@ -76,6 +95,38 @@ export async function sendPasswordResetEmail({ to, teacherName, resetUrl }: Pass
         <p>Se ha solicitado restablecer tu contraseña. El enlace solo puede utilizarse una vez y caduca en 30 minutos.</p>
         <p style="margin:28px 0"><a href="${safeUrl}" style="display:inline-block;padding:14px 20px;border-radius:8px;background:#17201d;color:#fff;text-decoration:none;font-weight:700">Elegir nueva contraseña</a></p>
         <p style="font-size:13px;color:#68716d">Si no has realizado esta solicitud, puedes ignorar este mensaje.</p>
+      </div>
+    </body></html>`,
+  });
+}
+
+export async function sendTeacherGroupEmail({
+  smtpUser,
+  smtpPassword,
+  senderName,
+  recipients,
+  subject,
+  body,
+}: TeacherGroupEmail) {
+  const user = smtpUser.trim().toLowerCase();
+  if (!user || !smtpPassword) throw new Error("SMTP_CREDENTIALS_REQUIRED");
+  const normalizedRecipients = [...new Set(recipients.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+  if (!normalizedRecipients.length) throw new Error("MESSAGE_RECIPIENTS_REQUIRED");
+
+  const transporter = smtpTransport(user, smtpPassword);
+  const blindCopyRecipients = normalizedRecipients.filter((email) => email !== user);
+  const safeBody = escapedHtml(body).replace(/\r?\n/g, "<br>");
+  await transporter.sendMail({
+    from: { name: senderName || "Nexo Lab", address: user },
+    to: user,
+    bcc: blindCopyRecipients.length ? blindCopyRecipients : undefined,
+    replyTo: user,
+    subject,
+    text: body,
+    html: `<!doctype html><html lang="es"><body style="margin:0;background:#f4f2eb;color:#17201d;font-family:Arial,sans-serif">
+      <div style="max-width:640px;margin:32px auto;padding:36px;background:#fffef9;border:1px solid #d9d8d0;border-radius:14px">
+        <p style="font-size:12px;font-weight:700;letter-spacing:.12em">NEXO LAB</p>
+        <div style="font-size:15px;line-height:1.65">${safeBody}</div>
       </div>
     </body></html>`,
   });

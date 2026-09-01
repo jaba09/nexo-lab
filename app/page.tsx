@@ -1,14 +1,16 @@
 "use client";
 
-import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 import { downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
+import { messageAudienceTeacherIds } from "../lib/messageAudience";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 
-type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions";
-type Entity = Exclude<Section, "overview">;
+type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages";
+type Entity = Exclude<Section, "overview" | "messages">;
+type MessageAudience = "subject" | "semester";
 
 type Laboratory = {
   id: number;
@@ -348,7 +350,7 @@ const emptyCalendarFilters: CalendarFilters = {
   practiceId: "",
 };
 
-const navigation: { key: Section; label: string; short: string }[] = [
+const navigation: { key: Section; label: string; short: string; adminOnly?: boolean }[] = [
   { key: "overview", label: "Vista general", short: "00" },
   { key: "sessions", label: "Calendario", short: "SES" },
   { key: "laboratories", label: "Laboratorios", short: "LAB" },
@@ -357,6 +359,7 @@ const navigation: { key: Section; label: string; short: string }[] = [
   { key: "degrees", label: "Grados", short: "GRA" },
   { key: "subjects", label: "Asignaturas", short: "ASI" },
   { key: "teachers", label: "Profesores", short: "PRO" },
+  { key: "messages", label: "Mensajes", short: "MEN", adminOnly: true },
 ];
 
 const entityCopy: Record<Entity, { singular: string; plural: string; description: string }> = {
@@ -754,6 +757,7 @@ export default function Home() {
   const [importOpen, setImportOpen] = useState(false);
   const [assignmentImportOpen, setAssignmentImportOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
+  const [smtpPassword, setSmtpPassword] = useState("");
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   async function loadData() {
@@ -812,6 +816,8 @@ export default function Home() {
 
   async function finishLogin(teacher: AuthenticatedTeacher) {
     setAuthenticatedTeacher(teacher);
+    setActive("overview");
+    setSmtpPassword("");
     setAuthenticationError("");
     setLoading(true);
     await loadData();
@@ -823,6 +829,8 @@ export default function Home() {
     } finally {
       setAuthenticatedTeacher(null);
       setData(emptyData);
+      setActive("overview");
+      setSmtpPassword("");
       setDrawer(null);
       setNotice(null);
     }
@@ -1211,7 +1219,7 @@ export default function Home() {
     setNotice({ kind: "success", message: sessionAssignmentImportMessage(result) });
   }
 
-  const activeTitle = active === "overview" ? "Vista general" : entityCopy[active].plural;
+  const activeTitle = active === "overview" ? "Vista general" : active === "messages" ? "Mensajes" : entityCopy[active].plural;
 
   if (!authenticationChecked) {
     return <div className="auth-loading" role="status"><span />Comprobando el acceso…</div>;
@@ -1231,7 +1239,7 @@ export default function Home() {
 
         <nav className="main-nav" aria-label="Navegación principal">
           <p className="nav-caption">Estructura académica</p>
-          {navigation.map((item) => (
+          {navigation.filter((item) => !item.adminOnly || authenticatedTeacher.isAdmin).map((item) => (
             <button
               key={item.key}
               className={active === item.key ? "nav-item active" : "nav-item"}
@@ -1240,7 +1248,7 @@ export default function Home() {
             >
               <span className="nav-code">{item.short}</span>
               <span>{item.label}</span>
-              {item.key !== "overview" && <b>{counts[item.key]}</b>}
+              {item.key !== "overview" && item.key !== "messages" && <b>{counts[item.key]}</b>}
             </button>
           ))}
           <a className="nav-item help-nav-link" href="/ayuda">
@@ -1266,7 +1274,7 @@ export default function Home() {
             <strong>{activeTitle}</strong>
           </div>
           <div className="topbar-actions">
-            {active !== "overview" && (
+            {active !== "overview" && active !== "messages" && (
               <label className="search-field">
                 <span aria-hidden="true">⌕</span>
                 <span className="sr-only">Buscar en {activeTitle}</span>
@@ -1304,6 +1312,19 @@ export default function Home() {
               onAssignTeacher={assignTeacherToSessions}
               onDeleteSessions={deleteSessions}
               onImportAssignments={() => setAssignmentImportOpen(true)}
+            />
+          ) : active === "messages" ? (
+            <MessagesView
+              data={data}
+              sender={authenticatedTeacher}
+              selectedSemester={selectedSemester}
+              onSelectedSemesterChange={setSelectedSemester}
+              smtpPassword={smtpPassword}
+              onSmtpPasswordChange={setSmtpPassword}
+              onSent={(recipientCount) => setNotice({
+                kind: "success",
+                message: `Mensaje enviado correctamente a ${recipientCount} ${recipientCount === 1 ? "profesor" : "profesores"}.`,
+              })}
             />
           ) : (
             <EntityView
@@ -2852,6 +2873,234 @@ function SemesterFocus({
   );
 }
 
+function MessagesView({
+  data,
+  sender,
+  selectedSemester,
+  onSelectedSemesterChange,
+  smtpPassword,
+  onSmtpPasswordChange,
+  onSent,
+}: {
+  data: AppData;
+  sender: AuthenticatedTeacher;
+  selectedSemester: string;
+  onSelectedSemesterChange: (semesterId: string) => void;
+  smtpPassword: string;
+  onSmtpPasswordChange: (password: string) => void;
+  onSent: (recipientCount: number) => void;
+}) {
+  const [audience, setAudience] = useState<MessageAudience>("subject");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordEntry, setPasswordEntry] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const semesters = semesterOptions([
+    ...data.sessions.map((session) => session.sessionDate),
+    ...data.holidays.map((holiday) => holiday.holidayDate),
+    ...data.academicDayTypes.map((item) => item.date),
+  ], localIsoDate());
+  const semesterSessions = data.sessions.filter((session) => semesterFromDate(session.sessionDate) === selectedSemester);
+  const subjectIdsWithSessions = new Set(semesterSessions.map((session) => session.subjectId));
+  const subjects = data.subjects
+    .filter((subject) => subjectIdsWithSessions.has(subject.id))
+    .sort((left, right) => (
+      left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+      || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+    ));
+  const effectiveSubjectId = subjects.some((subject) => String(subject.id) === selectedSubjectId)
+    ? selectedSubjectId
+    : String(subjects[0]?.id ?? "");
+  const audienceSubjectId = audience === "subject" && effectiveSubjectId ? Number(effectiveSubjectId) : null;
+  const audienceTeacherIds = new Set(messageAudienceTeacherIds(data.sessions, selectedSemester, audienceSubjectId, semesterFromDate));
+  const audienceTeachers = [...data.teachers]
+    .filter((teacher) => audienceTeacherIds.has(teacher.id))
+    .sort(compareTeachersBySurname);
+  const recipientTeachers = audienceTeachers.filter((teacher) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacher.email.trim()));
+  const missingEmailCount = audienceTeachers.length - recipientTeachers.length;
+
+  useEffect(() => {
+    if (passwordDialogOpen) passwordInputRef.current?.focus();
+  }, [passwordDialogOpen]);
+
+  async function sendMessage(password: string) {
+    setSending(true);
+    setError("");
+    setPasswordError("");
+    try {
+      const response = await fetch(apiUrl("/api/messages/send"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audience,
+          semesterId: selectedSemester,
+          subjectId: audienceSubjectId,
+          subject: messageSubject,
+          body: messageBody,
+          smtpPassword: password,
+        }),
+      });
+      const payload = await response.json() as { recipientCount?: number; error?: string; code?: string };
+      if (!response.ok) {
+        if (payload.code === "SMTP_AUTH_FAILED") {
+          onSmtpPasswordChange("");
+          setPasswordEntry("");
+          setPasswordError(payload.error || "La contraseña del correo no es correcta.");
+          setPasswordDialogOpen(true);
+          return;
+        }
+        throw new Error(payload.error || "No se pudo enviar el mensaje.");
+      }
+      onSmtpPasswordChange(password);
+      setMessageSubject("");
+      setMessageBody("");
+      onSent(Number(payload.recipientCount ?? recipientTeachers.length));
+    } catch (sendError) {
+      setError(clientErrorMessage(sendError, "No se pudo enviar el mensaje."));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function submitMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!recipientTeachers.length) {
+      setError("El grupo seleccionado no tiene profesores con correo electrónico.");
+      return;
+    }
+    if (!smtpPassword) {
+      setPasswordEntry("");
+      setPasswordError("");
+      setPasswordDialogOpen(true);
+      return;
+    }
+    void sendMessage(smtpPassword);
+  }
+
+  function submitSmtpPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!passwordEntry) {
+      setPasswordError("Introduce la contraseña de tu correo de Unizar.");
+      return;
+    }
+    setPasswordDialogOpen(false);
+    onSmtpPasswordChange(passwordEntry);
+    void sendMessage(passwordEntry);
+  }
+
+  return (
+    <>
+      <section className="entity-hero messages-hero">
+        <div>
+          <span className="section-kicker">Comunicación / MEN</span>
+          <h1>Mensajes</h1>
+          <p>Envía correos a grupos de profesores calculados a partir de su docencia.</p>
+        </div>
+        <span className="messages-admin-badge">Solo administradores</span>
+      </section>
+
+      <div className="messages-layout">
+        <section className="panel messages-audience-panel" aria-labelledby="messages-audience-title">
+          <div className="panel-head">
+            <div><span className="section-kicker">Destinatarios</span><h2 id="messages-audience-title">Grupo de profesores</h2></div>
+            <span className="panel-tag">{recipientTeachers.length} {recipientTeachers.length === 1 ? "correo" : "correos"}</span>
+          </div>
+          <div className="messages-audience-controls">
+            <label>
+              <span>Semestre</span>
+              <select value={selectedSemester} onChange={(event) => { onSelectedSemesterChange(event.target.value); setError(""); }}>
+                {semesters.map((semester) => <option key={semester.id} value={semester.id}>{semesterDisplayTitle(semester.id)}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Grupo</span>
+              <select value={audience} onChange={(event) => { setAudience(event.target.value as MessageAudience); setError(""); }}>
+                <option value="subject">Docencia en una asignatura</option>
+                <option value="semester">Toda la docencia del semestre</option>
+              </select>
+            </label>
+            {audience === "subject" && (
+              <label>
+                <span>Asignatura</span>
+                <select value={effectiveSubjectId} onChange={(event) => { setSelectedSubjectId(event.target.value); setError(""); }} disabled={!subjects.length}>
+                  {subjects.length
+                    ? subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>)
+                    : <option value="">Sin asignaturas con sesiones</option>}
+                </select>
+              </label>
+            )}
+          </div>
+          <div className="messages-recipient-summary">
+            <strong>{recipientTeachers.length}</strong>
+            <span>{recipientTeachers.length === 1 ? "profesor recibirá el mensaje" : "profesores recibirán el mensaje"}</span>
+            {missingEmailCount > 0 && <small>{missingEmailCount} {missingEmailCount === 1 ? "profesor queda fuera porque no tiene correo" : "profesores quedan fuera porque no tienen correo"}</small>}
+          </div>
+          <div className="messages-recipient-list" aria-label="Profesores destinatarios">
+            {recipientTeachers.length ? recipientTeachers.map((teacher) => (
+              <span key={teacher.id}><strong>{teacher.code}</strong><span>{teacher.name}<small>{teacher.email}</small></span></span>
+            )) : <p>No hay destinatarios con correo para esta selección.</p>}
+          </div>
+        </section>
+
+        <form className="panel messages-compose-panel" onSubmit={submitMessage}>
+          <div className="panel-head">
+            <div><span className="section-kicker">Correo electrónico</span><h2>Redactar mensaje</h2></div>
+            <span className="messages-smtp-status"><i />SMTP Unizar</span>
+          </div>
+          <div className="messages-compose-fields">
+            <div className="messages-sender-line"><span>De</span><strong>{sender.name}</strong><small>{sender.email}</small></div>
+            <label>
+              <span>Asunto</span>
+              <input required maxLength={160} value={messageSubject} onChange={(event) => setMessageSubject(event.target.value)} placeholder="Asunto del correo" />
+            </label>
+            <label>
+              <span>Mensaje</span>
+              <textarea required maxLength={20_000} rows={12} value={messageBody} onChange={(event) => setMessageBody(event.target.value)} placeholder="Escribe el mensaje que recibirán los profesores…" />
+            </label>
+            <div className="messages-security-note">
+              <span aria-hidden="true">⌁</span>
+              <p>Los destinatarios se envían en copia oculta. La contraseña no se guarda en la base de datos ni en el almacenamiento del navegador.</p>
+              {smtpPassword && <button type="button" onClick={() => { onSmtpPasswordChange(""); setPasswordEntry(""); setPasswordDialogOpen(true); }}>Cambiar contraseña</button>}
+            </div>
+            {error && <p className="messages-error" role="alert">{error}</p>}
+            <button className="primary-button messages-send-button" type="submit" disabled={sending || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>
+              {sending ? "Enviando…" : `Enviar a ${recipientTeachers.length} ${recipientTeachers.length === 1 ? "profesor" : "profesores"}`}<ArrowIcon />
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {passwordDialogOpen && (
+        <div className="import-dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !sending && setPasswordDialogOpen(false)}>
+          <section className="import-dialog smtp-password-dialog" role="dialog" aria-modal="true" aria-labelledby="smtp-password-title">
+            <div className="drawer-head">
+              <div><span className="entity-pill">SMTP</span><h2 id="smtp-password-title">Contraseña del correo</h2><p>Necesaria para enviar desde {sender.email} mediante smtp.unizar.es.</p></div>
+              <button className="icon-button" type="button" disabled={sending} onClick={() => setPasswordDialogOpen(false)} aria-label="Cerrar contraseña de correo">×</button>
+            </div>
+            <form className="smtp-password-form" onSubmit={submitSmtpPassword}>
+              <label>
+                <span>Contraseña de {sender.email}</span>
+                <input ref={passwordInputRef} required type="password" autoComplete="current-password" maxLength={256} value={passwordEntry} onChange={(event) => { setPasswordEntry(event.target.value); setPasswordError(""); }} />
+              </label>
+              <p className="smtp-password-help">Se conservará únicamente en memoria hasta que cierres sesión o recargues la aplicación.</p>
+              {passwordError && <p className="messages-error" role="alert">{passwordError}</p>}
+              <div className="form-actions">
+                <button className="secondary-button" type="button" disabled={sending} onClick={() => setPasswordDialogOpen(false)}>Cancelar</button>
+                <button className="primary-button" type="submit" disabled={sending}>{sending ? "Enviando…" : "Guardar y enviar"}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+
 function InstallationHierarchy({
   laboratories,
   installations,
@@ -2953,6 +3202,104 @@ function InstallationHierarchy({
             </div>
           ) : (
             <p className="installation-laboratory-empty">Este laboratorio todavía no tiene instalaciones.</p>
+          )}
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function SubjectHierarchy({
+  degrees,
+  subjects,
+  allSubjects,
+  search,
+  canEditItem,
+  canDelete,
+  onEdit,
+  onDelete,
+}: {
+  degrees: Degree[];
+  subjects: Subject[];
+  allSubjects: Subject[];
+  search: string;
+  canEditItem: (item: EntityRecord) => boolean;
+  canDelete: boolean;
+  onEdit: (subject: Subject) => void;
+  onDelete: (subject: Subject) => void;
+}) {
+  const term = search.trim().toLocaleLowerCase("es");
+  const groups = [...degrees]
+    .sort((left, right) => (
+      left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+      || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+    ))
+    .map((degree) => {
+      const degreeMatches = Boolean(term) && [degree.code, degree.name, degree.level, degree.icsCode]
+        .join(" ")
+        .toLocaleLowerCase("es")
+        .includes(term);
+      const source = degreeMatches ? allSubjects : subjects;
+      const degreeSubjects = source
+        .filter((subject) => subject.degreeId === degree.id)
+        .sort((left, right) => (
+          left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+          || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+        ));
+      return { degree, subjects: degreeSubjects, degreeMatches };
+    })
+    .filter((group) => !term || group.degreeMatches || group.subjects.length > 0);
+
+  if (!groups.length) {
+    return (
+      <div className="empty-state">
+        <span>⌕</span>
+        <h2>No hay coincidencias</h2>
+        <p>Prueba con otro código, nombre o relación.</p>
+      </div>
+    );
+  }
+
+  function editSubjectWithKeyboard(event: ReactKeyboardEvent<HTMLDivElement>, subject: Subject) {
+    if (!canEditItem(subject) || event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    onEdit(subject);
+  }
+
+  return (
+    <div className="subject-degree-list" aria-label="Asignaturas agrupadas por grado">
+      {groups.map(({ degree, subjects: degreeSubjects }) => (
+        <details className="subject-degree-group" key={degree.id} open={term ? true : undefined}>
+          <summary>
+            <span className="subject-degree-chevron" aria-hidden="true">›</span>
+            <span className="subject-degree-code">{degree.code}</span>
+            <span className="subject-degree-name">
+              <strong>{degree.name}</strong>
+              <small>{degree.level}{degree.icsCode ? ` · ICS ${degree.icsCode}` : ""}</small>
+            </span>
+            <b>{degreeSubjects.length}<small>{degreeSubjects.length === 1 ? "asignatura" : "asignaturas"}</small></b>
+          </summary>
+          {degreeSubjects.length ? (
+            <div className="subject-degree-items">
+              {degreeSubjects.map((subject) => (
+                <div
+                  className={canEditItem(subject) ? "degree-card subject-degree-card editable-record" : "degree-card subject-degree-card"}
+                  key={subject.id}
+                  role={canEditItem(subject) ? "button" : undefined}
+                  tabIndex={canEditItem(subject) ? 0 : undefined}
+                  aria-label={canEditItem(subject) ? `Editar ${subject.name}` : undefined}
+                  onClick={canEditItem(subject) ? () => onEdit(subject) : undefined}
+                  onKeyDown={canEditItem(subject) ? (event) => editSubjectWithKeyboard(event, subject) : undefined}
+                >
+                  <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
+                  <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation || "Sin abreviatura"}</p></div>
+                  <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code, index) => <span key={code}>P{index + 1} · {code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
+                  {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(subject); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="subject-degree-empty">Este grado todavía no tiene asignaturas.</p>
           )}
         </details>
       ))}
@@ -3081,6 +3428,17 @@ function EntityView({
           onEdit={(installation) => onEdit(entity, installation)}
           onDelete={(installation) => onDelete(entity, installation.id, installation.name)}
         />
+      ) : entity === "subjects" && catalog.degrees.length > 0 ? (
+        <SubjectHierarchy
+          degrees={catalog.degrees}
+          subjects={items as Subject[]}
+          allSubjects={catalog.subjects}
+          search={search}
+          canEditItem={canEditItem}
+          canDelete={canDelete}
+          onEdit={(subject) => onEdit(entity, subject)}
+          onDelete={(subject) => onDelete(entity, subject.id, subject.name)}
+        />
       ) : items.length === 0 ? (
         <div className="empty-state">
           <span>{search ? "⌕" : "+"}</span>
@@ -3108,17 +3466,6 @@ function EntityView({
               <div className="degree-main"><h2>{degree.name}</h2><p>{degree.icsCode ? `ICS ${degree.icsCode}` : "Sin código ICS"} · {degree.subjectCount} {degree.subjectCount === 1 ? "asignatura" : "asignaturas"}</p></div>
               <div className="tag-list">{degree.subjectCodes.length ? degree.subjectCodes.map((code) => <span key={code}>{code}</span>) : <em>Sin asignaturas</em>}</div>
               {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, degree.id, degree.name); }} aria-label={`Eliminar ${degree.name}`}>×</button></div>}
-            </div>
-          ))}
-        </div>
-      ) : entity === "subjects" ? (
-        <div className="degree-list">
-          {(items as Subject[]).map((subject) => (
-            <div className={canEditItem(subject) ? "degree-card editable-record" : "degree-card"} key={subject.id} role={canEditItem(subject) ? "button" : undefined} tabIndex={canEditItem(subject) ? 0 : undefined} aria-label={canEditItem(subject) ? `Editar ${subject.name}` : undefined} onClick={canEditItem(subject) ? () => onEdit(entity, subject) : undefined} onKeyDown={canEditItem(subject) ? (event) => editRecordWithKeyboard(event, subject) : undefined}>
-              <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
-              <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation ? `${subject.abbreviation} · ` : "Sin abreviatura · "}{subject.degreeCode} · {subject.degreeName}</p></div>
-              <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code, index) => <span key={code}>P{index + 1} · {code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
-              {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, subject.id, subject.name); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
             </div>
           ))}
         </div>

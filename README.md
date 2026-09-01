@@ -142,6 +142,21 @@ contraseña del correo cambia, también hay que actualizar el secreto en Render.
 Los tokens se guardan en SQLite solo mediante su hash y no modifican los datos
 docentes existentes.
 
+### Mensajes a grupos de profesores
+
+El menú «Mensajes», visible solo para administradores, permite enviar un correo
+a los profesores con docencia en una asignatura o a todos los profesores con
+docencia en el semestre elegido. El servidor vuelve a calcular el grupo y envía
+los destinatarios en copia oculta.
+
+El envío utiliza `SMTP_HOST` y `SMTP_PORT`, con `smtp.unizar.es:587` como valores
+predeterminados. El usuario SMTP es el correo de la cuenta administradora que ha
+iniciado sesión. La contraseña se solicita al realizar el primer envío y solo se
+mantiene en memoria hasta cerrar sesión o recargar la aplicación: no se guarda
+en SQLite, en cookies ni en el almacenamiento persistente del navegador. Las
+variables `SMTP_USER` y `SMTP_PASSWORD` siguen siendo necesarias únicamente para
+el flujo automático de recuperación de contraseña.
+
 ## Comprobaciones
 
 ```bash

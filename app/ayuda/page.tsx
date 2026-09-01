@@ -255,8 +255,9 @@ export default async function HelpPage() {
                 <div><span>INS</span><strong>Instalaciones</strong><p>Espacios o equipos, con categoría, capacidad y estado.</p></div>
                 <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración, riesgo e instalaciones necesarias.</p></div>
                 <div><span>GRA</span><strong>Grados</strong><p>Programa académico y código utilizado en importaciones.</p></div>
-                <div><span>ASI</span><strong>Asignaturas</strong><p>Materia, abreviatura, prácticas ordenadas y profesores editores.</p></div>
+                <div><span>ASI</span><strong>Asignaturas</strong><p>Materias agrupadas por grado, con prácticas ordenadas y profesores editores.</p></div>
                 <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña y permiso de administrador.</p></div>
+                <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
               </div>
               <h3>Crear, editar o eliminar</h3>
               <p>Cuando tu cuenta tenga permiso, verás el botón de creación en la cabecera. Selecciona una fila o tarjeta editable para abrir su ficha. La eliminación aparece dentro de los controles del registro y puede impedirse si existen datos relacionados que deban conservarse.</p>
@@ -330,10 +331,15 @@ export default async function HelpPage() {
                     <tr><td>Editar catálogos y profesores</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
                     <tr><td>Borrar registros o sesiones</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
                     <tr><td>Importar ICS o asignaciones</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
+                    <tr><td>Enviar mensajes a grupos</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
                   </tbody>
                 </table>
               </div>
               <p>Un administrador concede el rol de editor desde la ficha de una asignatura. El sistema conserva siempre al menos una cuenta administradora.</p>
+              <div className="help-callout neutral">
+                <span aria-hidden="true">✉</span>
+                <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. La contraseña de Unizar se solicita en el primer envío y se conserva solo en memoria hasta cerrar sesión o recargar; los destinatarios reciben el mensaje en copia oculta.</p>
+              </div>
             </HelpSection>
 
             <HelpSection

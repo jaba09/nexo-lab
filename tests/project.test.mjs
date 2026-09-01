@@ -52,6 +52,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /laboratoryInstallations\.length === 1 \? "instalación" : "instalaciones"/);
   assert.match(page, /entity === "installations" && catalog\.laboratories\.length > 0/);
   assert.match(styles, /\.installation-laboratory-group\[open\] \.installation-laboratory-chevron/);
+  assert.match(page, /function SubjectHierarchy/);
+  assert.match(page, /Asignaturas agrupadas por grado/);
+  assert.match(page, /entity === "subjects" && catalog\.degrees\.length > 0/);
+  assert.match(page, /degreeSubjects\.map\(\(subject\) =>/);
+  assert.match(styles, /\.subject-degree-group\[open\] \.subject-degree-chevron/);
   assert.match(page, /teacherSessionCounts/);
   assert.match(page, /unassignedTeacherSessionCount/);
   assert.match(page, /function UnassignedTeacherSessionCount/);
