@@ -71,6 +71,10 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const unauthorizedDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(unauthorizedDataResponse.status, 401);
 
+  const unauthorizedHelpResponse = await fetch(`${origin}/ayuda`, { redirect: "manual" });
+  assert.equal(unauthorizedHelpResponse.status, 307);
+  assert.equal(new URL(unauthorizedHelpResponse.headers.get("location"), origin).pathname, "/");
+
   const wrongLoginResponse = await fetch(`${origin}/api/auth/session`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -92,6 +96,13 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const authenticatedSessionResponse = await fetch(`${origin}/api/auth/session`);
   assert.equal(authenticatedSessionResponse.status, 200);
   assert.equal((await authenticatedSessionResponse.json()).teacher.isAdmin, true);
+
+  const helpResponse = await fetch(`${origin}/ayuda`);
+  assert.equal(helpResponse.status, 200);
+  const helpHtml = await helpResponse.text();
+  assert.match(helpHtml, /Manual de uso/);
+  assert.match(helpHtml, /Todo lo necesario para organizar/);
+  assert.match(helpHtml, /Administrador/);
 
   const initialData = await (await fetch(`${origin}/api/data`)).json();
   assert.equal(initialData.laboratories.length, 3);
@@ -983,10 +994,15 @@ END:VCALENDAR\r
   assert.equal(deleteSelectedSessionsResponse.status, 200);
   assert.equal((await deleteSelectedSessionsResponse.json()).deletedCount, 1);
 
+  const [seedYear, seedMonth] = initialData.sessions[0].sessionDate.split("-").map(Number);
+  const seedSemesterStartYear = seedMonth >= 9 ? seedYear : seedYear - 1;
+  const seedSemesterNumber = seedMonth >= 9 || seedMonth === 1 ? 1 : 2;
+  const seedSemesterId = `${seedSemesterStartYear}-${String(seedSemesterStartYear + 1).slice(-2)} S${seedSemesterNumber}`;
+
   const deleteSemesterSessionsResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ entity: "sessions", semesterId: "2025-26 S2" }),
+    body: JSON.stringify({ entity: "sessions", semesterId: seedSemesterId }),
   });
   assert.equal(deleteSemesterSessionsResponse.status, 200);
   assert.equal((await deleteSemesterSessionsResponse.json()).deletedCount, 4);

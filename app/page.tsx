@@ -1243,6 +1243,11 @@ export default function Home() {
               {item.key !== "overview" && <b>{counts[item.key]}</b>}
             </button>
           ))}
+          <a className="nav-item help-nav-link" href="/ayuda">
+            <span className="nav-code">AYU</span>
+            <span>Manual de uso</span>
+            <span aria-hidden="true">?</span>
+          </a>
         </nav>
 
         <div className="sidebar-foot">
