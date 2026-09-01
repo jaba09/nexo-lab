@@ -22,6 +22,7 @@ test("includes a protected, integrated user manual", async () => {
   assert.match(help, /<strong>Mensajes<\/strong>/);
   assert.match(help, /Enviar mensajes a grupos/);
   assert.match(help, /<strong>Lab\/instalaciones<\/strong>/);
+  assert.match(help, /<strong>Grados\/asignaturas<\/strong>/);
   assert.match(styles, /\.help-frame/);
   assert.match(styles, /\.help-permission-table/);
   assert.match(styles, /\.help-faq/);

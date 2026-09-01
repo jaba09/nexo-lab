@@ -61,9 +61,17 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.installation-laboratory-management/);
   assert.match(page, /function SubjectHierarchy/);
   assert.match(page, /Asignaturas agrupadas por grado/);
+  assert.doesNotMatch(page, /key: "degrees", label: "Grados"/);
+  assert.match(page, /key: "subjects", label: "Grados\/asignaturas", short: "G\/A"/);
+  assert.match(page, /key: "subjects"[\s\S]*?key: "practices"/);
+  assert.match(page, /Crear grado/);
+  assert.match(page, /onCreate\("degrees"\)/);
+  assert.match(page, /Editar grado/);
+  assert.match(page, /onEdit\("degrees", degree\)/);
   assert.match(page, /entity === "subjects" && catalog\.degrees\.length > 0/);
   assert.match(page, /degreeSubjects\.map\(\(subject\) =>/);
   assert.match(styles, /\.subject-degree-group\[open\] \.subject-degree-chevron/);
+  assert.match(styles, /\.subject-degree-management/);
   assert.match(page, /teacherSessionCounts/);
   assert.match(page, /unassignedTeacherSessionCount/);
   assert.match(page, /function UnassignedTeacherSessionCount/);

@@ -252,9 +252,8 @@ export default async function HelpPage() {
             >
               <div className="help-entity-grid">
                 <div><span>L/I</span><strong>Lab/instalaciones</strong><p>Laboratorios desplegables con sus espacios, equipos y datos de gestión.</p></div>
+                <div><span>G/A</span><strong>Grados/asignaturas</strong><p>Grados desplegables con sus materias, prácticas ordenadas y profesores editores.</p></div>
                 <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración, riesgo e instalaciones necesarias.</p></div>
-                <div><span>GRA</span><strong>Grados</strong><p>Programa académico y código utilizado en importaciones.</p></div>
-                <div><span>ASI</span><strong>Asignaturas</strong><p>Materias agrupadas por grado, con prácticas ordenadas y profesores editores.</p></div>
                 <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña y permiso de administrador.</p></div>
                 <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
               </div>
@@ -262,7 +261,7 @@ export default async function HelpPage() {
               <p>Cuando tu cuenta tenga permiso, verás el botón de creación en la cabecera. Selecciona una fila o tarjeta editable para abrir su ficha. La eliminación aparece dentro de los controles del registro y puede impedirse si existen datos relacionados que deban conservarse.</p>
               <div className="help-callout neutral">
                 <span aria-hidden="true">↳</span>
-                <p><strong>Orden recomendado</strong> Si partes de cero, abre «Lab/instalaciones», crea primero un laboratorio y añade sus instalaciones. Después continúa con prácticas, grados y asignaturas.</p>
+                <p><strong>Orden recomendado</strong> Si partes de cero, abre «Lab/instalaciones», crea primero un laboratorio y añade sus instalaciones. Después abre «Grados/asignaturas», crea un grado y añade sus asignaturas y prácticas.</p>
               </div>
             </HelpSection>
 

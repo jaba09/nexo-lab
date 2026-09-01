@@ -355,9 +355,8 @@ const navigation: { key: Section; label: string; short: string; adminOnly?: bool
   { key: "overview", label: "Vista general", short: "00" },
   { key: "sessions", label: "Calendario", short: "SES" },
   { key: "installations", label: "Lab/instalaciones", short: "L/I" },
+  { key: "subjects", label: "Grados/asignaturas", short: "G/A" },
   { key: "practices", label: "Prácticas", short: "PRA" },
-  { key: "degrees", label: "Grados", short: "GRA" },
-  { key: "subjects", label: "Asignaturas", short: "ASI" },
   { key: "teachers", label: "Profesores", short: "PRO" },
   { key: "messages", label: "Mensajes", short: "MEN", adminOnly: true },
 ];
@@ -367,7 +366,7 @@ const entityShortCodes: Record<Entity, string> = {
   installations: "L/I",
   practices: "PRA",
   degrees: "GRA",
-  subjects: "ASI",
+  subjects: "G/A",
   teachers: "PRO",
   sessions: "SES",
 };
@@ -395,8 +394,8 @@ const entityCopy: Record<Entity, { singular: string; plural: string; description
   },
   subjects: {
     singular: "asignatura",
-    plural: "Asignaturas",
-    description: "Materias que pertenecen a un grado y agrupan prácticas de laboratorio.",
+    plural: "Grados y asignaturas",
+    description: "Grados y las asignaturas que agrupan sus prácticas de laboratorio.",
   },
   teachers: {
     singular: "profesor",
@@ -1258,7 +1257,9 @@ export default function Home() {
             >
               <span className="nav-code">{item.short}</span>
               <span>{item.label}</span>
-              {item.key !== "overview" && item.key !== "messages" && <b>{item.key === "installations" ? `${counts.laboratories}/${counts.installations}` : counts[item.key]}</b>}
+              {item.key !== "overview" && item.key !== "messages" && <b>{item.key === "installations"
+                ? `${counts.laboratories}/${counts.installations}`
+                : item.key === "subjects" ? `${counts.degrees}/${counts.subjects}` : counts[item.key]}</b>}
             </button>
           ))}
           <a className="nav-item help-nav-link" href="/ayuda">
@@ -1341,6 +1342,7 @@ export default function Home() {
               entity={active}
               canCreate={canCreateEntity(active)}
               canCreateLaboratory={canCreateEntity("laboratories")}
+              canCreateDegree={canCreateEntity("degrees")}
               canEditItem={(item) => authenticatedTeacher.isAdmin || (active === "sessions" && canEditSession(item as Session))}
               canDelete={authenticatedTeacher.isAdmin}
               editableSubjectIds={data.editableSubjectIds}
@@ -3245,18 +3247,24 @@ function SubjectHierarchy({
   allSubjects,
   search,
   canEditItem,
+  canEditDegrees,
   canDelete,
   onEdit,
   onDelete,
+  onEditDegree,
+  onDeleteDegree,
 }: {
   degrees: Degree[];
   subjects: Subject[];
   allSubjects: Subject[];
   search: string;
   canEditItem: (item: EntityRecord) => boolean;
+  canEditDegrees: boolean;
   canDelete: boolean;
   onEdit: (subject: Subject) => void;
   onDelete: (subject: Subject) => void;
+  onEditDegree: (degree: Degree) => void;
+  onDeleteDegree: (degree: Degree) => void;
 }) {
   const term = search.trim().toLocaleLowerCase("es");
   const groups = [...degrees]
@@ -3310,26 +3318,41 @@ function SubjectHierarchy({
             <b>{degreeSubjects.length}<small>{degreeSubjects.length === 1 ? "asignatura" : "asignaturas"}</small></b>
           </summary>
           {degreeSubjects.length ? (
-            <div className="subject-degree-items">
-              {degreeSubjects.map((subject) => (
-                <div
-                  className={canEditItem(subject) ? "degree-card subject-degree-card editable-record" : "degree-card subject-degree-card"}
-                  key={subject.id}
-                  role={canEditItem(subject) ? "button" : undefined}
-                  tabIndex={canEditItem(subject) ? 0 : undefined}
-                  aria-label={canEditItem(subject) ? `Editar ${subject.name}` : undefined}
-                  onClick={canEditItem(subject) ? () => onEdit(subject) : undefined}
-                  onKeyDown={canEditItem(subject) ? (event) => editSubjectWithKeyboard(event, subject) : undefined}
-                >
-                  <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
-                  <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation || "Sin abreviatura"}</p></div>
-                  <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code, index) => <span key={code}>P{index + 1} · {code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
-                  {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(subject); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
+            <div className="subject-degree-body">
+              <div className="subject-degree-management">
+                <span><small>Código ICS</small><strong>{degree.icsCode || "Sin indicar"}</strong></span>
+                <div>
+                  {canEditDegrees && <button className="secondary-button" type="button" onClick={() => onEditDegree(degree)}>Editar grado</button>}
+                  {canDelete && <button className="delete-button" type="button" onClick={() => onDeleteDegree(degree)} aria-label={`Eliminar ${degree.name}`}>×</button>}
                 </div>
-              ))}
+              </div>
+              <div className="subject-degree-items">
+                {degreeSubjects.map((subject) => (
+                  <div
+                    className={canEditItem(subject) ? "degree-card subject-degree-card editable-record" : "degree-card subject-degree-card"}
+                    key={subject.id}
+                    role={canEditItem(subject) ? "button" : undefined}
+                    tabIndex={canEditItem(subject) ? 0 : undefined}
+                    aria-label={canEditItem(subject) ? `Editar ${subject.name}` : undefined}
+                    onClick={canEditItem(subject) ? () => onEdit(subject) : undefined}
+                    onKeyDown={canEditItem(subject) ? (event) => editSubjectWithKeyboard(event, subject) : undefined}
+                  >
+                    <div className="degree-code subject"><span>{subject.code}</span><small>ASI</small></div>
+                    <div className="degree-main"><h2>{subject.name}</h2><p>{subject.abbreviation || "Sin abreviatura"}</p></div>
+                    <div className="tag-list">{subject.practiceCodes.length ? subject.practiceCodes.map((code, index) => <span key={code}>P{index + 1} · {code}</span>) : <em>Sin prácticas</em>}{subject.editorCodes.map((code) => <span className="subject-editor-tag" key={`editor-${code}`}>Editor {code}</span>)}</div>
+                    {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(subject); }} aria-label={`Eliminar ${subject.name}`}>×</button></div>}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
-            <p className="subject-degree-empty">Este grado todavía no tiene asignaturas.</p>
+            <div className="subject-degree-management empty">
+              <span><small>Código ICS</small><strong>{degree.icsCode || "Sin indicar"}</strong><em>Este grado todavía no tiene asignaturas.</em></span>
+              <div>
+                {canEditDegrees && <button className="secondary-button" type="button" onClick={() => onEditDegree(degree)}>Editar grado</button>}
+                {canDelete && <button className="delete-button" type="button" onClick={() => onDeleteDegree(degree)} aria-label={`Eliminar ${degree.name}`}>×</button>}
+              </div>
+            </div>
           )}
         </details>
       ))}
@@ -3341,6 +3364,7 @@ function EntityView({
   entity,
   canCreate,
   canCreateLaboratory,
+  canCreateDegree,
   canEditItem,
   canDelete,
   editableSubjectIds,
@@ -3362,6 +3386,7 @@ function EntityView({
   entity: Entity;
   canCreate: boolean;
   canCreateLaboratory: boolean;
+  canCreateDegree: boolean;
   canEditItem: (item: EntityRecord) => boolean;
   canDelete: boolean;
   editableSubjectIds: number[];
@@ -3414,6 +3439,7 @@ function EntityView({
             <>
               {entity === "sessions" && canDelete && <button className="secondary-button" type="button" onClick={onImport}>Importar ICS</button>}
               {entity === "installations" && canCreateLaboratory && <button className="secondary-button" type="button" onClick={() => onCreate("laboratories")}><span>+</span> Crear laboratorio</button>}
+              {entity === "subjects" && canCreateDegree && <button className="secondary-button" type="button" onClick={() => onCreate("degrees")}><span>+</span> Crear grado</button>}
               <button className="primary-button" type="button" disabled={dependencyMissing} onClick={() => onCreate(entity)}>
                 <span>+</span> Añadir {entityCopy[entity].singular}
               </button>
@@ -3425,6 +3451,7 @@ function EntityView({
       {canCreate && dependencyMissing && (
         <div className="dependency-message">{entity === "installations"
           ? canCreateLaboratory ? "Crea primero un laboratorio y después podrás añadir sus instalaciones." : "Un administrador debe crear primero un laboratorio."
+          : entity === "subjects" ? canCreateDegree ? "Crea primero un grado y después podrás añadir sus asignaturas." : "Un administrador debe crear primero un grado."
           : "Para crear este elemento, añade antes su nivel superior en la jerarquía."}</div>
       )}
 
@@ -3473,9 +3500,12 @@ function EntityView({
           allSubjects={catalog.subjects}
           search={search}
           canEditItem={canEditItem}
+          canEditDegrees={canCreateDegree}
           canDelete={canDelete}
           onEdit={(subject) => onEdit(entity, subject)}
           onDelete={(subject) => onDelete(entity, subject.id, subject.name)}
+          onEditDegree={(degree) => onEdit("degrees", degree)}
+          onDeleteDegree={(degree) => onDelete("degrees", degree.id, degree.name)}
         />
       ) : items.length === 0 ? (
         <div className="empty-state">
