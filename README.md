@@ -151,8 +151,11 @@ los destinatarios en copia oculta.
 
 El envío utiliza `SMTP_HOST` y `SMTP_PORT`, con `smtp.unizar.es:587` como valores
 predeterminados. El usuario SMTP es el correo de la cuenta administradora que ha
-iniciado sesión. La contraseña se solicita al realizar el primer envío y solo se
-mantiene en memoria hasta cerrar sesión o recargar la aplicación: no se guarda
+iniciado sesión; para las cuentas `@unizar.es` se utiliza solamente la parte
+anterior a `@` al autenticar (por ejemplo, `jablasal`). La dirección completa se
+mantiene como remitente y dirección de respuesta. La contraseña se solicita al
+realizar el primer envío y solo se mantiene en memoria hasta cerrar sesión o
+recargar la aplicación: no se guarda
 en SQLite, en cookies ni en el almacenamiento persistente del navegador. Las
 variables `SMTP_USER` y `SMTP_PASSWORD` siguen siendo necesarias únicamente para
 el flujo automático de recuperación de contraseña.

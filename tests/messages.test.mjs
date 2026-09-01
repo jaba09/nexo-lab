@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("provides an admin-only teacher group email workflow without persisting SMTP credentials", async () => {
-  const [page, route, email, styles] = await Promise.all([
+  const [page, route, email, smtp, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/messages/send/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/email.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/smtp.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
@@ -22,7 +23,10 @@ test("provides an admin-only teacher group email workflow without persisting SMT
   assert.match(route, /recipients\.length > 200/);
   assert.doesNotMatch(route, /INSERT|UPDATE|DELETE/i);
   assert.match(email, /bcc: blindCopyRecipients\.length \? blindCopyRecipients : undefined/);
-  assert.match(email, /auth: \{ user, pass: password \}/);
+  assert.match(email, /const authenticationUser = smtpUsernameFromEmail\(user\)/);
+  assert.match(email, /auth: \{ user: authenticationUser, pass: password \}/);
+  assert.match(smtp, /normalized\.endsWith\(suffix\) \? normalized\.slice\(0, -suffix\.length\) : normalized/);
+  assert.match(page, /Usuario SMTP \{smtpUsernameFromEmail\(sender\.email\)\}/);
   assert.match(styles, /\.messages-layout/);
   assert.match(styles, /\.smtp-password-dialog/);
 });

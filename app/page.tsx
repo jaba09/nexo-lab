@@ -6,6 +6,7 @@ import { downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from ".
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { messageAudienceTeacherIds } from "../lib/messageAudience";
+import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages";
@@ -3079,12 +3080,12 @@ function MessagesView({
         <div className="import-dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !sending && setPasswordDialogOpen(false)}>
           <section className="import-dialog smtp-password-dialog" role="dialog" aria-modal="true" aria-labelledby="smtp-password-title">
             <div className="drawer-head">
-              <div><span className="entity-pill">SMTP</span><h2 id="smtp-password-title">Contraseña del correo</h2><p>Necesaria para enviar desde {sender.email} mediante smtp.unizar.es.</p></div>
+              <div><span className="entity-pill">SMTP</span><h2 id="smtp-password-title">Contraseña del correo</h2><p>Servidor smtp.unizar.es · Usuario SMTP {smtpUsernameFromEmail(sender.email)} · Remitente {sender.email}.</p></div>
               <button className="icon-button" type="button" disabled={sending} onClick={() => setPasswordDialogOpen(false)} aria-label="Cerrar contraseña de correo">×</button>
             </div>
             <form className="smtp-password-form" onSubmit={submitSmtpPassword}>
               <label>
-                <span>Contraseña de {sender.email}</span>
+                <span>Contraseña del usuario {smtpUsernameFromEmail(sender.email)}</span>
                 <input ref={passwordInputRef} required type="password" autoComplete="current-password" maxLength={256} value={passwordEntry} onChange={(event) => { setPasswordEntry(event.target.value); setPasswordError(""); }} />
               </label>
               <p className="smtp-password-help">Se conservará únicamente en memoria hasta que cierres sesión o recargues la aplicación.</p>

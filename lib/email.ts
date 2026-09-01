@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { smtpUsernameFromEmail } from "./smtp";
 
 const defaultSmtpHost = "smtp.unizar.es";
 const defaultSmtpPort = 587;
@@ -37,12 +38,13 @@ function smtpSettings() {
 
 function smtpTransport(user: string, password: string) {
   const { host, port } = smtpServerSettings();
+  const authenticationUser = smtpUsernameFromEmail(user);
   return nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     requireTLS: port !== 465,
-    auth: { user, pass: password },
+    auth: { user: authenticationUser, pass: password },
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 30_000,
