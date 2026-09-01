@@ -428,6 +428,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .laboratory-card p { margin: 0 0 11px; font-size: 11px; }.laboratory-card p span { display: block; margin-bottom: 2px; color: #89918d; font: 600 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; }
 .card-foot { margin-top: auto; padding-top: 17px; border-top: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr auto; align-items: end; gap: 8px; }
 .card-foot strong { font-size: 32px; letter-spacing: -.06em; }.card-foot > span:nth-child(2) { color: var(--muted); font-size: 9px; line-height: 1.25; }.card-foot > span:last-child { align-self: center; }
+.installation-laboratory-list { display: grid; gap: 11px; }
+.installation-laboratory-group { border: 1px solid var(--line); border-radius: 12px; background: var(--white); overflow: hidden; }
+.installation-laboratory-group > summary { min-height: 82px; padding: 13px 18px; display: grid; grid-template-columns: 27px 76px minmax(0, 1fr) 100px; align-items: center; gap: 13px; list-style: none; cursor: pointer; transition: background .15s; }
+.installation-laboratory-group > summary::-webkit-details-marker { display: none; }
+.installation-laboratory-group > summary:hover { background: #f8faef; }
+.installation-laboratory-chevron { width: 25px; height: 25px; border: 1px solid #b8c2a7; border-radius: 50%; display: grid; place-items: center; color: #62704e; font-size: 18px; line-height: 1; transition: transform .18s, background .18s, color .18s; }
+.installation-laboratory-group[open] .installation-laboratory-chevron { transform: rotate(90deg); border-color: #607f1e; background: #607f1e; color: var(--white); }
+.installation-laboratory-code { min-height: 42px; padding: 0 9px; border-radius: 8px; background: var(--lime); display: grid; place-items: center; overflow: hidden; font: 750 9px var(--font-geist-mono); text-overflow: ellipsis; white-space: nowrap; }
+.installation-laboratory-name { min-width: 0; }
+.installation-laboratory-name strong, .installation-laboratory-name small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.installation-laboratory-name strong { font-size: 15px; }
+.installation-laboratory-name small { margin-top: 5px; color: var(--muted); font-size: 9px; }
+.installation-laboratory-group > summary > b { text-align: right; font-size: 22px; }
+.installation-laboratory-group > summary > b small { display: block; margin-top: 2px; color: var(--muted); font: 650 7px var(--font-geist-mono); text-transform: uppercase; }
+.installation-laboratory-table-wrap { border-top: 1px solid var(--line); background: #fafbf6; overflow-x: auto; }
+.installation-laboratory-table { min-width: 650px; }
+.installation-laboratory-table th { background: #f3f5ec; }
+.installation-laboratory-table td { background: var(--white); }
+.installation-laboratory-table th:first-child, .installation-laboratory-table td:first-child { padding-left: 58px; }
+.installation-laboratory-empty { margin: 0; padding: 18px 58px; border-top: 1px solid var(--line); background: #f7f8f2; color: var(--muted); font-size: 10px; }
 .degree-list { display: grid; gap: 10px; }
 .teacher-semester-toolbar { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 11px; background: #f8f8f3; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .teacher-semester-toolbar .section-kicker { margin-bottom: 5px; font-size: 8px; }
@@ -775,6 +795,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .compact-row { grid-template-columns: 1.2fr .8fr; }.compact-row > span:nth-child(2), .compact-row > span:nth-child(3) { display: none; }
   .degree-session-list { padding-left: 12px; padding-right: 12px; }.degree-session-list li { grid-template-columns: 43px minmax(0, 1fr) 55px; gap: 10px; }.degree-session-progress { display: none; }
   .laboratory-grid { grid-template-columns: 1fr; }.laboratory-card { min-height: 280px; }
+  .installation-laboratory-group > summary { grid-template-columns: 23px 58px minmax(0, 1fr) 75px; padding: 11px 10px; gap: 8px; }.installation-laboratory-code { min-height: 38px; padding: 0 6px; }.installation-laboratory-name strong { font-size: 12px; }.installation-laboratory-table th:first-child, .installation-laboratory-table td:first-child { padding-left: 17px; }.installation-laboratory-empty { padding: 16px 18px; }
   .degree-card { grid-template-columns: 72px 1fr auto; gap: 13px; }.degree-card .tag-list { grid-column: 1 / -1; }.degree-card > .record-actions { grid-column: 3; grid-row: 1; }.degree-code { width: 72px; }
   .teacher-semester-toolbar { align-items: stretch; flex-direction: column; }.teacher-semester-toolbar label { min-width: 0; }
   .calendar-toolbar { align-items: flex-start; flex-direction: column; }.calendar-toolbar-side { width: 100%; align-items: stretch; flex-direction: column; }.calendar-view-switch { width: 100%; }.calendar-view-switch button { flex: 1; }.calendar-navigation { width: 100%; }.calendar-navigation button:nth-child(2) { flex: 1; }

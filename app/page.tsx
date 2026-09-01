@@ -2852,6 +2852,114 @@ function SemesterFocus({
   );
 }
 
+function InstallationHierarchy({
+  laboratories,
+  installations,
+  allInstallations,
+  search,
+  canEditItem,
+  canDelete,
+  onEdit,
+  onDelete,
+}: {
+  laboratories: Laboratory[];
+  installations: Installation[];
+  allInstallations: Installation[];
+  search: string;
+  canEditItem: (item: EntityRecord) => boolean;
+  canDelete: boolean;
+  onEdit: (installation: Installation) => void;
+  onDelete: (installation: Installation) => void;
+}) {
+  const term = search.trim().toLocaleLowerCase("es");
+  const groups = [...laboratories]
+    .sort((left, right) => (
+      left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+      || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+    ))
+    .map((laboratory) => {
+      const laboratoryMatches = term && [laboratory.code, laboratory.name, laboratory.location, laboratory.manager]
+        .join(" ")
+        .toLocaleLowerCase("es")
+        .includes(term);
+      const source = laboratoryMatches ? allInstallations : installations;
+      const laboratoryInstallations = source
+        .filter((installation) => installation.laboratoryId === laboratory.id)
+        .sort((left, right) => (
+          left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+          || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+        ));
+      return { laboratory, installations: laboratoryInstallations, laboratoryMatches };
+    })
+    .filter((group) => !term || group.laboratoryMatches || group.installations.length > 0);
+
+  if (!groups.length) {
+    return (
+      <div className="empty-state">
+        <span>⌕</span>
+        <h2>No hay coincidencias</h2>
+        <p>Prueba con otro código, nombre o relación.</p>
+      </div>
+    );
+  }
+
+  function editInstallationWithKeyboard(event: ReactKeyboardEvent<HTMLTableRowElement>, installation: Installation) {
+    if (!canEditItem(installation) || event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    onEdit(installation);
+  }
+
+  return (
+    <div className="installation-laboratory-list" aria-label="Instalaciones agrupadas por laboratorio">
+      {groups.map(({ laboratory, installations: laboratoryInstallations }) => (
+        <details className="installation-laboratory-group" key={laboratory.id} open={term ? true : undefined}>
+          <summary>
+            <span className="installation-laboratory-chevron" aria-hidden="true">›</span>
+            <span className="installation-laboratory-code">{laboratory.code}</span>
+            <span className="installation-laboratory-name">
+              <strong>{laboratory.name}</strong>
+              <small>{laboratory.location || "Ubicación sin indicar"}</small>
+            </span>
+            <b>{laboratoryInstallations.length}<small>{laboratoryInstallations.length === 1 ? "instalación" : "instalaciones"}</small></b>
+          </summary>
+          {laboratoryInstallations.length ? (
+            <div className="installation-laboratory-table-wrap">
+              <table className="entity-table installation-laboratory-table">
+                <thead><tr>
+                  <th>Código / Nombre</th>
+                  <th>Tipo / Capacidad</th>
+                  <th>Estado</th>
+                  <th><span className="sr-only">Acciones</span></th>
+                </tr></thead>
+                <tbody>
+                  {laboratoryInstallations.map((installation) => (
+                    <tr
+                      className={canEditItem(installation) ? "editable-record" : undefined}
+                      key={installation.id}
+                      role={canEditItem(installation) ? "button" : undefined}
+                      tabIndex={canEditItem(installation) ? 0 : undefined}
+                      aria-label={canEditItem(installation) ? `Editar ${installation.name}` : undefined}
+                      onClick={canEditItem(installation) ? () => onEdit(installation) : undefined}
+                      onKeyDown={canEditItem(installation) ? (event) => editInstallationWithKeyboard(event, installation) : undefined}
+                    >
+                      <td><span className="table-code">{installation.code}</span><strong>{installation.name}</strong><small>{installation.practiceCount} prácticas</small></td>
+                      <td>{installation.category}<small>{installation.capacity} personas</small></td>
+                      <td><span className={`status-chip ${installation.status === "Operativa" ? "ok" : "warn"}`}>{installation.status}</span></td>
+                      <td>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(installation); }} aria-label={`Eliminar ${installation.name}`}>×</button></div>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="installation-laboratory-empty">Este laboratorio todavía no tiene instalaciones.</p>
+          )}
+        </details>
+      ))}
+    </div>
+  );
+}
+
 function EntityView({
   entity,
   canCreate,
@@ -2962,6 +3070,17 @@ function EntityView({
           selectedSemester={selectedSemester}
           onSelectedSemesterChange={onSelectedSemesterChange}
         />
+      ) : entity === "installations" && catalog.laboratories.length > 0 ? (
+        <InstallationHierarchy
+          laboratories={catalog.laboratories}
+          installations={items as Installation[]}
+          allInstallations={catalog.installations}
+          search={search}
+          canEditItem={canEditItem}
+          canDelete={canDelete}
+          onEdit={(installation) => onEdit(entity, installation)}
+          onDelete={(installation) => onDelete(entity, installation.id, installation.name)}
+        />
       ) : items.length === 0 ? (
         <div className="empty-state">
           <span>{search ? "⌕" : "+"}</span>
@@ -3045,15 +3164,7 @@ function EntityView({
               <th><span className="sr-only">Acciones</span></th>
             </tr></thead>
             <tbody>
-              {entity === "installations" ? (items as Installation[]).map((item) => (
-                <tr className={canEditItem(item) ? "editable-record" : undefined} key={item.id} role={canEditItem(item) ? "button" : undefined} tabIndex={canEditItem(item) ? 0 : undefined} aria-label={canEditItem(item) ? `Editar ${item.name}` : undefined} onClick={canEditItem(item) ? () => onEdit(entity, item) : undefined} onKeyDown={canEditItem(item) ? (event) => editRecordWithKeyboard(event, item) : undefined}>
-                  <td><span className="table-code">{item.code}</span><strong>{item.name}</strong><small>{item.practiceCount} prácticas</small></td>
-                  <td>{item.laboratoryName}</td>
-                  <td>{item.category}<small>{item.capacity} personas</small></td>
-                  <td><span className={`status-chip ${item.status === "Operativa" ? "ok" : "warn"}`}>{item.status}</span></td>
-                  <td>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
-                </tr>
-              )) : (items as Practice[]).map((item) => (
+              {(items as Practice[]).map((item) => (
                 <tr className={canEditItem(item) ? "editable-record" : undefined} key={item.id} role={canEditItem(item) ? "button" : undefined} tabIndex={canEditItem(item) ? 0 : undefined} aria-label={canEditItem(item) ? `Editar ${item.name}` : undefined} onClick={canEditItem(item) ? () => onEdit(entity, item) : undefined} onKeyDown={canEditItem(item) ? (event) => editRecordWithKeyboard(event, item) : undefined}>
                   <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} asignaturas</small></td>
                   <td>{item.installationNames}<small>{item.installationCount} instalaciones</small></td>
