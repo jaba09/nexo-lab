@@ -99,6 +99,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /overview-degree-item/);
   assert.match(page, /Asignaturas de \$\{degree\.name\}/);
   assert.match(page, /subjectSessionCounts/);
+  assert.match(page, /editingSubjectScheduledPracticeCounts/);
+  assert.match(page, /practice-relation-locked/);
+  assert.match(page, /drawer-form-error/);
+  assert.match(styles, /\.drawer-form-error/);
   assert.match(page, /sessionsBySubject/);
   assert.match(page, /function OverviewSubjectSessions/);
   assert.match(page, /overview-subject-item/);

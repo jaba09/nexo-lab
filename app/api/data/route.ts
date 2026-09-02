@@ -529,8 +529,17 @@ export async function PUT(request: Request) {
       const abbreviation = cleanString(payload.abbreviation).toUpperCase().slice(0, 16);
       if (!degreeId) return Response.json({ error: "Selecciona el grado al que pertenece la asignatura." }, { status: 400 });
       const scheduledPractices = database.prepare("SELECT DISTINCT practice_id AS practiceId FROM sessions WHERE subject_id = ? AND practice_id IS NOT NULL").all(id) as { practiceId: number }[];
-      if (scheduledPractices.some(({ practiceId }) => !practiceIds.includes(practiceId))) {
-        return Response.json({ error: "No puedes retirar una práctica de la asignatura mientras tenga sesiones programadas." }, { status: 409 });
+      const blockedPracticeIds = scheduledPractices
+        .map(({ practiceId }) => practiceId)
+        .filter((practiceId) => !practiceIds.includes(practiceId));
+      if (blockedPracticeIds.length) {
+        const placeholders = blockedPracticeIds.map(() => "?").join(", ");
+        const blockedPractices = database.prepare(`SELECT code, name FROM practices WHERE id IN (${placeholders}) ORDER BY name`)
+          .all(...blockedPracticeIds) as { code: string; name: string }[];
+        const blockedLabels = blockedPractices.map((practice) => `${practice.name} (${practice.code})`).join(", ");
+        return Response.json({
+          error: `No puedes retirar ${blockedPracticeIds.length === 1 ? "la práctica" : "las prácticas"} ${blockedLabels} porque ${blockedPracticeIds.length === 1 ? "tiene" : "tienen"} sesiones programadas. Primero cambia la práctica de esas sesiones.`,
+        }, { status: 409 });
       }
 
       database.exec("BEGIN IMMEDIATE");

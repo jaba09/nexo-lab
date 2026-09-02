@@ -824,6 +824,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .practice-picker { margin: 0; padding: 0; border: 0; }.practice-picker legend { width: 100%; }.practice-picker legend small { float: right; color: #999f9c; font-weight: 400; }
 .practice-picker > label { min-height: 48px; padding: 8px 11px; border: 1px solid #e0e0da; border-bottom: 0; display: flex; align-items: center; gap: 11px; cursor: pointer; }.practice-picker > label:first-of-type { border-radius: 8px 8px 0 0; }.practice-picker > label:last-of-type { border-bottom: 1px solid #e0e0da; border-radius: 0 0 8px 8px; }
 .practice-picker input { accent-color: var(--ink); }.practice-picker label span { margin: 0; display: flex; gap: 9px; align-items: center; font-weight: 400; }.practice-picker label strong { font: 700 9px var(--font-geist-mono); }
+.practice-picker > label.practice-relation-locked { background: #f4f4ef; color: #666d69; cursor: not-allowed; }
+.practice-picker label span small { margin-left: auto; color: #9a4538; font: 650 7px var(--font-geist-mono); white-space: nowrap; }
+.drawer-form-error { padding: 11px 12px; border: 1px solid #e3a29b; border-radius: 8px; background: #fff0ed; display: grid; grid-template-columns: 23px minmax(0, 1fr); align-items: center; gap: 9px; color: #87372f; font-size: 9px; line-height: 1.45; }
+.drawer-form-error > span { width: 21px; height: 21px; border-radius: 50%; background: var(--white); display: grid; place-items: center; font-weight: 800; }.drawer-form-error p { margin: 0; }
 .subject-practice-order { margin: 0 0 12px; padding: 10px; border: 1px solid #bdcd94; border-radius: 10px; background: #f4f8e8; display: grid; gap: 7px; }
 .subject-practice-order > p { margin: 0 0 2px; color: #566639; font: 750 8px var(--font-geist-mono); letter-spacing: .05em; text-transform: uppercase; }
 .subject-practice-order-row { min-height: 48px; padding: 7px 8px; border: 1px solid #d8e1bf; border-radius: 8px; background: #fff; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; }

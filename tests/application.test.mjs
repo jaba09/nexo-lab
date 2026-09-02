@@ -231,6 +231,9 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     }),
   });
   assert.equal(protectedSubjectResponse.status, 409);
+  const protectedSubjectError = await protectedSubjectResponse.json();
+  assert.match(protectedSubjectError.error, /sesiones programadas/);
+  assert.match(protectedSubjectError.error, /Primero cambia la práctica de esas sesiones/);
 
   const updates = [
     {

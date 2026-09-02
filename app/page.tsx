@@ -763,6 +763,7 @@ export default function Home() {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [drawerError, setDrawerError] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [assignmentImportOpen, setAssignmentImportOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
@@ -912,6 +913,16 @@ export default function Home() {
     .map((practiceId) => data.practices.find((practice) => practice.id === practiceId))
     .filter((practice): practice is Practice => Boolean(practice));
   const editingSession = editingId === null ? undefined : data.sessions.find((session) => session.id === editingId);
+  const editingSubjectScheduledPracticeCounts = new Map<number, number>();
+  if (drawer === "subjects" && editingId !== null) {
+    for (const session of data.sessions) {
+      if (session.subjectId !== editingId || session.practiceId === null) continue;
+      editingSubjectScheduledPracticeCounts.set(
+        session.practiceId,
+        (editingSubjectScheduledPracticeCounts.get(session.practiceId) ?? 0) + 1,
+      );
+    }
+  }
   const selectedSessionHoliday = data.holidays.find((holiday) => holiday.holidayDate === form.sessionDate);
   const sessionDateBlocked = drawer === "sessions" && Boolean(
     selectedSessionHoliday
@@ -937,6 +948,7 @@ export default function Home() {
     });
     setEditingId(null);
     setNotice(null);
+    setDrawerError("");
     setDrawer(entity);
   }
 
@@ -1028,6 +1040,7 @@ export default function Home() {
 
     setEditingId(item.id);
     setNotice(null);
+    setDrawerError("");
     setDrawer(entity);
   }
 
@@ -1039,13 +1052,17 @@ export default function Home() {
       : drawer === "sessions" && editingSession
         ? canEditSession(editingSession)
         : Boolean(authenticatedTeacher?.isAdmin);
-    if (!editingAllowed) return;
+    if (!editingAllowed) {
+      setDrawerError("No tienes permiso para guardar los cambios de este registro.");
+      return;
+    }
     if (sessionDateBlocked) {
-      setNotice({ kind: "error", message: "No se puede crear ni mover una sesión a un día festivo." });
+      setDrawerError("No se puede crear ni mover una sesión a un día festivo.");
       return;
     }
     setSaving(true);
     setNotice(null);
+    setDrawerError("");
     try {
       const response = await fetch(apiUrl("/api/data"), {
         method: editingId === null ? "POST" : "PUT",
@@ -1068,10 +1085,7 @@ export default function Home() {
       });
       setEditingId(null);
     } catch (error) {
-      setNotice({
-        kind: "error",
-        message: clientErrorMessage(error, "No se pudo guardar el registro."),
-      });
+      setDrawerError(clientErrorMessage(error, "No se pudo guardar el registro."));
     } finally {
       setSaving(false);
     }
@@ -1392,7 +1406,7 @@ export default function Home() {
               <button className="icon-button" type="button" onClick={() => setDrawer(null)} aria-label="Cerrar formulario">×</button>
             </div>
 
-            <form className="entity-form" onSubmit={submitEntity}>
+            <form className="entity-form" onSubmit={submitEntity} onChangeCapture={() => drawerError && setDrawerError("")}>
               {drawer !== "sessions" && (
                 <div className="field-row">
                   <label>
@@ -1586,21 +1600,29 @@ export default function Home() {
                         })}
                       </div>
                     )}
-                    {orderedPractices.length === 0 ? <p>Crea primero una práctica para poder vincularla.</p> : orderedPractices.map((practice) => (
-                      <label key={practice.id}>
-                        <input
-                          type="checkbox"
-                          checked={form.practiceIds.includes(practice.id)}
-                          onChange={(event) => setForm({
-                            ...form,
-                            practiceIds: event.target.checked
-                              ? [...form.practiceIds, practice.id]
-                              : form.practiceIds.filter((id) => id !== practice.id),
-                          })}
-                        />
-                        <span><strong>{practice.code}</strong>{practice.name}</span>
-                      </label>
-                    ))}
+                    {orderedPractices.length === 0 ? <p>Crea primero una práctica para poder vincularla.</p> : orderedPractices.map((practice) => {
+                      const scheduledSessionCount = editingSubjectScheduledPracticeCounts.get(practice.id) ?? 0;
+                      const relationLocked = scheduledSessionCount > 0 && form.practiceIds.includes(practice.id);
+                      return (
+                        <label className={relationLocked ? "practice-relation-locked" : undefined} key={practice.id}>
+                          <input
+                            type="checkbox"
+                            checked={form.practiceIds.includes(practice.id)}
+                            disabled={relationLocked}
+                            onChange={(event) => setForm({
+                              ...form,
+                              practiceIds: event.target.checked
+                                ? [...form.practiceIds, practice.id]
+                                : form.practiceIds.filter((id) => id !== practice.id),
+                            })}
+                          />
+                          <span>
+                            <strong>{practice.code}</strong>{practice.name}
+                            {scheduledSessionCount > 0 && <small>{scheduledSessionCount} {scheduledSessionCount === 1 ? "sesión programada" : "sesiones programadas"}</small>}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </fieldset>
                   <fieldset className="practice-picker editor-picker">
                     <legend>Profesores editores <small>Opcional</small></legend>
@@ -1730,6 +1752,7 @@ export default function Home() {
                 </>
               )}
 
+              {drawerError && <div className="drawer-form-error" role="alert"><span aria-hidden="true">!</span><p>{drawerError}</p></div>}
               <div className="form-summary">
                 <span aria-hidden="true">i</span>
                 <p>Los vínculos se guardan automáticamente en la jerarquía del sistema.</p>
