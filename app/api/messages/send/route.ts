@@ -1,4 +1,4 @@
-import { getAuthenticatedTeacher, readOnlyResponse, unauthorizedResponse } from "../../../../lib/auth";
+import { getAuthenticatedTeacher, unauthorizedResponse } from "../../../../lib/auth";
 import { getDatabase } from "../../../../lib/database";
 import { sendTeacherGroupEmail } from "../../../../lib/email";
 import { messageAudienceTeacherIds, type MessageAudienceSession } from "../../../../lib/messageAudience";
@@ -28,7 +28,6 @@ function smtpErrorResponse(error: unknown) {
 export async function POST(request: Request) {
   const authenticatedTeacher = await getAuthenticatedTeacher();
   if (!authenticatedTeacher) return unauthorizedResponse();
-  if (!authenticatedTeacher.isAdmin) return readOnlyResponse();
 
   let payload: Record<string, unknown>;
   try {

@@ -329,7 +329,7 @@ export default async function HelpPage() {
                     <tr><td>Editar catálogos y profesores</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
                     <tr><td>Borrar registros o sesiones</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
                     <tr><td>Importar ICS o asignaciones</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
-                    <tr><td>Enviar mensajes a grupos</td><td>—</td><td>—</td><td><span className="yes">Sí</span></td></tr>
+                    <tr><td>Enviar mensajes a grupos</td><td><span className="yes">Sí</span></td><td><span className="yes">Sí</span></td><td><span className="yes">Sí</span></td></tr>
                   </tbody>
                 </table>
               </div>

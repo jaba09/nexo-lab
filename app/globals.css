@@ -429,7 +429,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .entity-hero-actions { display: flex; align-items: center; gap: 8px; }
 .read-only-badge { min-height: 38px; padding: 0 13px; border: 1px solid #c8cbbf; border-radius: 8px; background: #ecece5; display: inline-flex; align-items: center; color: #5f6662; font: 750 9px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; }
 .dependency-message { margin: -20px 0 25px; padding: 12px 15px; border-radius: 8px; background: #fff4db; color: #7c5713; font-size: 11px; }
-.messages-admin-badge { min-height: 38px; padding: 0 13px; border: 1px solid #9bab75; border-radius: 8px; background: #eff7da; display: inline-flex; align-items: center; color: #4b6416; font: 750 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; }
+.messages-access-badge { min-height: 38px; padding: 0 13px; border: 1px solid #9bab75; border-radius: 8px; background: #eff7da; display: inline-flex; align-items: center; color: #4b6416; font: 750 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; }
 .messages-layout { display: grid; grid-template-columns: minmax(330px, .82fr) minmax(430px, 1.18fr); align-items: start; gap: 14px; }
 .messages-audience-panel, .messages-compose-panel { overflow: hidden; }
 .messages-audience-controls { padding: 18px 20px 12px; display: grid; gap: 10px; }

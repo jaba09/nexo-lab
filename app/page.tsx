@@ -351,14 +351,14 @@ const emptyCalendarFilters: CalendarFilters = {
   practiceId: "",
 };
 
-const navigation: { key: Section; label: string; short: string; adminOnly?: boolean }[] = [
+const navigation: { key: Section; label: string; short: string }[] = [
   { key: "overview", label: "Vista general", short: "00" },
   { key: "sessions", label: "Calendario", short: "SES" },
   { key: "installations", label: "Lab/instalaciones", short: "L/I" },
   { key: "subjects", label: "Grados/asignaturas", short: "G/A" },
   { key: "practices", label: "Prácticas", short: "PRA" },
   { key: "teachers", label: "Profesores", short: "PRO" },
-  { key: "messages", label: "Mensajes", short: "MEN", adminOnly: true },
+  { key: "messages", label: "Mensajes", short: "MEN" },
 ];
 
 const entityShortCodes: Record<Entity, string> = {
@@ -1248,7 +1248,7 @@ export default function Home() {
 
         <nav className="main-nav" aria-label="Navegación principal">
           <p className="nav-caption">Estructura académica</p>
-          {navigation.filter((item) => !item.adminOnly || authenticatedTeacher.isAdmin).map((item) => (
+          {navigation.map((item) => (
             <button
               key={item.key}
               className={active === item.key ? "nav-item active" : "nav-item"}
@@ -3027,7 +3027,7 @@ function MessagesView({
           <h1>Mensajes</h1>
           <p>Envía correos a grupos de profesores calculados a partir de su docencia.</p>
         </div>
-        <span className="messages-admin-badge">Solo administradores</span>
+        <span className="messages-access-badge">Disponible para profesores</span>
       </section>
 
       <div className="messages-layout">

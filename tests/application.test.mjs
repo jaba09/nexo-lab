@@ -590,6 +590,13 @@ END:VCALENDAR\r
   const temporaryTeacherSession = await (await fetch(`${origin}/api/auth/session`)).json();
   assert.equal(temporaryTeacherSession.teacher.id, temporaryTeacher.id);
   assert.equal(temporaryTeacherSession.teacher.isAdmin, false);
+  const nonAdminMessageResponse = await fetch(`${origin}/api/messages/send`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(nonAdminMessageResponse.status, 400);
+  assert.match((await nonAdminMessageResponse.json()).error, /grupo de destinatarios válido/);
   const readOnlyDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(readOnlyDataResponse.status, 200);
   const editorData = await readOnlyDataResponse.json();
