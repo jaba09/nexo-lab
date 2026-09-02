@@ -352,7 +352,7 @@ const emptyCalendarFilters: CalendarFilters = {
 };
 
 const navigation: { key: Section; label: string; short: string }[] = [
-  { key: "overview", label: "Vista general", short: "00" },
+  { key: "overview", label: "Inicio", short: "00" },
   { key: "sessions", label: "Calendario", short: "SES" },
   { key: "installations", label: "Lab/instalaciones", short: "L/I" },
   { key: "subjects", label: "Grados/asignaturas", short: "G/A" },
@@ -1242,7 +1242,7 @@ export default function Home() {
     setNotice({ kind: "success", message: sessionAssignmentImportMessage(result) });
   }
 
-  const activeTitle = active === "overview" ? "Vista general" : active === "messages" ? "Mensajes" : entityCopy[active].plural;
+  const activeTitle = active === "overview" ? "Inicio" : active === "messages" ? "Mensajes" : entityCopy[active].plural;
 
   if (!authenticationChecked) {
     return <div className="auth-loading" role="status"><span />Comprobando el acceso…</div>;
@@ -2549,7 +2549,7 @@ function Overview({
         <summary className="panel-head overview-collapsible-summary">
           <span className="overview-collapsible-title">
             <span className="overview-collapsible-chevron" aria-hidden="true">›</span>
-            <span><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></span>
+            <span><span className="section-kicker">Carga docente</span><h2>Sesiones por grado-asignatura</h2></span>
           </span>
           <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
         </summary>
@@ -2806,7 +2806,7 @@ function Overview({
         <summary className="panel-head overview-collapsible-summary">
           <span className="overview-collapsible-title">
             <span className="overview-collapsible-chevron" aria-hidden="true">›</span>
-            <span><span className="section-kicker">Resumen docente</span><h2>Asignaturas</h2></span>
+            <span><span className="section-kicker">Resumen docente</span><h2>Tabla de asignaturas</h2></span>
           </span>
           <span className="panel-tag">{orderedSubjects.length} {orderedSubjects.length === 1 ? "asignatura" : "asignaturas"}</span>
         </summary>

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 const helpNavigation = [
   { href: "#primeros-pasos", code: "01", label: "Primeros pasos" },
-  { href: "#vista-general", code: "02", label: "Vista general" },
+  { href: "#vista-general", code: "02", label: "Inicio" },
   { href: "#calendario", code: "03", label: "Calendario" },
   { href: "#seleccion", code: "04", label: "Seleccionar sesiones" },
   { href: "#catalogos", code: "05", label: "Datos académicos" },
@@ -150,8 +150,8 @@ export default async function HelpPage() {
             >
               <ol className="help-steps">
                 <li><span>1</span><div><strong>Inicia sesión</strong><p>Utiliza como usuario tu correo electrónico. Si no recuerdas la contraseña, selecciona «He olvidado mi contraseña» en la pantalla de acceso.</p></div></li>
-                <li><span>2</span><div><strong>Elige el semestre</strong><p>En Vista general o Calendario, selecciona el semestre y curso académico que quieres consultar. La aplicación limitará fechas y recuentos a ese periodo.</p></div></li>
-                <li><span>3</span><div><strong>Empieza por Vista general</strong><p>Despliega un grado y una asignatura para revisar sus sesiones. También puedes consultar la carga agrupada por profesor.</p></div></li>
+                <li><span>2</span><div><strong>Elige el semestre</strong><p>En Inicio o Calendario, selecciona el semestre y curso académico que quieres consultar. La aplicación limitará fechas y recuentos a ese periodo.</p></div></li>
+                <li><span>3</span><div><strong>Empieza por Inicio</strong><p>Despliega un grado y una asignatura para revisar sus sesiones. También puedes consultar la carga agrupada por profesor.</p></div></li>
                 <li><span>4</span><div><strong>Abre el Calendario</strong><p>Cambia entre las vistas mensual, semanal y lista, y aplica filtros para concentrarte en la actividad que necesitas.</p></div></li>
               </ol>
 
@@ -164,12 +164,12 @@ export default async function HelpPage() {
             <HelpSection
               id="vista-general"
               number="02"
-              title="Vista general"
+              title="Inicio"
               intro="El punto de partida para comprobar rápidamente la planificación de un semestre."
             >
               <div className="help-two-columns">
                 <div>
-                  <h3>Sesiones por grado</h3>
+                  <h3>Sesiones por grado-asignatura</h3>
                   <ul>
                     <li>Selecciona el semestre en la cabecera verde.</li>
                     <li>Despliega un grado para ver sus asignaturas.</li>
@@ -241,7 +241,7 @@ export default async function HelpPage() {
                 <li><strong>Exportar:</strong> descarga solamente la selección en el formato disponible.</li>
                 <li><strong>Borrar selección:</strong> elimina las sesiones seleccionadas; esta acción está reservada a administradores.</li>
               </ul>
-              <p>Pulsa <kbd>Esc</kbd> para limpiar la selección. En Vista general también puedes utilizar «Selec. subgrupos» para seleccionar la primera sesión incompleta de cada subgrupo.</p>
+              <p>Pulsa <kbd>Esc</kbd> para limpiar la selección. En Inicio también puedes utilizar «Selec. subgrupos» para seleccionar la primera sesión incompleta de cada subgrupo.</p>
             </HelpSection>
 
             <HelpSection
@@ -288,7 +288,7 @@ export default async function HelpPage() {
                   <span>CSV</span>
                   <h3>Importar asignaciones</h3>
                   <ol>
-                    <li>En Vista general, pulsa «Importar asignación sesiones».</li>
+                    <li>En Inicio, pulsa «Importar asignación sesiones».</li>
                     <li>Selecciona el CSV preparado.</li>
                     <li>Revisa coincidencias, avisos de duración y conflictos.</li>
                     <li>Decide si se conservan o sustituyen las asignaciones existentes.</li>
@@ -310,7 +310,7 @@ export default async function HelpPage() {
                 <div><span>ICS</span><p><strong>Calendario</strong> Permite incorporar las sesiones a aplicaciones de calendario compatibles.</p></div>
                 <div><span>PDF</span><p><strong>Documento</strong> Adecuado para imprimir, archivar o enviar una planificación cerrada.</p></div>
               </div>
-              <p>En Vista general, los botones de exportación utilizan el semestre seleccionado. En la barra de acciones del calendario o de una asignatura, la exportación se limita a las sesiones seleccionadas. La sección Profesores también permite exportar el listado docente en CSV.</p>
+              <p>En Inicio, los botones de exportación utilizan el semestre seleccionado. En la barra de acciones del calendario o de una asignatura, la exportación se limita a las sesiones seleccionadas. La sección Profesores también permite exportar el listado docente en CSV.</p>
             </HelpSection>
 
             <HelpSection

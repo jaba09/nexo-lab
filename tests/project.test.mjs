@@ -30,9 +30,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.semester-focus h1/);
   assert.match(styles, /\.overview-semester-focus \{ min-height: clamp\(280px/);
   assert.match(styles, /\.semester-focus h1 > small/);
-  assert.match(page, /Sesiones por grado/);
+  assert.match(page, /Sesiones por grado-asignatura/);
   assert.match(page, /Sesiones por profesor/);
-  assert.match(page, /<h2>Asignaturas<\/h2>/);
+  assert.match(page, /<h2>Tabla de asignaturas<\/h2>/);
   assert.match(page, /<details className="panel overview-collapsible-panel overview-degree-panel">/);
   assert.match(page, /<details className="panel overview-collapsible-panel overview-teacher-panel">/);
   assert.match(page, /<details className="panel overview-collapsible-panel overview-subject-summary-panel">/);
