@@ -230,6 +230,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .semester-focus-picker > span { display: block; margin-bottom: 7px; color: #65705e; font: 650 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .08em; }
 .semester-focus-picker select { width: 100%; min-height: 34px; padding: 0 28px 0 0; border: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 750; cursor: pointer; }
 .overview-selection-bar { margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; }
+.overview-collapsible-panel { overflow: hidden; }
+.overview-collapsible-summary { list-style: none; cursor: pointer; transition: background .16s; }
+.overview-collapsible-summary::-webkit-details-marker { display: none; }
+.overview-collapsible-summary:hover { background: #f7f9ef; }
+.overview-collapsible-title { min-width: 0; display: flex; align-items: center; gap: 13px; }
+.overview-collapsible-title > span:last-child { min-width: 0; }
+.overview-collapsible-chevron { width: 27px; height: 27px; flex: 0 0 27px; border: 1px solid #c8cdc2; border-radius: 50%; display: grid; place-items: center; color: #68716d; font-size: 19px; line-height: 1; transition: transform .18s, background .18s, color .18s; }
+.overview-collapsible-panel[open] .overview-collapsible-chevron { transform: rotate(90deg); border-color: var(--ink); background: var(--ink); color: var(--lime); }
+.overview-panel-toolbar { min-height: 57px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: #fafbf7; display: flex; align-items: center; justify-content: flex-end; }
 .overview-degree-panel { margin-top: 10px; overflow: hidden; }
 .panel-head-actions { display: flex; align-items: center; gap: 10px; }
 .overview-degree-panel .panel-head-actions { flex-wrap: wrap; justify-content: flex-end; }

@@ -2522,9 +2522,15 @@ function Overview({
             <span>{canEdit ? "Haz clic en una sesión para seleccionarla. Después usa la barra de acciones para asignar práctica, profesor o borrar." : "Modo de solo lectura: selecciona sesiones para exportarlas en PDF o ICS."} Shift + clic selecciona un rango dentro del listado abierto y Esc limpia la selección.</span>
         )}
       </div>
-      <section className="panel overview-degree-panel">
-        <div className="panel-head">
-          <div><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></div>
+      <details className="panel overview-collapsible-panel overview-degree-panel">
+        <summary className="panel-head overview-collapsible-summary">
+          <span className="overview-collapsible-title">
+            <span className="overview-collapsible-chevron" aria-hidden="true">›</span>
+            <span><span className="section-kicker">Carga docente</span><h2>Sesiones por grado</h2></span>
+          </span>
+          <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
+        </summary>
+        <div className="overview-panel-toolbar">
           <div className="panel-head-actions">
             {canDelete && (
               <button className="secondary-button overview-import-button" type="button" onClick={onImportAssignments}>
@@ -2534,7 +2540,6 @@ function Overview({
             <button className="secondary-button overview-export-button" type="button" disabled={!semesterSessions.length} onClick={() => downloadSessionsCsv(semesterSessions, selectedSemester)}>
               Exportar CSV
             </button>
-            <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
           </div>
         </div>
         {orderedDegrees.length ? (
@@ -2671,12 +2676,15 @@ function Overview({
         ) : (
           <p className="overview-subject-empty standalone">Todavía no hay grados creados.</p>
         )}
-      </section>
-      <section className="panel overview-teacher-panel">
-        <div className="panel-head">
-          <div><span className="section-kicker">Carga docente</span><h2>Sesiones por profesor</h2></div>
+      </details>
+      <details className="panel overview-collapsible-panel overview-teacher-panel">
+        <summary className="panel-head overview-collapsible-summary">
+          <span className="overview-collapsible-title">
+            <span className="overview-collapsible-chevron" aria-hidden="true">›</span>
+            <span><span className="section-kicker">Carga docente</span><h2>Sesiones por profesor</h2></span>
+          </span>
           <span className="panel-tag session-total">{semesterSessions.length}<UnassignedTeacherSessionCount count={unassignedTeacherSessionCount} /> {semesterSessions.length === 1 ? "sesión" : "sesiones"}</span>
-        </div>
+        </summary>
         {orderedTeachers.length || unassignedTeacherSessionCount ? (
           <div className="overview-teacher-table-wrap">
             <table className="overview-teacher-table">
@@ -2770,10 +2778,16 @@ function Overview({
         ) : (
           <p className="overview-subject-empty standalone">Todavía no hay profesores creados.</p>
         )}
-      </section>
-      <section className="panel overview-subject-summary-panel">
-        <div className="panel-head">
-          <div><span className="section-kicker">Resumen docente</span><h2>Asignaturas</h2></div>
+      </details>
+      <details className="panel overview-collapsible-panel overview-subject-summary-panel">
+        <summary className="panel-head overview-collapsible-summary">
+          <span className="overview-collapsible-title">
+            <span className="overview-collapsible-chevron" aria-hidden="true">›</span>
+            <span><span className="section-kicker">Resumen docente</span><h2>Asignaturas</h2></span>
+          </span>
+          <span className="panel-tag">{orderedSubjects.length} {orderedSubjects.length === 1 ? "asignatura" : "asignaturas"}</span>
+        </summary>
+        <div className="overview-panel-toolbar">
           <div className="overview-subject-summary-head-actions">
             <label className="overview-subject-summary-sort">
               <span>Ordenar por</span>
@@ -2782,7 +2796,6 @@ function Overview({
                 <option value="code">Código</option>
               </select>
             </label>
-            <span className="panel-tag">{orderedSubjects.length} {orderedSubjects.length === 1 ? "asignatura" : "asignaturas"}</span>
           </div>
         </div>
         {orderedSubjects.length ? (
@@ -2846,7 +2859,7 @@ function Overview({
         ) : (
           <p className="overview-subject-empty standalone">Todavía no hay asignaturas creadas.</p>
         )}
-      </section>
+      </details>
     </>
   );
 }

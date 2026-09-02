@@ -33,6 +33,12 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Sesiones por grado/);
   assert.match(page, /Sesiones por profesor/);
   assert.match(page, /<h2>Asignaturas<\/h2>/);
+  assert.match(page, /<details className="panel overview-collapsible-panel overview-degree-panel">/);
+  assert.match(page, /<details className="panel overview-collapsible-panel overview-teacher-panel">/);
+  assert.match(page, /<details className="panel overview-collapsible-panel overview-subject-summary-panel">/);
+  assert.match(page, /overview-collapsible-chevron/);
+  assert.match(styles, /\.overview-collapsible-panel\[open\] \.overview-collapsible-chevron/);
+  assert.match(styles, /\.overview-panel-toolbar/);
   assert.match(page, /Profesor editor/);
   assert.match(page, /Sesiones por profesor/);
   assert.match(page, /subjectTeacherSessionCounts/);
