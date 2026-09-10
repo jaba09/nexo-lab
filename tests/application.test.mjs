@@ -401,6 +401,61 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(createdSession.practiceCode, "PRA-04");
   assert.deepEqual(createdSession.degreePracticeIds.sort((left, right) => left - right), [1, 2, 4]);
 
+  const createOverlapCandidateResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      sessionDate: "2099-09-17",
+      startTime: "14:00",
+      duration: 60,
+      subjectId: 1,
+      teacherId: 2,
+      practiceId: 2,
+    }),
+  });
+  assert.equal(createOverlapCandidateResponse.status, 201);
+  const overlapCandidate = (await (await fetch(`${origin}/api/data`)).json()).sessions
+    .find((session) => session.sessionDate === "2099-09-17" && session.startTime === "14:00");
+  assert.ok(overlapCandidate);
+
+  const overlappingTeacherResponse = await fetch(`${origin}/api/data`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      action: "assign-teacher",
+      ids: [overlapCandidate.id],
+      teacherId: 1,
+    }),
+  });
+  assert.equal(overlappingTeacherResponse.status, 409);
+  assert.match((await overlappingTeacherResponse.json()).error, /profesor.*sesiones superpuestas/i);
+
+  const overlappingInstallationResponse = await fetch(`${origin}/api/data`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions",
+      ids: [overlapCandidate.id],
+      practiceId: 4,
+    }),
+  });
+  assert.equal(overlappingInstallationResponse.status, 409);
+  assert.match((await overlappingInstallationResponse.json()).error, /instalación.*sesiones superpuestas/i);
+
+  const unchangedOverlapCandidate = (await (await fetch(`${origin}/api/data`)).json()).sessions
+    .find((session) => session.id === overlapCandidate.id);
+  assert.equal(unchangedOverlapCandidate.teacherId, 2);
+  assert.equal(unchangedOverlapCandidate.practiceId, 2);
+
+  const deleteOverlapCandidateResponse = await fetch(`${origin}/api/data`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "sessions", id: overlapCandidate.id }),
+  });
+  assert.equal(deleteOverlapCandidateResponse.status, 200);
+
   const editSessionResponse = await fetch(`${origin}/api/data`, {
     method: "PUT",
     headers: { "content-type": "application/json" },

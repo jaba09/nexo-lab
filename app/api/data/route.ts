@@ -2,6 +2,7 @@ import { getDatabase } from "../../../lib/database";
 import { semesterDefinition } from "../../../lib/semesters";
 import { getAuthenticatedTeacher, hashPassword, passwordValidationError, readOnlyResponse, unauthorizedResponse } from "../../../lib/auth";
 import { readAppPreferences } from "../../../lib/preferences";
+import { findNewSessionConflict, type ScheduledSession } from "../../../lib/sessionConflicts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +81,116 @@ function sessionFields(payload: Record<string, unknown>) {
     teacherId: positiveInteger(payload.teacherId) || null,
     practiceId: positiveInteger(payload.practiceId) || null,
   };
+}
+
+type StoredConflictSession = ScheduledSession & {
+  practiceId: number | null;
+};
+
+type SessionConflictChange = {
+  id: number;
+  sessionDate?: string;
+  startTime?: string;
+  duration?: number;
+  teacherId?: number | null;
+  practiceId?: number | null;
+};
+
+function practiceInstallations(database: ReturnType<typeof getDatabase>) {
+  const result = new Map<number, number[]>();
+  const rows = database.prepare(`SELECT practice_id AS practiceId, installation_id AS installationId
+    FROM practice_installations
+    ORDER BY practice_id, installation_id`).all() as { practiceId: number; installationId: number }[];
+  for (const row of rows) {
+    const installationIds = result.get(Number(row.practiceId)) ?? [];
+    installationIds.push(Number(row.installationId));
+    result.set(Number(row.practiceId), installationIds);
+  }
+  return result;
+}
+
+function sessionsForConflictCheck(database: ReturnType<typeof getDatabase>) {
+  const installationsByPractice = practiceInstallations(database);
+  const rows = database.prepare(`SELECT
+    id, session_date AS sessionDate, start_time AS startTime, duration,
+    teacher_id AS teacherId, practice_id AS practiceId
+    FROM sessions
+    ORDER BY session_date, start_time, id`).all() as Omit<StoredConflictSession, "installationIds">[];
+  return {
+    installationsByPractice,
+    sessions: rows.map((session) => ({
+      ...session,
+      id: Number(session.id),
+      duration: Number(session.duration),
+      teacherId: session.teacherId === null ? null : Number(session.teacherId),
+      practiceId: session.practiceId === null ? null : Number(session.practiceId),
+      installationIds: session.practiceId === null
+        ? []
+        : installationsByPractice.get(Number(session.practiceId)) ?? [],
+    })),
+  };
+}
+
+function endTime(startTime: string, duration: number) {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const end = (hours * 60) + minutes + duration;
+  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+}
+
+function spanishDate(date: string) {
+  const [year, month, day] = date.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function conflictResponse(
+  database: ReturnType<typeof getDatabase>,
+  changes: SessionConflictChange[],
+) {
+  const { installationsByPractice, sessions: before } = sessionsForConflictCheck(database);
+  const afterById = new Map(before.map((session) => [session.id, { ...session }]));
+
+  for (const change of changes) {
+    const current = afterById.get(change.id);
+    const practiceId = Object.hasOwn(change, "practiceId")
+      ? change.practiceId ?? null
+      : current?.practiceId ?? null;
+    const updated: StoredConflictSession = {
+      id: change.id,
+      sessionDate: change.sessionDate ?? current?.sessionDate ?? "",
+      startTime: change.startTime ?? current?.startTime ?? "",
+      duration: change.duration ?? current?.duration ?? 0,
+      teacherId: Object.hasOwn(change, "teacherId")
+        ? change.teacherId ?? null
+        : current?.teacherId ?? null,
+      practiceId,
+      installationIds: practiceId === null
+        ? []
+        : installationsByPractice.get(practiceId) ?? [],
+    };
+    afterById.set(change.id, updated);
+  }
+
+  const affectedIds = new Set(changes.map(({ id }) => id));
+  const conflict = findNewSessionConflict(before, [...afterById.values()], affectedIds);
+  if (!conflict) return null;
+
+  const firstInterval = `${conflict.first.startTime}–${endTime(conflict.first.startTime, conflict.first.duration)}`;
+  const secondInterval = `${conflict.second.startTime}–${endTime(conflict.second.startTime, conflict.second.duration)}`;
+  if (conflict.kind === "teacher") {
+    const teacher = database.prepare("SELECT code, name FROM teachers WHERE id = ?")
+      .get(conflict.resourceId) as { code: string; name: string } | undefined;
+    const teacherLabel = teacher?.name || teacher?.code || `#${conflict.resourceId}`;
+    return Response.json({
+      error: `No se puede guardar el cambio: el profesor «${teacherLabel}» tendría dos sesiones superpuestas el ${spanishDate(conflict.first.sessionDate)} (${firstInterval} y ${secondInterval}).`,
+    }, { status: 409 });
+  }
+
+  const installation = database.prepare("SELECT code, name FROM installations WHERE id = ?")
+    .get(conflict.resourceId) as { code: string; name: string } | undefined;
+  const installationLabel = installation?.name || installation?.code || `#${conflict.resourceId}`;
+  return Response.json({
+    error: `No se puede guardar el cambio: la instalación «${installationLabel}» se usaría en dos sesiones superpuestas el ${spanishDate(conflict.first.sessionDate)} (${firstInterval} y ${secondInterval}).`,
+  }, { status: 409 });
 }
 
 function subjectPracticeRelationExists(subjectId: number, practiceId: number) {
@@ -321,6 +432,15 @@ export async function POST(request: Request) {
       if (!database.prepare("SELECT 1 FROM teachers WHERE id = ?").get(teacherId)) {
         return Response.json({ error: "El profesor seleccionado ya no está disponible." }, { status: 409 });
       }
+      const overlap = conflictResponse(database, [{
+        id: -1,
+        sessionDate,
+        startTime,
+        duration,
+        teacherId,
+        practiceId,
+      }]);
+      if (overlap) return overlap;
       database.prepare("INSERT INTO sessions (session_date, start_time, duration, subject_id, teacher_id, practice_id) VALUES (?, ?, ?, ?, ?, ?)").run(sessionDate, startTime, duration, subjectId, teacherId, practiceId);
       return Response.json({ ok: true }, { status: 201 });
     }
@@ -460,6 +580,15 @@ export async function PUT(request: Request) {
         const practice = database.prepare("SELECT duration FROM practices WHERE id = ?").get(practiceId) as { duration: number };
         resolvedDuration = practice.duration;
       }
+      const overlap = conflictResponse(database, [{
+        id,
+        sessionDate,
+        startTime,
+        duration: resolvedDuration,
+        teacherId,
+        practiceId,
+      }]);
+      if (overlap) return overlap;
       database.prepare("UPDATE sessions SET session_date = ?, start_time = ?, duration = ?, subject_id = ?, teacher_id = ?, practice_id = ? WHERE id = ?").run(sessionDate, startTime, resolvedDuration, subjectId, teacherId, practiceId, id);
       return Response.json({ ok: true });
     }
@@ -608,6 +737,8 @@ export async function PATCH(request: Request) {
       if (isHoliday(database, sessionDate)) {
         return Response.json({ error: "No se puede mover una sesión a un día festivo." }, { status: 409 });
       }
+      const overlap = conflictResponse(database, [{ id, sessionDate, startTime }]);
+      if (overlap) return overlap;
       database.prepare(
         "UPDATE sessions SET session_date = ?, start_time = ? WHERE id = ?",
       ).run(sessionDate, startTime, id);
@@ -643,6 +774,8 @@ export async function PATCH(request: Request) {
       if (teacherId !== null && !database.prepare("SELECT 1 FROM teachers WHERE id = ?").get(teacherId)) {
         return Response.json({ error: "El profesor seleccionado ya no existe." }, { status: 409 });
       }
+      const overlap = conflictResponse(database, ids.map((id) => ({ id, teacherId })));
+      if (overlap) return overlap;
 
       database.exec("BEGIN IMMEDIATE");
       try {
@@ -678,6 +811,12 @@ export async function PATCH(request: Request) {
     }
     const practiceDuration = practice?.duration ?? null;
     let linkedSubjectCount = 0;
+    const overlap = conflictResponse(database, ids.map((id) => ({
+      id,
+      practiceId,
+      ...(practiceDuration === null ? {} : { duration: practiceDuration }),
+    })));
+    if (overlap) return overlap;
 
     database.exec("BEGIN IMMEDIATE");
     try {
