@@ -537,6 +537,32 @@ END:VCALENDAR\r
   });
   assert.equal(deleteResponse.status, 200);
 
+  const createAdministratorPracticeResponse = await fetch(`${origin}/api/data`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "practices",
+      code: "PRA-ADMIN",
+      name: "Práctica independiente creada por administrador",
+      subjectId: initialData.subjects[0].id,
+      installationIds: [initialData.installations[0].id],
+      duration: 120,
+      riskLevel: "Bajo",
+    }),
+  });
+  assert.equal(createAdministratorPracticeResponse.status, 201);
+  const dataWithAdministratorPractice = await (await fetch(`${origin}/api/data`)).json();
+  const administratorPractice = dataWithAdministratorPractice.practices.find((practice) => practice.code === "PRA-ADMIN");
+  assert.ok(administratorPractice);
+  assert.equal(administratorPractice.subjectCount, 0);
+  assert.ok(dataWithAdministratorPractice.subjects.every((subject) => !subject.practiceIds.includes(administratorPractice.id)));
+  const deleteAdministratorPracticeResponse = await fetch(`${origin}/api/data`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ entity: "practices", id: administratorPractice.id }),
+  });
+  assert.equal(deleteAdministratorPracticeResponse.status, 200);
+
   const invalidTeacherEmailResponse = await fetch(`${origin}/api/data`, {
     method: "POST",
     headers: { "content-type": "application/json" },

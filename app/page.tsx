@@ -936,13 +936,16 @@ export default function Home() {
       : data.subjects.filter((subject) => editableSubjectIdSet.has(subject.id));
     const schedulableSubject = availableSubjects.find((subject) => subject.practiceIds.length > 0)
       ?? availableSubjects[0];
+    const newPracticeSubjectId = entity === "practices" && !authenticatedTeacher?.isAdmin
+      ? availableSubjects[0]?.id.toString() ?? ""
+      : "";
     setForm({
       ...initialForm,
       laboratoryId: data.laboratories[0]?.id.toString() ?? "",
       installationIds: entity === "practices" && data.installations[0] ? [data.installations[0].id] : [],
       sessionDate: localIsoDate(),
       degreeId: (entity === "subjects" ? data.degrees[0]?.id : schedulableSubject?.degreeId)?.toString() ?? "",
-      subjectId: schedulableSubject?.id.toString() ?? "",
+      subjectId: entity === "sessions" ? schedulableSubject?.id.toString() ?? "" : newPracticeSubjectId,
       teacherId: (hasSubjectEditorRole ? authenticatedTeacher?.id : data.teachers[0]?.id)?.toString() ?? "",
       sessionPracticeId: schedulableSubject?.practiceIds[0]?.toString() ?? "",
     });
@@ -3617,7 +3620,7 @@ function EntityView({
             <tbody>
               {(items as Practice[]).map((item) => (
                 <tr className={canEditItem(item) ? "editable-record" : undefined} key={item.id} role={canEditItem(item) ? "button" : undefined} tabIndex={canEditItem(item) ? 0 : undefined} aria-label={canEditItem(item) ? `Editar ${item.name}` : undefined} onClick={canEditItem(item) ? () => onEdit(entity, item) : undefined} onKeyDown={canEditItem(item) ? (event) => editRecordWithKeyboard(event, item) : undefined}>
-                  <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} asignaturas</small></td>
+                  <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} {item.subjectCount === 1 ? "asignatura" : "asignaturas"}</small></td>
                   <td>{item.installationNames}<small>{item.installationCount} instalaciones</small></td>
                   <td>{item.laboratoryNames}</td>
                   <td>{item.duration} min<small>Riesgo {item.riskLevel.toLowerCase()}</small></td>

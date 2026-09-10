@@ -341,7 +341,7 @@ export async function POST(request: Request) {
       database.prepare("INSERT INTO installations (code, name, laboratory_id, category, capacity, status) VALUES (?, ?, ?, ?, ?, ?)").run(code, name, laboratoryId, category, capacity, status);
     } else if (entity === "practices") {
       const installationIds = positiveIntegerList(payload.installationIds);
-      const editorSubjectId = positiveInteger(payload.subjectId);
+      const editorSubjectId = authenticatedTeacher.isAdmin ? null : positiveInteger(payload.subjectId);
       const duration = positiveInteger(payload.duration);
       const riskLevel = cleanString(payload.riskLevel);
       if (!installationIds.length || !duration || !riskLevel) return Response.json({ error: "Selecciona al menos una instalación y completa los datos de la práctica." }, { status: 400 });
