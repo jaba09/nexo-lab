@@ -14,7 +14,7 @@ test("provides an authenticated teacher group email workflow without persisting 
 
   assert.match(page, /key: "messages", label: "Mensajes", short: "MEN"/);
   assert.doesNotMatch(page, /adminOnly/);
-  assert.match(page, /navigation\.map\(\(item\) =>/);
+  assert.match(page, /navigation\.filter\([\s\S]*?\.map\(\(item\) =>/);
   assert.match(page, /function MessagesView/);
   assert.match(page, /Disponible para profesores/);
   assert.match(page, /Docencia en una asignatura/);

@@ -69,6 +69,8 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Asignaturas agrupadas por grado/);
   assert.doesNotMatch(page, /key: "degrees", label: "Grados"/);
   assert.match(page, /key: "subjects", label: "Grados\/asignaturas", short: "G\/A"/);
+  assert.match(page, /key: "preferences", label: "Preferencias", short: "CFG"/);
+  assert.match(page, /item\.key !== "preferences" \|\| authenticatedTeacher\.isAdmin/);
   assert.match(page, /key: "subjects"[\s\S]*?key: "practices"/);
   assert.match(page, /Crear grado/);
   assert.match(page, /onCreate\("degrees"\)/);
@@ -355,13 +357,14 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /calendar-list-select-indicator/);
   assert.match(styles, /\.calendar-list-session/);
   assert.match(styles, /\.calendar-list-session\.selected/);
-  assert.match(page, /calendarWeekStartHour = 8/);
-  assert.match(page, /calendarWeekEndHour = 19/);
+  assert.match(page, /preferences: \{ calendarStartHour: 8, calendarEndHour: 19 \}/);
   assert.match(page, /calendarWeekDayCount = 5/);
   assert.match(page, /Array\.from\(\{ length: calendarWeekDayCount \}/);
   assert.match(page, /repeat\(\$\{weekDays\.length\}/);
   assert.doesNotMatch(styles, /calendar-week-grid[^}]*repeat\(7/);
-  assert.match(page, /Vista semanal de 08:00 a 19:00/);
+  assert.match(page, /Vista semanal de \$\{String\(calendarWeekStartHour\)/);
+  assert.match(page, /calendarPreferences\.calendarStartHour/);
+  assert.match(page, /Guardar preferencias/);
   assert.match(page, /layoutOverlappingSessions/);
   assert.match(page, /overlapping-session/);
   assert.match(page, /weeklyLayout\.maximumLaneCount/);

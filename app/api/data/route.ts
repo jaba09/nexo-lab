@@ -1,6 +1,7 @@
 import { getDatabase } from "../../../lib/database";
 import { semesterDefinition } from "../../../lib/semesters";
 import { getAuthenticatedTeacher, hashPassword, passwordValidationError, readOnlyResponse, unauthorizedResponse } from "../../../lib/auth";
+import { readAppPreferences } from "../../../lib/preferences";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -277,6 +278,7 @@ export async function GET() {
       })),
       holidays,
       academicDayTypes,
+      preferences: readAppPreferences(database),
       editableSubjectIds: authenticatedTeacher.isAdmin
         ? subjects.map((subject) => Number(subject.id))
         : editableSubjectIds(database, authenticatedTeacher.id),

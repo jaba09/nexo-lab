@@ -134,6 +134,27 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       || left.localeCompare(right, "es", { sensitivity: "base" })
     )),
   );
+  assert.deepEqual(initialData.preferences, { calendarStartHour: 8, calendarEndHour: 19 });
+  const invalidPreferencesResponse = await fetch(`${origin}/api/preferences`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ calendarStartHour: 18, calendarEndHour: 8 }),
+  });
+  assert.equal(invalidPreferencesResponse.status, 400);
+  const updatePreferencesResponse = await fetch(`${origin}/api/preferences`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ calendarStartHour: 7, calendarEndHour: 20 }),
+  });
+  assert.equal(updatePreferencesResponse.status, 200);
+  assert.deepEqual((await updatePreferencesResponse.json()).preferences, { calendarStartHour: 7, calendarEndHour: 20 });
+  assert.deepEqual((await (await fetch(`${origin}/api/data`)).json()).preferences, { calendarStartHour: 7, calendarEndHour: 20 });
+  const restorePreferencesResponse = await fetch(`${origin}/api/preferences`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ calendarStartHour: 8, calendarEndHour: 19 }),
+  });
+  assert.equal(restorePreferencesResponse.status, 200);
   assert.equal(initialData.sessions.length, 4);
   assert.equal(initialData.sessions.find((session) => session.subjectId === 1 && session.practiceId === 1).practiceOrder, 1);
   assert.deepEqual(
@@ -630,6 +651,12 @@ END:VCALENDAR\r
   assert.equal(readOnlyDataResponse.status, 200);
   const editorData = await readOnlyDataResponse.json();
   assert.deepEqual(editorData.editableSubjectIds, [subjectForEditor.id]);
+  const editorPreferencesResponse = await fetch(`${origin}/api/preferences`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ calendarStartHour: 7, calendarEndHour: 20 }),
+  });
+  assert.equal(editorPreferencesResponse.status, 403);
 
   const editorInstallationResponse = await fetch(`${origin}/api/data`, {
     method: "POST",

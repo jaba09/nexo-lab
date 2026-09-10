@@ -9,8 +9,8 @@ import { messageAudienceTeacherIds } from "../lib/messageAudience";
 import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 
-type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages";
-type Entity = Exclude<Section, "overview" | "messages">;
+type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences";
+type Entity = Exclude<Section, "overview" | "messages" | "preferences">;
 type MessageAudience = "subject" | "semester";
 
 type Laboratory = {
@@ -159,6 +159,11 @@ type AcademicDayType = {
   dayType: "A" | "B";
 };
 
+type AppPreferences = {
+  calendarStartHour: number;
+  calendarEndHour: number;
+};
+
 type IcsPreviewGroup = {
   degreeCode: string;
   subjectCode: string;
@@ -285,6 +290,7 @@ type AppData = {
   sessions: Session[];
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
+  preferences: AppPreferences;
   editableSubjectIds: number[];
 };
 
@@ -313,8 +319,6 @@ type WeeklySessionPosition = {
   laneCount: number;
 };
 
-const calendarWeekStartHour = 8;
-const calendarWeekEndHour = 19;
 const calendarWeekHourHeight = 64;
 const calendarWeekDayCount = 5;
 const calendarListDateFormatter = new Intl.DateTimeFormat("es-ES", {
@@ -340,6 +344,7 @@ const emptyData: AppData = {
   sessions: [],
   holidays: [],
   academicDayTypes: [],
+  preferences: { calendarStartHour: 8, calendarEndHour: 19 },
   editableSubjectIds: [],
 };
 
@@ -359,6 +364,7 @@ const navigation: { key: Section; label: string; short: string }[] = [
   { key: "practices", label: "Prácticas", short: "PRA" },
   { key: "teachers", label: "Profesores", short: "PRO" },
   { key: "messages", label: "Mensajes", short: "MEN" },
+  { key: "preferences", label: "Preferencias", short: "CFG" },
 ];
 
 const entityShortCodes: Record<Entity, string> = {
@@ -868,6 +874,7 @@ export default function Home() {
       sessions: data.sessions.filter(matches),
       holidays: data.holidays,
       academicDayTypes: data.academicDayTypes,
+      preferences: data.preferences,
       editableSubjectIds: data.editableSubjectIds,
     };
   }, [data, search]);
@@ -1228,6 +1235,20 @@ export default function Home() {
     setSearch("");
   }
 
+  async function savePreferences(preferences: AppPreferences) {
+    const response = await fetch(apiUrl("/api/preferences"), {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(preferences),
+    });
+    const payload = await response.json() as { preferences?: AppPreferences; error?: string };
+    if (!response.ok || !payload.preferences) {
+      throw new Error(payload.error || "No se pudieron guardar las preferencias.");
+    }
+    setData((current) => ({ ...current, preferences: payload.preferences as AppPreferences }));
+    setNotice({ kind: "success", message: "Las preferencias se han guardado correctamente." });
+  }
+
   async function finishIcsImport(result: IcsImportResult) {
     setImportOpen(false);
     await loadData();
@@ -1245,7 +1266,11 @@ export default function Home() {
     setNotice({ kind: "success", message: sessionAssignmentImportMessage(result) });
   }
 
-  const activeTitle = active === "overview" ? "Inicio" : active === "messages" ? "Mensajes" : entityCopy[active].plural;
+  const activeTitle = active === "overview"
+    ? "Inicio"
+    : active === "messages"
+      ? "Mensajes"
+      : active === "preferences" ? "Preferencias" : entityCopy[active].plural;
 
   if (!authenticationChecked) {
     return <div className="auth-loading" role="status"><span />Comprobando el acceso…</div>;
@@ -1265,7 +1290,7 @@ export default function Home() {
 
         <nav className="main-nav" aria-label="Navegación principal">
           <p className="nav-caption">Estructura académica</p>
-          {navigation.map((item) => (
+          {navigation.filter((item) => item.key !== "preferences" || authenticatedTeacher.isAdmin).map((item) => (
             <button
               key={item.key}
               className={active === item.key ? "nav-item active" : "nav-item"}
@@ -1274,7 +1299,7 @@ export default function Home() {
             >
               <span className="nav-code">{item.short}</span>
               <span>{item.label}</span>
-              {item.key !== "overview" && item.key !== "messages" && <b>{item.key === "installations"
+              {item.key !== "overview" && item.key !== "messages" && item.key !== "preferences" && <b>{item.key === "installations"
                 ? `${counts.laboratories}/${counts.installations}`
                 : item.key === "subjects" ? `${counts.degrees}/${counts.subjects}` : counts[item.key]}</b>}
             </button>
@@ -1302,7 +1327,7 @@ export default function Home() {
             <strong>{activeTitle}</strong>
           </div>
           <div className="topbar-actions">
-            {active !== "overview" && active !== "messages" && (
+            {!(["overview", "messages", "preferences"] as Section[]).includes(active) && (
               <label className="search-field">
                 <span aria-hidden="true">⌕</span>
                 <span className="sr-only">Buscar en {activeTitle}</span>
@@ -1354,6 +1379,12 @@ export default function Home() {
                 message: `Mensaje enviado correctamente a ${recipientCount} ${recipientCount === 1 ? "profesor" : "profesores"}.`,
               })}
             />
+          ) : active === "preferences" ? (
+            <PreferencesView
+              key={`${data.preferences.calendarStartHour}-${data.preferences.calendarEndHour}`}
+              preferences={data.preferences}
+              onSave={savePreferences}
+            />
           ) : (
             <EntityView
               entity={active}
@@ -1390,6 +1421,7 @@ export default function Home() {
               onDeleteSessions={deleteSessions}
               selectedSemester={selectedSemester}
               onSelectedSemesterChange={setSelectedSemester}
+              calendarPreferences={data.preferences}
             />
           )}
         </div>
@@ -2925,6 +2957,83 @@ function SemesterFocus({
   );
 }
 
+function PreferencesView({
+  preferences,
+  onSave,
+}: {
+  preferences: AppPreferences;
+  onSave: (preferences: AppPreferences) => Promise<void>;
+}) {
+  const [calendarStartHour, setCalendarStartHour] = useState(preferences.calendarStartHour);
+  const [calendarEndHour, setCalendarEndHour] = useState(preferences.calendarEndHour);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
+
+  async function submitPreferences(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (calendarEndHour <= calendarStartHour) {
+      setError("La hora final debe ser posterior a la hora inicial.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave({ calendarStartHour, calendarEndHour });
+    } catch (saveError) {
+      setError(clientErrorMessage(saveError, "No se pudieron guardar las preferencias."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="entity-hero preferences-hero">
+        <div>
+          <span className="section-kicker">Configuración / CFG</span>
+          <h1>Preferencias</h1>
+          <p>Ajustes generales que se aplican a todos los usuarios de la aplicación.</p>
+        </div>
+        <span className="preferences-access-badge">Solo administradores</span>
+      </section>
+
+      <form className="panel preferences-panel" onSubmit={submitPreferences}>
+        <div className="panel-head">
+          <div><span className="section-kicker">Calendario</span><h2>Horario de la vista semanal</h2></div>
+          <span className="panel-tag">{String(calendarStartHour).padStart(2, "0")}:00–{String(calendarEndHour).padStart(2, "0")}:00</span>
+        </div>
+        <div className="preferences-fields">
+          <div className="preferences-time-grid">
+            <label>
+              <span>Hora inicial</span>
+              <select value={calendarStartHour} onChange={(event) => { setCalendarStartHour(Number(event.target.value)); setError(""); }}>
+                {hourOptions.slice(0, -1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
+              </select>
+              <small>Primera hora visible en el calendario semanal.</small>
+            </label>
+            <label>
+              <span>Hora final</span>
+              <select value={calendarEndHour} onChange={(event) => { setCalendarEndHour(Number(event.target.value)); setError(""); }}>
+                {hourOptions.slice(1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
+              </select>
+              <small>Última hora visible en el calendario semanal.</small>
+            </label>
+          </div>
+          <div className="preferences-note">
+            <span aria-hidden="true">i</span>
+            <p>Las sesiones que queden completamente fuera de este intervalo no se mostrarán en la vista semanal, pero seguirán disponibles en las vistas mensual y de lista.</p>
+          </div>
+          {error && <p className="messages-error" role="alert">{error}</p>}
+          <button className="primary-button preferences-save-button" type="submit" disabled={saving || calendarEndHour <= calendarStartHour}>
+            {saving ? "Guardando…" : "Guardar preferencias"}
+          </button>
+        </div>
+      </form>
+    </>
+  );
+}
+
 function MessagesView({
   data,
   sender,
@@ -3421,6 +3530,7 @@ function EntityView({
   onDeleteSessions,
   selectedSemester,
   onSelectedSemesterChange,
+  calendarPreferences,
 }: {
   entity: Entity;
   canCreate: boolean;
@@ -3443,6 +3553,7 @@ function EntityView({
   onDeleteSessions: (request: SessionDeleteRequest, confirmation: string) => Promise<boolean>;
   selectedSemester: string;
   onSelectedSemesterChange: (semesterId: string) => void;
+  calendarPreferences: AppPreferences;
 }) {
   const items = data[entity];
   const teacherSemesterOptions = semesterOptions([
@@ -3517,6 +3628,7 @@ function EntityView({
           onDeleteSessions={onDeleteSessions}
           selectedSemester={selectedSemester}
           onSelectedSemesterChange={onSelectedSemesterChange}
+          calendarPreferences={calendarPreferences}
         />
       ) : entity === "installations" && catalog.laboratories.length > 0 ? (
         <InstallationHierarchy
@@ -3657,6 +3769,7 @@ function CalendarView({
   onDeleteSessions,
   selectedSemester,
   onSelectedSemesterChange,
+  calendarPreferences,
 }: {
   sessions: Session[];
   allSessions: Session[];
@@ -3679,8 +3792,11 @@ function CalendarView({
   onDeleteSessions: (request: SessionDeleteRequest, confirmation: string) => Promise<boolean>;
   selectedSemester: string;
   onSelectedSemesterChange: (semesterId: string) => void;
+  calendarPreferences: AppPreferences;
 }) {
   const referenceDate = localIsoDate();
+  const calendarWeekStartHour = calendarPreferences.calendarStartHour;
+  const calendarWeekEndHour = calendarPreferences.calendarEndHour;
   const [calendarView, setCalendarView] = useState<CalendarViewMode>("month");
   const [visibleMonth, setVisibleMonth] = useState(() => {
     return initialMonthForSemester(selectedSemester, allSessions, referenceDate);
@@ -3784,7 +3900,7 @@ function CalendarView({
       { length: calendarWeekEndHour - calendarWeekStartHour + 1 },
       (_, index) => calendarWeekStartHour + index,
     )
-  ), []);
+  ), [calendarWeekEndHour, calendarWeekStartHour]);
 
   const sessionsByDate = useMemo(() => {
     const grouped = new Map<string, Session[]>();
@@ -3812,7 +3928,7 @@ function CalendarView({
       byDate.set(date, positioned);
     }
     return { byDate, maximumLaneCount };
-  }, [sessionsByDate, weekDays]);
+  }, [calendarWeekEndHour, calendarWeekStartHour, sessionsByDate, weekDays]);
 
   const selectedSessions = useMemo(() => (
     filteredSemesterSessions.filter((session) => selectedIds.has(session.id))
@@ -4350,7 +4466,7 @@ function CalendarView({
           <div
             className="calendar-week-grid"
             role="grid"
-            aria-label="Vista semanal de 08:00 a 19:00"
+            aria-label={`Vista semanal de ${String(calendarWeekStartHour).padStart(2, "0")}:00 a ${String(calendarWeekEndHour).padStart(2, "0")}:00`}
             style={{ minWidth: `${weeklyGridMinWidth}px`, gridTemplateColumns: `58px repeat(${weekDays.length}, minmax(${weeklyDayMinWidth}px, 1fr))` }}
           >
             <div className="calendar-week-corner" style={{ gridColumn: 1, gridRow: 1 }}>Hora</div>
@@ -4387,7 +4503,7 @@ function CalendarView({
                   tabIndex={-1}
                   aria-disabled={Boolean(holiday)}
                   title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
-                  aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las 08:00 y las 19:00`}
+                  aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las ${String(calendarWeekStartHour).padStart(2, "0")}:00 y las ${String(calendarWeekEndHour).padStart(2, "0")}:00`}
                   onDragOver={canEdit ? (event) => previewWeekDrop(event, date) : undefined}
                   onDrop={canEdit ? (event) => dropOnWeek(event, date) : undefined}
                 >
