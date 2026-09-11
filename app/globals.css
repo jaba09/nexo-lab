@@ -754,28 +754,28 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .weekly-session.overlap-lane-3 { border-color: #b6a4ce; background: #f2ecfb; }
 .installation-schedule-scroll { overflow: auto; background: #f3f2ec; }
 .installation-schedule-grid { width: 100%; display: grid; background: var(--white); }
-.installation-schedule-corner, .installation-schedule-heading { position: sticky; top: 0; z-index: 8; min-height: 64px; border-right: 1px solid #e0e1da; border-bottom: 1px solid var(--line); background: #f7f5ef; }
+.installation-schedule-corner, .installation-schedule-heading { position: sticky; top: 0; z-index: 8; min-height: 54px; border-right: 1px solid #e0e1da; border-bottom: 1px solid var(--line); background: #f7f5ef; }
 .installation-schedule-corner { left: 0; z-index: 10; display: grid; place-items: center; color: #8a918e; font: 700 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .08em; }
-.installation-schedule-heading { min-width: 0; padding: 8px 10px; display: grid; align-content: center; justify-items: center; gap: 3px; text-align: center; }
-.installation-schedule-heading span { padding: 3px 6px; border-radius: 4px; background: var(--blue); font: 800 8px var(--font-geist-mono); }
-.installation-schedule-heading strong { width: 100%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.installation-schedule-heading small { color: var(--muted); font: 650 7px var(--font-geist-mono); }
+.installation-schedule-heading { min-width: 0; padding: 5px 3px; display: grid; align-content: center; justify-items: center; gap: 2px; text-align: center; }
+.installation-schedule-heading span { max-width: 100%; padding: 2px 4px; border-radius: 4px; background: var(--blue); overflow: hidden; font: 800 7px var(--font-geist-mono); text-overflow: ellipsis; white-space: nowrap; }
+.installation-schedule-heading strong { width: 100%; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.installation-schedule-heading small { color: var(--muted); font: 650 6px var(--font-geist-mono); }
 .installation-schedule-times { position: sticky; left: 0; z-index: 5; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #f7f5ef; }
 .installation-schedule-times span { position: absolute; right: 8px; color: #858d89; font: 650 8px var(--font-geist-mono); transform: translateY(-50%); }
 .installation-schedule-times span:first-child { transform: none; }
 .installation-schedule-times span:last-child { transform: translateY(-100%); }
-.installation-schedule-column { position: relative; border-right: 1px solid #e6e5de; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, var(--white) 0, var(--white) 63px, #e6e5de 63px, #e6e5de 64px); }
+.installation-schedule-column { position: relative; border-right: 1px solid #e6e5de; border-bottom: 1px solid var(--line); background-color: var(--white); background-image: linear-gradient(to bottom, transparent calc(100% - 1px), #e6e5de calc(100% - 1px)); }
 .installation-schedule-column:last-child { border-right: 0; }
-.installation-schedule-free { position: absolute; top: 18px; left: 50%; color: #a1a7a3; font: 700 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; transform: translateX(-50%); }
-.installation-schedule-session { position: absolute; z-index: 2; min-width: 0; min-height: 38px; border: 1px solid #afc481; border-radius: 7px; background: #eaf5cc; overflow: hidden; box-shadow: 0 2px 6px rgba(23,32,29,.1); transition: border-color .15s, box-shadow .15s, background .15s; }
+.installation-schedule-free { position: absolute; top: 11px; left: 50%; color: #a1a7a3; font: 700 6px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; transform: translateX(-50%); }
+.installation-schedule-session { position: absolute; z-index: 2; min-width: 0; min-height: 28px; border: 1px solid #afc481; border-radius: 5px; background: #eaf5cc; overflow: hidden; box-shadow: 0 1px 4px rgba(23,32,29,.1); transition: border-color .15s, box-shadow .15s, background .15s; }
 .installation-schedule-session:hover { z-index: 4; border-color: #78932f; box-shadow: 0 5px 15px rgba(23,32,29,.18); }
 .installation-schedule-session.conflict { border-color: #dc897e; background: #fff0ed; }
 .installation-schedule-session.selected { z-index: 5; border-color: var(--ink); background: #deff72; box-shadow: 0 0 0 2px var(--ink), 0 5px 15px rgba(23,32,29,.2); }
-.installation-schedule-session button { width: 100%; height: 100%; min-width: 0; padding: 7px; border: 0; background: transparent; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; text-align: left; cursor: pointer; }
-.installation-schedule-session button > span { color: #526332; font: 750 8px var(--font-geist-mono); white-space: nowrap; }
+.installation-schedule-session button { width: 100%; height: 100%; min-width: 0; padding: 4px; border: 0; background: transparent; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; text-align: left; cursor: pointer; }
+.installation-schedule-session button > span { color: #526332; font: 750 6px var(--font-geist-mono); white-space: nowrap; }
 .installation-schedule-session button > strong, .installation-schedule-session button > small { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.installation-schedule-session button > strong { color: var(--ink); font-size: 9px; }
-.installation-schedule-session button > small { color: #66715c; font: 650 7px var(--font-geist-mono); }
+.installation-schedule-session button > strong { color: var(--ink); font-size: 7px; }
+.installation-schedule-session button > small { color: #66715c; font: 650 6px var(--font-geist-mono); }
 .installation-schedule-session button > small em { color: var(--danger); font-style: normal; font-weight: 800; }
 .installation-schedule-empty { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 7px; color: var(--muted); text-align: center; }
 .installation-schedule-empty strong { color: var(--ink); font-size: 14px; }

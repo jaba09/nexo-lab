@@ -360,6 +360,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /laboratoryId: value, installationId: ""/);
   assert.match(page, /gridTemplateColumns: `58px repeat\(\$\{calendarInstallations\.length\}/);
   assert.match(page, /top: `\$\{\(\(clippedStart - calendarWeekStartHour \* 60\)/);
+  assert.match(page, /const installationColumnMinWidth = 76/);
+  assert.match(page, /const installationHourHeight = 36/);
+  assert.match(page, /const compactPracticeLabel = session\.practiceCode/);
   assert.match(page, /sessionsByDate\.entries\(\)/);
   assert.match(page, /dateSessions\.map\(renderListSession\)/);
   assert.match(page, /ordenadas cronológicamente/);
@@ -369,6 +372,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.installation-schedule-session\.selected/);
   assert.match(styles, /\.installation-schedule-times \{ position: sticky/);
   assert.match(styles, /\.installation-schedule-column \{ position: relative/);
+  assert.match(styles, /\.installation-schedule-heading \{ min-width: 0; padding: 5px 3px/);
   assert.match(page, /preferences: \{ calendarStartHour: 8, calendarEndHour: 19 \}/);
   assert.match(page, /calendarWeekDayCount = 5/);
   assert.match(page, /Array\.from\(\{ length: calendarWeekDayCount \}/);

@@ -4107,8 +4107,6 @@ function CalendarView({
       laneCount: Math.max(1, ...positionedSessions.map((item) => item.laneCount)),
     };
   }), [calendarInstallations, calendarWeekEndHour, calendarWeekStartHour, installationDaySessions, practicesById]);
-  const installationMaximumLaneCount = Math.max(1, ...installationSchedule.map((item) => item.laneCount));
-
   const selectedSessions = useMemo(() => (
     filteredSemesterSessions.filter((session) => selectedIds.has(session.id))
   ), [filteredSemesterSessions, selectedIds]);
@@ -4135,7 +4133,8 @@ function CalendarView({
   const installationDayLabel = `${academicWeekdayLabel(visibleInstallationDate, installationDate, dayTypesByDate)}, ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(visibleInstallationDate)}`;
   const weeklyDayMinWidth = Math.max(120, weeklyLayout.maximumLaneCount * 96);
   const weeklyGridMinWidth = 58 + weeklyDayMinWidth * weekDays.length;
-  const installationColumnMinWidth = Math.max(150, installationMaximumLaneCount * 112);
+  const installationColumnMinWidth = 76;
+  const installationHourHeight = 36;
   const installationGridMinWidth = 58 + calendarInstallations.length * installationColumnMinWidth;
   const visibleMonthValue = visibleMonth.getFullYear() * 12 + visibleMonth.getMonth();
   const semesterStartValue = activeSemester.startYear * 12 + activeSemester.startMonthIndex;
@@ -4534,13 +4533,16 @@ function CalendarView({
     const clippedEnd = Math.min(start + session.duration, calendarWeekEndHour * 60);
     const selected = selectedIds.has(session.id);
     const endTime = formatCalendarTime(start + session.duration);
+    const compactPracticeLabel = session.practiceCode
+      ? `${session.practiceOrder ? `P${session.practiceOrder} · ` : ""}${session.practiceCode}`
+      : "Sin práctica";
     return (
       <article
         className={`installation-schedule-session${laneCount > 1 ? " conflict" : ""}${selected ? " selected" : ""}`}
         key={session.id}
         style={{
-          top: `${((clippedStart - calendarWeekStartHour * 60) / 60) * calendarWeekHourHeight + 4}px`,
-          height: `${Math.max(38, ((clippedEnd - clippedStart) / 60) * calendarWeekHourHeight - 8)}px`,
+          top: `${((clippedStart - calendarWeekStartHour * 60) / 60) * installationHourHeight + 3}px`,
+          height: `${Math.max(28, ((clippedEnd - clippedStart) / 60) * installationHourHeight - 6)}px`,
           left: `calc(${lane * (100 / laneCount)}% + 4px)`,
           width: `calc(${100 / laneCount}% - 8px)`,
         }}
@@ -4553,9 +4555,9 @@ function CalendarView({
           onClick={(event) => selectSession(session, event)}
           onDoubleClick={canEditSession(session) ? () => onEdit(session) : undefined}
         >
-          <strong>{sessionPracticeTitle(session)}</strong>
+          <strong>{compactPracticeLabel}</strong>
           <span>{session.startTime.replace(/^0/, "")}–{endTime.replace(/^0/, "")}</span>
-          <small>{session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherName ? `Prof. ${session.teacherName}` : <em>Prof. sin asignar</em>}</small>
+          <small>{session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherCode || <em>S/prof</em>}</small>
         </button>
       </article>
     );
@@ -4806,13 +4808,13 @@ function CalendarView({
                   <small>{positionedSessions.length} {positionedSessions.length === 1 ? "sesión" : "sesiones"}</small>
                 </div>
               ))}
-              <div className="installation-schedule-times" style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * calendarWeekHourHeight}px`, gridColumn: 1, gridRow: 2 }} aria-hidden="true">
-                {weekHours.map((hour, index) => <span key={hour} style={{ top: `${index * calendarWeekHourHeight}px` }}>{String(hour).padStart(2, "0")}:00</span>)}
+              <div className="installation-schedule-times" style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * installationHourHeight}px`, gridColumn: 1, gridRow: 2 }} aria-hidden="true">
+                {weekHours.map((hour, index) => <span key={hour} style={{ top: `${index * installationHourHeight}px` }}>{String(hour).padStart(2, "0")}:00</span>)}
               </div>
               {installationSchedule.map(({ installation, positionedSessions }, index) => (
                 <div
                   className="installation-schedule-column"
-                  style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * calendarWeekHourHeight}px`, gridColumn: index + 2, gridRow: 2 }}
+                  style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * installationHourHeight}px`, gridColumn: index + 2, gridRow: 2, backgroundSize: `100% ${installationHourHeight}px` }}
                   key={`column-${installation.id}`}
                   role="gridcell"
                   aria-label={`${installation.name}: ${positionedSessions.length ? `${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"}` : "libre"}`}
