@@ -938,7 +938,7 @@ export default function Home() {
     && (editingId === null || editingSession?.sessionDate !== form.sessionDate)
   );
 
-  function openCreate(entity: Entity) {
+  function openCreate(entity: Entity, sessionDefaults?: { sessionDate?: string; startTime?: string }) {
     if (!canCreateEntity(entity)) return;
     const availableSubjects = authenticatedTeacher?.isAdmin
       ? data.subjects
@@ -952,7 +952,8 @@ export default function Home() {
       ...initialForm,
       laboratoryId: data.laboratories[0]?.id.toString() ?? "",
       installationIds: entity === "practices" && data.installations[0] ? [data.installations[0].id] : [],
-      sessionDate: localIsoDate(),
+      sessionDate: sessionDefaults?.sessionDate ?? localIsoDate(),
+      startTime: sessionDefaults?.startTime ?? initialForm.startTime,
       degreeId: (entity === "subjects" ? data.degrees[0]?.id : schedulableSubject?.degreeId)?.toString() ?? "",
       subjectId: entity === "sessions" ? schedulableSubject?.id.toString() ?? "" : newPracticeSubjectId,
       teacherId: (hasSubjectEditorRole ? authenticatedTeacher?.id : data.teachers[0]?.id)?.toString() ?? "",
@@ -1415,6 +1416,7 @@ export default function Home() {
                       : false
               }
               onCreate={openCreate}
+              onCreateSession={(sessionDate, startTime) => openCreate("sessions", { sessionDate, startTime })}
               onEdit={openEdit}
               onDelete={deleteEntity}
               onImport={() => setImportOpen(true)}
@@ -3697,6 +3699,7 @@ function EntityView({
   search,
   dependencyMissing,
   onCreate,
+  onCreateSession,
   onEdit,
   onDelete,
   onImport,
@@ -3720,6 +3723,7 @@ function EntityView({
   search: string;
   dependencyMissing: boolean;
   onCreate: (entity: Entity) => void;
+  onCreateSession: (sessionDate: string, startTime?: string) => void;
   onEdit: (entity: Entity, item: EntityRecord) => void;
   onDelete: (entity: Entity, id: number, label: string) => void;
   onImport: () => void;
@@ -3794,9 +3798,11 @@ function EntityView({
           practices={catalog.practices}
           teachers={catalog.teachers}
           canEdit={canCreate}
+          canCreateSession={canCreate && !dependencyMissing}
           canDelete={canDelete}
           editableSubjectIds={editableSubjectIds}
           onEdit={(session) => onEdit(entity, session)}
+          onCreateSession={onCreateSession}
           onDelete={(session) => onDelete(entity, session.id, `${session.practiceCode || session.subjectCode || "Sesión incompleta"} · ${session.sessionDate} ${session.startTime}`)}
           onAssignPractice={onAssignPractice}
           onAssignTeacher={onAssignTeacher}
@@ -3927,6 +3933,7 @@ function CalendarView({
   sessions,
   allSessions,
   canEdit,
+  canCreateSession,
   canDelete,
   editableSubjectIds,
   holidays,
@@ -3938,6 +3945,7 @@ function CalendarView({
   practices,
   teachers,
   onEdit,
+  onCreateSession,
   onDelete,
   onAssignPractice,
   onAssignTeacher,
@@ -3950,6 +3958,7 @@ function CalendarView({
   sessions: Session[];
   allSessions: Session[];
   canEdit: boolean;
+  canCreateSession: boolean;
   canDelete: boolean;
   editableSubjectIds: number[];
   holidays: Holiday[];
@@ -3961,6 +3970,7 @@ function CalendarView({
   practices: Practice[];
   teachers: Teacher[];
   onEdit: (session: Session) => void;
+  onCreateSession: (sessionDate: string, startTime?: string) => void;
   onDelete: (session: Session) => void;
   onAssignPractice: (ids: number[], practiceId: number | null) => Promise<boolean>;
   onAssignTeacher: (ids: number[], teacherId: number | null) => Promise<boolean>;
@@ -4326,6 +4336,42 @@ function CalendarView({
   function clearSelection() {
     setSelectedIds(new Set());
     setAnchorId(null);
+  }
+
+  function canCreateSessionOnDate(date: string) {
+    return canCreateSession
+      && date >= activeSemester.startDate
+      && date <= activeSemester.endDate
+      && !holidaysByDate.has(date);
+  }
+
+  function createSessionFromCalendar(date: string, startTime = initialForm.startTime) {
+    if (!canCreateSessionOnDate(date)) return;
+    clearSelection();
+    onCreateSession(date, startTime);
+  }
+
+  function createSessionFromMonthDay(event: ReactMouseEvent<HTMLDivElement>, date: string) {
+    if ((event.target as HTMLElement).closest(".session-event")) return;
+    createSessionFromCalendar(date);
+  }
+
+  function createSessionFromWeek(event: ReactMouseEvent<HTMLDivElement>, date: string) {
+    if ((event.target as HTMLElement).closest(".session-event")) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const relativeY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+    const rangeMinutes = (calendarWeekEndHour - calendarWeekStartHour) * 60;
+    const rawMinutes = calendarWeekStartHour * 60 + (relativeY / bounds.height) * rangeMinutes;
+    const snappedMinutes = Math.round(rawMinutes / 30) * 30;
+    const latestStart = calendarWeekEndHour * 60 - 30;
+    const startMinutes = Math.max(calendarWeekStartHour * 60, Math.min(snappedMinutes, latestStart));
+    createSessionFromCalendar(date, formatCalendarTime(startMinutes));
+  }
+
+  function createSessionWithKeyboard(event: ReactKeyboardEvent<HTMLDivElement>, date: string, startTime = initialForm.startTime) {
+    if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    createSessionFromCalendar(date, startTime);
   }
 
   function selectSession(session: Session, event: ReactMouseEvent<HTMLButtonElement>) {
@@ -4706,7 +4752,9 @@ function CalendarView({
           </>
         ) : (
           <span>{canEdit
-            ? calendarView === "list" || calendarView === "installations" ? "Selecciona una sesión para mostrar la barra de acciones. Shift + clic selecciona un rango y Esc limpia la selección." : "Selecciona una sesión para asignar práctica o profesor. Arrastra una sesión para cambiar su día y hora."
+            ? calendarView === "month" ? "Haz clic en un día para añadir una sesión. Selecciona una sesión para gestionarla. Arrastra una sesión para cambiar su día y hora."
+              : calendarView === "week" ? "Haz clic en un hueco horario para añadir una sesión. Selecciona una sesión para gestionarla. Arrastra una sesión para cambiar su día y hora."
+                : "Selecciona una sesión para mostrar la barra de acciones. Shift + clic selecciona un rango y Esc limpia la selección."
             : "Modo de solo lectura: selecciona sesiones para exportarlas en PDF o ICS."}</span>
         )}
       </div>
@@ -4723,21 +4771,25 @@ function CalendarView({
                 const holiday = holidaysByDate.get(date);
                 const dayType = dayTypesByDate.get(date);
                 const outsideMonth = day.getMonth() !== visibleMonth.getMonth();
+                const dateCanCreateSession = canCreateSessionOnDate(date);
                 return (
                   <div
-                    className={`calendar-day${outsideMonth ? " outside" : ""}${date === today ? " today" : ""}${holiday ? " holiday" : ""}${monthDropDate === date ? " drop-target" : ""}`}
+                    className={`calendar-day${outsideMonth ? " outside" : ""}${date === today ? " today" : ""}${holiday ? " holiday" : ""}${dateCanCreateSession ? " creatable" : ""}${monthDropDate === date ? " drop-target" : ""}`}
                     key={date}
                     role="gridcell"
-                    tabIndex={-1}
+                    tabIndex={dateCanCreateSession ? 0 : -1}
                     aria-disabled={Boolean(holiday)}
-                    title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
-                    aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}`}
+                    title={holiday ? "Día festivo · no se pueden programar sesiones" : dateCanCreateSession ? "Haz clic para añadir una sesión este día" : undefined}
+                    aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}${dateCanCreateSession ? ", pulsa para añadir una sesión" : ""}`}
+                    onClick={dateCanCreateSession ? (event) => createSessionFromMonthDay(event, date) : undefined}
+                    onKeyDown={dateCanCreateSession ? (event) => createSessionWithKeyboard(event, date) : undefined}
                     onDragOver={canEdit ? (event) => previewMonthDrop(event, date) : undefined}
                     onDrop={canEdit ? (event) => dropOnMonth(event, date) : undefined}
                   >
                     <span className="calendar-day-number">{day.getDate()}</span>
                     {dayType && <span className="calendar-day-type" aria-label={`Tipo de día ${dayType}`}>{dayType}</span>}
                     {holiday && <span className="calendar-holiday-label">Festivo</span>}
+                    {dateCanCreateSession && <span className="calendar-day-add-hint" aria-hidden="true">+ sesión</span>}
                     <div className="calendar-events">
                       {monthDropDate === date && draggedSession && draggedSession.sessionDate !== date && (
                         <div className={`session-event monthly-session calendar-month-drop-preview${draggedSession.practiceId === null ? " incomplete" : ""}`} aria-hidden="true">
@@ -4793,16 +4845,19 @@ function CalendarView({
               const holiday = holidaysByDate.get(date);
               const dayType = dayTypesByDate.get(date);
               const outsideSemester = date < activeSemester.startDate || date > activeSemester.endDate;
+              const dateCanCreateSession = canCreateSessionOnDate(date);
               return (
                 <div
-                  className={`calendar-week-column${outsideSemester ? " outside" : ""}${date === today ? " today" : ""}${holiday ? " holiday" : ""}${weekDropPreview?.date === date ? " drop-target" : ""}`}
+                  className={`calendar-week-column${outsideSemester ? " outside" : ""}${date === today ? " today" : ""}${holiday ? " holiday" : ""}${dateCanCreateSession ? " creatable" : ""}${weekDropPreview?.date === date ? " drop-target" : ""}`}
                   style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * calendarWeekHourHeight}px`, gridColumn: dayIndex + 2, gridRow: 2 }}
                   key={`column-${date}`}
                   role="gridcell"
-                  tabIndex={-1}
+                  tabIndex={dateCanCreateSession ? 0 : -1}
                   aria-disabled={Boolean(holiday)}
-                  title={holiday ? "Día festivo · no se pueden programar sesiones" : undefined}
-                  aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las ${String(calendarWeekStartHour).padStart(2, "0")}:00 y las ${String(calendarWeekEndHour).padStart(2, "0")}:00`}
+                  title={holiday ? "Día festivo · no se pueden programar sesiones" : dateCanCreateSession ? "Haz clic en una hora para añadir una sesión" : undefined}
+                  aria-label={`${day.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"} entre las ${String(calendarWeekStartHour).padStart(2, "0")}:00 y las ${String(calendarWeekEndHour).padStart(2, "0")}:00${dateCanCreateSession ? ", pulsa para añadir una sesión" : ""}`}
+                  onClick={dateCanCreateSession ? (event) => createSessionFromWeek(event, date) : undefined}
+                  onKeyDown={dateCanCreateSession ? (event) => createSessionWithKeyboard(event, date, `${String(calendarWeekStartHour).padStart(2, "0")}:00`) : undefined}
                   onDragOver={canEdit ? (event) => previewWeekDrop(event, date) : undefined}
                   onDrop={canEdit ? (event) => dropOnWeek(event, date) : undefined}
                 >

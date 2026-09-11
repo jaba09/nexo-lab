@@ -307,6 +307,15 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.calendar-day\.holiday/);
   assert.match(styles, /\.calendar-day-type/);
   assert.match(styles, /\.calendar-week-column\.holiday/);
+  assert.match(page, /onCreateSession=\{\(sessionDate, startTime\) => openCreate\("sessions", \{ sessionDate, startTime \}\)\}/);
+  assert.match(page, /function createSessionFromMonthDay/);
+  assert.match(page, /function createSessionFromWeek/);
+  assert.match(page, /Haz clic en un día para añadir una sesión/);
+  assert.match(page, /Haz clic en un hueco horario para añadir una sesión/);
+  assert.match(page, /\.closest\("\.session-event"\)/);
+  assert.match(styles, /\.calendar-day\.creatable/);
+  assert.match(styles, /\.calendar-day-add-hint/);
+  assert.match(styles, /\.calendar-week-column\.creatable/);
   assert.match(page, /El código de cinco dígitos de SUMMARY identifica la asignatura/);
   assert.match(page, /Grupos detectados/);
   assert.match(page, /el número que sigue a “Grupo:” se guarda en cada sesión/);
