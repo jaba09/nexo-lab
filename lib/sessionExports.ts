@@ -25,6 +25,16 @@ function orderedSessions(sessions: ExportableSession[]) {
   ));
 }
 
+export function sessionsOrderedBySubjectAndDate(sessions: ExportableSession[]) {
+  return [...sessions].sort((left, right) => (
+    left.subjectCode.localeCompare(right.subjectCode, "es", { numeric: true, sensitivity: "base" })
+    || left.subjectName.localeCompare(right.subjectName, "es", { sensitivity: "base" })
+    || left.sessionDate.localeCompare(right.sessionDate)
+    || left.startTime.localeCompare(right.startTime)
+    || left.id - right.id
+  ));
+}
+
 function escapeIcsText(value: string) {
   return value
     .replace(/\\/g, "\\\\")
@@ -244,4 +254,137 @@ export async function sessionsToPdfArrayBuffer(sessions: ExportableSession[]) {
 export async function downloadSessionsPdf(sessions: ExportableSession[]) {
   const content = await sessionsToPdfArrayBuffer(sessions);
   downloadBlob(new Blob([content], { type: "application/pdf" }), `sesiones-seleccionadas-${exportDateSuffix()}.pdf`);
+}
+
+async function createAllSessionsReportPdf(sessions: ExportableSession[], generatedAt: Date) {
+  const { jsPDF } = await import("jspdf");
+  const document = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageWidth = document.internal.pageSize.getWidth();
+  const pageHeight = document.internal.pageSize.getHeight();
+  const margin = 12;
+  const rows = sessionsOrderedBySubjectAndDate(sessions);
+  const subjectGroups = new Map<string, ExportableSession[]>();
+  for (const session of rows) {
+    const key = `${session.subjectCode}\u0000${session.subjectName}`;
+    const group = subjectGroups.get(key) ?? [];
+    group.push(session);
+    subjectGroups.set(key, group);
+  }
+  const columns = [
+    { label: "Fecha", width: 25, value: (session: ExportableSession) => session.sessionDate.split("-").reverse().join("/") },
+    { label: "Hora", width: 18, value: (session: ExportableSession) => session.startTime },
+    { label: "Dur.", width: 17, value: (session: ExportableSession) => `${session.duration} min` },
+    { label: "Grupo", width: 16, value: (session: ExportableSession) => session.groupCode ? `G${session.groupCode}` : "-" },
+    { label: "Grado", width: 27, value: (session: ExportableSession) => session.degreeCode },
+    { label: "Práctica", width: 67, value: (session: ExportableSession) => practiceDisplayName(session).replaceAll("·", "-") },
+    { label: "Profesor", width: 51, value: (session: ExportableSession) => session.teacherName ? `${session.teacherCode ? `${session.teacherCode} - ` : ""}${session.teacherName}` : "Sin profesor asignado" },
+    { label: "Instalación", width: 52, value: (session: ExportableSession) => session.installationName ?? "-" },
+  ];
+
+  function drawDocumentHeader(continuation = false) {
+    document.setTextColor("#17201d");
+    document.setFont("helvetica", "bold");
+    document.setFontSize(continuation ? 13 : 17);
+    document.text(continuation ? "Sesiones por asignatura - continuación" : "Sesiones por asignatura", margin, 14);
+    document.setFont("helvetica", "normal");
+    document.setTextColor("#68716d");
+    document.setFontSize(7.5);
+    const generatedLabel = generatedAt.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
+    document.text(`${rows.length} ${rows.length === 1 ? "sesión" : "sesiones"} en ${subjectGroups.size} ${subjectGroups.size === 1 ? "asignatura" : "asignaturas"} - Generado el ${generatedLabel}`, margin, 20);
+    return 25;
+  }
+
+  function drawSubjectHeader(subjectRows: ExportableSession[], y: number, continuation = false) {
+    const subject = subjectRows[0];
+    document.setFillColor("#deff72");
+    document.setDrawColor("#a9c85c");
+    document.roundedRect(margin, y, pageWidth - margin * 2, 10, 2, 2, "FD");
+    document.setTextColor("#17201d");
+    document.setFont("helvetica", "bold");
+    document.setFontSize(9);
+    const suffix = continuation ? " - continuación" : "";
+    document.text(`${subject.subjectCode} - ${subject.subjectName}${suffix}`, margin + 4, y + 6.5);
+    document.setFont("helvetica", "normal");
+    document.setFontSize(7);
+    document.text(`${subject.degreeCode} - ${subjectRows.length} ${subjectRows.length === 1 ? "sesión" : "sesiones"}`, pageWidth - margin - 4, y + 6.5, { align: "right" });
+    return y + 10;
+  }
+
+  function drawTableHeader(y: number) {
+    document.setFillColor("#17201d");
+    document.rect(margin, y, pageWidth - margin * 2, 8, "F");
+    document.setTextColor("#ffffff");
+    document.setFont("helvetica", "bold");
+    document.setFontSize(7);
+    let x = margin;
+    for (const column of columns) {
+      document.text(column.label, x + 2, y + 5.2);
+      x += column.width;
+    }
+    return y + 8;
+  }
+
+  let y = drawDocumentHeader();
+  if (!rows.length) {
+    document.setFillColor("#f1f0e9");
+    document.roundedRect(margin, y + 5, pageWidth - margin * 2, 28, 3, 3, "F");
+    document.setTextColor("#68716d");
+    document.setFont("helvetica", "bold");
+    document.setFontSize(12);
+    document.text("No hay sesiones guardadas", margin + 7, y + 18);
+  } else {
+    for (const subjectRows of subjectGroups.values()) {
+      if (y + 24 > pageHeight - 12) {
+        document.addPage();
+        y = drawDocumentHeader(true);
+      }
+      y = drawTableHeader(drawSubjectHeader(subjectRows, y));
+      for (const [rowIndex, session] of subjectRows.entries()) {
+        const cellLines = columns.map((column) => document.splitTextToSize(column.value(session), column.width - 4) as string[]);
+        const rowHeight = Math.max(9, ...cellLines.map((lines) => lines.length * 3.4 + 4));
+        if (y + rowHeight > pageHeight - 12) {
+          document.addPage();
+          y = drawDocumentHeader(true);
+          y = drawTableHeader(drawSubjectHeader(subjectRows, y, true));
+        }
+        if (rowIndex % 2 === 0) {
+          document.setFillColor("#f5f5ef");
+          document.rect(margin, y, pageWidth - margin * 2, rowHeight, "F");
+        }
+        document.setDrawColor("#d9dbd3");
+        document.line(margin, y + rowHeight, pageWidth - margin, y + rowHeight);
+        document.setTextColor("#17201d");
+        document.setFont("helvetica", "normal");
+        document.setFontSize(7.2);
+        let x = margin;
+        cellLines.forEach((lines, columnIndex) => {
+          document.text(lines, x + 2, y + 4.6);
+          x += columns[columnIndex].width;
+        });
+        y += rowHeight;
+      }
+      y += 4;
+    }
+  }
+
+  const totalPages = document.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page += 1) {
+    document.setPage(page);
+    document.setTextColor("#68716d");
+    document.setFont("helvetica", "normal");
+    document.setFontSize(7);
+    document.text("Nexo Lab", margin, pageHeight - 5);
+    document.text(`Página ${page} de ${totalPages}`, pageWidth - margin, pageHeight - 5, { align: "right" });
+  }
+  return document;
+}
+
+export async function allSessionsReportToPdfArrayBuffer(sessions: ExportableSession[], generatedAt = new Date()) {
+  const document = await createAllSessionsReportPdf(sessions, generatedAt);
+  return document.output("arraybuffer");
+}
+
+export async function downloadAllSessionsReportPdf(sessions: ExportableSession[]) {
+  const content = await allSessionsReportToPdfArrayBuffer(sessions);
+  downloadBlob(new Blob([content], { type: "application/pdf" }), `sesiones-por-asignatura-${exportDateSuffix()}.pdf`);
 }

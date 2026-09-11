@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { sessionsToCsv, sessionsToIcs, sessionsToPdfArrayBuffer } from "../lib/sessionExports.ts";
+import {
+  allSessionsReportToPdfArrayBuffer,
+  sessionsOrderedBySubjectAndDate,
+  sessionsToCsv,
+  sessionsToIcs,
+  sessionsToPdfArrayBuffer,
+} from "../lib/sessionExports.ts";
 
 const sampleSession = {
   id: 42,
@@ -49,4 +55,24 @@ test("exports semester sessions as chronological CSV rows", () => {
     content,
     "\uFEFFcodigo,fecha,hora_ini,duracion\r\n30013,2026-09-14,10:00,120\r\n30018,2026-09-15,09:00,90\r\n",
   );
+});
+
+test("orders the complete report by subject and then by date and time", () => {
+  const otherSubject = { ...sampleSession, id: 43, subjectCode: "30018", subjectName: "Termodinámica", sessionDate: "2026-09-01", startTime: "08:00" };
+  const earlierSameSubject = { ...sampleSession, id: 44, sessionDate: "2026-09-10", startTime: "12:00" };
+
+  assert.deepEqual(
+    sessionsOrderedBySubjectAndDate([otherSubject, sampleSession, earlierSameSubject]).map(({ id }) => id),
+    [44, 42, 43],
+  );
+});
+
+test("exports all sessions grouped by subject as a valid PDF", async () => {
+  const content = await allSessionsReportToPdfArrayBuffer(
+    [sampleSession, { ...sampleSession, id: 43, subjectCode: "30018", subjectName: "Termodinámica" }],
+    new Date("2026-09-11T10:30:00+02:00"),
+  );
+  const signature = new TextDecoder().decode(new Uint8Array(content, 0, 4));
+  assert.equal(signature, "%PDF");
+  assert.ok(content.byteLength > 2_000);
 });

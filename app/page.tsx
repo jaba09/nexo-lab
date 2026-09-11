@@ -2,7 +2,7 @@
 
 import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
-import { downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
+import { downloadAllSessionsReportPdf, downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { messageAudienceTeacherIds } from "../lib/messageAudience";
@@ -2989,6 +2989,8 @@ function AdminView({
   const [auditConflicts, setAuditConflicts] = useState<SessionConflict[] | null>(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [downloadingSessionsReport, setDownloadingSessionsReport] = useState(false);
+  const [sessionsReportError, setSessionsReportError] = useState("");
   const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
   const sessionsById = useMemo(() => new Map(data.sessions.map((session) => [session.id, session])), [data.sessions]);
   const teachersById = useMemo(() => new Map(data.teachers.map((teacher) => [teacher.id, teacher])), [data.teachers]);
@@ -3065,6 +3067,19 @@ function AdminView({
       setReportError(clientErrorMessage(downloadError, "No se pudo generar el informe PDF."));
     } finally {
       setDownloadingReport(false);
+    }
+  }
+
+  async function downloadSessionsBySubjectReport() {
+    if (!data.sessions.length || downloadingSessionsReport) return;
+    setDownloadingSessionsReport(true);
+    setSessionsReportError("");
+    try {
+      await downloadAllSessionsReportPdf(data.sessions);
+    } catch (downloadError) {
+      setSessionsReportError(clientErrorMessage(downloadError, "No se pudo generar el informe de sesiones."));
+    } finally {
+      setDownloadingSessionsReport(false);
     }
   }
 
@@ -3170,6 +3185,24 @@ function AdminView({
                 </ul>
               </>
             )}
+          </div>
+        </section>
+
+        <section className="panel admin-session-report-panel">
+          <div className="panel-head">
+            <div><span className="section-kicker">Informes</span><h2>Sesiones por asignatura</h2></div>
+            <span className="panel-tag">{data.sessions.length} {data.sessions.length === 1 ? "sesión" : "sesiones"}</span>
+          </div>
+          <div className="admin-session-report-body">
+            <span className="admin-session-report-icon" aria-hidden="true">PDF</span>
+            <div>
+              <strong>Listado completo de sesiones</strong>
+              <p>Genera un PDF con todas las sesiones guardadas, agrupadas por asignatura y ordenadas por fecha y hora.</p>
+            </div>
+            <button className="secondary-button admin-session-report-button" type="button" disabled={!data.sessions.length || downloadingSessionsReport} onClick={() => void downloadSessionsBySubjectReport()}>
+              {downloadingSessionsReport ? "Generando PDF…" : "Descargar sesiones PDF"}
+            </button>
+            {sessionsReportError && <p className="messages-error admin-session-report-error" role="alert">{sessionsReportError}</p>}
           </div>
         </section>
       </div>

@@ -501,6 +501,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .admin-audit-results strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-audit-results li div > span { margin-top: 4px; color: #4d5752; font: 700 8px var(--font-geist-mono); }
 .admin-audit-results small { margin-top: 5px; color: var(--muted); font-size: 8px; line-height: 1.35; }
+.admin-session-report-panel { grid-column: 1 / -1; overflow: hidden; }
+.admin-session-report-body { padding: 20px 24px; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.admin-session-report-icon { width: 50px; height: 50px; border-radius: 10px; background: var(--lime); display: grid; place-items: center; font: 850 10px var(--font-geist-mono); }
+.admin-session-report-body > div { min-width: 0; }
+.admin-session-report-body strong { display: block; font-size: 11px; }
+.admin-session-report-body p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.admin-session-report-button { min-width: 190px; border-color: #77942f; color: #4d6814; }
+.admin-session-report-button:disabled { opacity: .45; cursor: not-allowed; }
+.admin-session-report-error { grid-column: 2 / -1; width: 100%; }
 .smtp-password-dialog { width: min(580px, 100%); }
 .smtp-password-form { padding: 24px 32px 30px; display: grid; gap: 14px; }
 .smtp-password-help { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
@@ -952,7 +961,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .overview-degree-panel .panel-head { align-items: stretch; flex-direction: column; gap: 12px; }.panel-head-actions { justify-content: space-between; }.overview-degree-list { padding: 4px 10px 9px; }.overview-degree-item summary { grid-template-columns: 24px 39px minmax(0, 1fr) 91px; gap: 8px; }.overview-degree-chevron { width: 21px; height: 21px; }.overview-degree-code { width: 36px; height: 36px; }.overview-degree-item summary > b, .overview-subject-item summary > b { font-size: 17px; }.overview-subject-list { margin-left: 31px; padding-left: 7px; padding-right: 7px; }.overview-subject-item summary { grid-template-columns: 20px 48px minmax(0, 1fr) auto 85px; gap: 7px; }.overview-subject-toggles { gap: 4px; }.overview-subject-group-toggle { width: 30px; padding: 0; justify-content: center; }.overview-subject-toggle-label { display: none; }.overview-session-list.calendar-list, .overview-session-empty, .overview-session-groups { margin-left: 0; }.overview-subject-empty { margin-left: 31px; }
   .hero, .entity-hero { align-items: flex-start; flex-direction: column; gap: 24px; margin-bottom: 28px; }.hero h1 { font-size: 45px; }.hero-action, .entity-hero .primary-button { width: 100%; }.entity-hero-actions { width: 100%; flex-direction: column-reverse; }.entity-hero-actions .secondary-button { width: 100%; }
   .messages-security-note { grid-template-columns: 24px minmax(0, 1fr); }.messages-security-note button { grid-column: 2; justify-self: start; }.smtp-password-form { padding-left: 22px; padding-right: 22px; }
-  .preferences-time-grid { grid-template-columns: 1fr; }.preferences-save-button { width: 100%; }.admin-audit-actions { align-items: stretch; flex-direction: column; }.admin-audit-button, .admin-audit-download { width: 100%; }
+  .preferences-time-grid { grid-template-columns: 1fr; }.preferences-save-button { width: 100%; }.admin-audit-actions { align-items: stretch; flex-direction: column; }.admin-audit-button, .admin-audit-download { width: 100%; }.admin-session-report-body { grid-template-columns: 44px minmax(0, 1fr); padding: 17px; }.admin-session-report-icon { width: 42px; height: 42px; }.admin-session-report-button, .admin-session-report-error { grid-column: 1 / -1; width: 100%; }
   .stats-grid { gap: 8px; }.stat-card { min-height: 135px; }.stat-card strong { font-size: 37px; }
   .relationship-panel .panel-tag { display: none; }.relationship-flow { padding: 20px; }
   .coverage-panel { overflow: hidden; }

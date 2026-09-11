@@ -336,7 +336,6 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Borrar selección/);
   assert.match(page, /onDeleteSessions/);
   assert.match(page, /sessions: data\.sessions\.filter\(\(session\) => semesterFromDate\(session\.sessionDate\) === selectedSemester\)\.length/);
-  assert.doesNotMatch(page, /Sesiones por asignatura/);
   assert.match(page, /Filtrar por laboratorio/);
   assert.match(page, /Filtrar por instalación/);
   assert.match(page, /Filtrar por grado/);
@@ -385,10 +384,14 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Comprobar interferencias/);
   assert.match(page, /Descargar informe PDF/);
   assert.match(page, /downloadInterferenceReportPdf/);
+  assert.match(page, /downloadAllSessionsReportPdf/);
+  assert.match(page, /Descargar sesiones PDF/);
+  assert.match(page, /agrupadas por asignatura y ordenadas por fecha y hora/);
   assert.match(page, /findSessionConflicts/);
   assert.match(page, /conflicto de profesor/);
   assert.match(page, /conflicto de instalación/);
   assert.match(styles, /\.admin-audit-results/);
+  assert.match(styles, /\.admin-session-report-panel/);
   assert.match(page, /layoutOverlappingSessions/);
   assert.match(page, /overlapping-session/);
   assert.match(page, /weeklyLayout\.maximumLaneCount/);
