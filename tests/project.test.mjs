@@ -367,6 +367,8 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Guardar preferencias/);
   assert.match(page, /function AdminView/);
   assert.match(page, /Comprobar interferencias/);
+  assert.match(page, /Descargar informe PDF/);
+  assert.match(page, /downloadInterferenceReportPdf/);
   assert.match(page, /findSessionConflicts/);
   assert.match(page, /conflicto de profesor/);
   assert.match(page, /conflicto de instalación/);

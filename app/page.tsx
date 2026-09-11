@@ -9,6 +9,7 @@ import { messageAudienceTeacherIds } from "../lib/messageAudience";
 import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 import { findSessionConflicts, type SessionConflict } from "../lib/sessionConflicts";
+import { downloadInterferenceReportPdf, type InterferenceReportItem } from "../lib/interferenceReport";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences";
 type Entity = Exclude<Section, "overview" | "messages" | "preferences">;
@@ -2986,6 +2987,8 @@ function AdminView({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [auditConflicts, setAuditConflicts] = useState<SessionConflict[] | null>(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const [reportError, setReportError] = useState("");
   const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
   const sessionsById = useMemo(() => new Map(data.sessions.map((session) => [session.id, session])), [data.sessions]);
   const teachersById = useMemo(() => new Map(data.teachers.map((teacher) => [teacher.id, teacher])), [data.teachers]);
@@ -3012,6 +3015,7 @@ function AdminView({
 
   function runInterferenceAudit() {
     const installationsByPractice = new Map(data.practices.map((practice) => [practice.id, practice.installationIds]));
+    setReportError("");
     setAuditConflicts(findSessionConflicts(data.sessions.map((session) => ({
       id: session.id,
       sessionDate: session.sessionDate,
@@ -3022,6 +3026,46 @@ function AdminView({
         ? []
         : installationsByPractice.get(session.practiceId) ?? [],
     }))));
+  }
+
+  async function downloadInterferenceAudit() {
+    if (auditConflicts === null) return;
+    const items: InterferenceReportItem[] = auditConflicts.flatMap((conflict) => {
+      const first = sessionsById.get(conflict.first.id);
+      const second = sessionsById.get(conflict.second.id);
+      if (!first || !second) return [];
+      const resource = conflict.kind === "teacher"
+        ? teachersById.get(conflict.resourceId)
+        : installationsById.get(conflict.resourceId);
+      const reportSession = (session: Session) => ({
+        id: session.id,
+        subjectCode: session.subjectCode,
+        groupCode: session.groupCode,
+        practiceCode: session.practiceCode,
+        practiceName: session.practiceName
+          ? `${session.practiceOrder ? `P${session.practiceOrder} ` : ""}${session.practiceName}`
+          : null,
+        startTime: session.startTime,
+        endTime: auditSessionEndTime(session),
+      });
+      return [{
+        kind: conflict.kind === "teacher" ? "Profesor" : "Instalación",
+        resourceCode: resource?.code ?? `#${conflict.resourceId}`,
+        resourceName: resource?.name ?? "Registro no disponible",
+        sessionDate: first.sessionDate,
+        first: reportSession(first),
+        second: reportSession(second),
+      }];
+    });
+    setDownloadingReport(true);
+    setReportError("");
+    try {
+      await downloadInterferenceReportPdf(items, data.sessions.length);
+    } catch (downloadError) {
+      setReportError(clientErrorMessage(downloadError, "No se pudo generar el informe PDF."));
+    } finally {
+      setDownloadingReport(false);
+    }
   }
 
   function renderAuditConflict(conflict: SessionConflict) {
@@ -3098,9 +3142,17 @@ function AdminView({
           </div>
           <div className="admin-audit-body">
             <p>Comprueba todas las sesiones guardadas y localiza profesores o instalaciones asignados a horarios superpuestos.</p>
-            <button className="secondary-button admin-audit-button" type="button" onClick={runInterferenceAudit}>
-              {auditConflicts === null ? "Comprobar interferencias" : "Repetir comprobación"}
-            </button>
+            <div className="admin-audit-actions">
+              <button className="secondary-button admin-audit-button" type="button" onClick={runInterferenceAudit}>
+                {auditConflicts === null ? "Comprobar interferencias" : "Repetir comprobación"}
+              </button>
+              {auditConflicts !== null && (
+                <button className="secondary-button admin-audit-download" type="button" onClick={downloadInterferenceAudit} disabled={downloadingReport}>
+                  {downloadingReport ? "Generando PDF…" : "Descargar informe PDF"}
+                </button>
+              )}
+            </div>
+            {reportError && <p className="messages-error" role="alert">{reportError}</p>}
 
             {auditConflicts === null ? (
               <div className="admin-audit-pending"><span aria-hidden="true">⌕</span><p>El chequeo todavía no se ha ejecutado.</p></div>
