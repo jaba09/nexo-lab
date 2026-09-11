@@ -3991,6 +3991,11 @@ function CalendarView({
   ), [allSessions, selectedSemester]);
   const practicesById = useMemo(() => new Map(practices.map((practice) => [practice.id, practice])), [practices]);
   const installationsById = useMemo(() => new Map(installations.map((installation) => [installation.id, installation])), [installations]);
+  const filterInstallations = useMemo(() => (
+    filters.laboratoryId
+      ? installations.filter((installation) => String(installation.laboratoryId) === filters.laboratoryId)
+      : installations
+  ), [filters.laboratoryId, installations]);
   const filterSubjects = useMemo(() => (
     filters.degreeId
       ? subjects.filter((subject) => String(subject.degreeId) === filters.degreeId)
@@ -4079,8 +4084,8 @@ function CalendarView({
   const installationDaySessions = useMemo(() => (
     sessionsByDate.get(installationDate) ?? []
   ), [installationDate, sessionsByDate]);
-  const calendarInstallations = useMemo(() => installations
-    .filter((installation) => !filters.laboratoryId || String(installation.laboratoryId) === filters.laboratoryId)
+  const calendarInstallations = useMemo(() => (filters.laboratoryId ? installations : [])
+    .filter((installation) => String(installation.laboratoryId) === filters.laboratoryId)
     .filter((installation) => !filters.installationId || String(installation.id) === filters.installationId)
     .sort((left, right) => (
       left.laboratoryName.localeCompare(right.laboratoryName, "es", { sensitivity: "base" })
@@ -4102,10 +4107,7 @@ function CalendarView({
       laneCount: Math.max(1, ...positionedSessions.map((item) => item.laneCount)),
     };
   }), [calendarInstallations, calendarWeekEndHour, calendarWeekStartHour, installationDaySessions, practicesById]);
-  const installationDayUnlocatedCount = useMemo(() => installationDaySessions.filter((session) => {
-    const practice = session.practiceId === null ? undefined : practicesById.get(session.practiceId);
-    return !practice?.installationIds.length;
-  }).length, [installationDaySessions, practicesById]);
+  const installationMaximumLaneCount = Math.max(1, ...installationSchedule.map((item) => item.laneCount));
 
   const selectedSessions = useMemo(() => (
     filteredSemesterSessions.filter((session) => selectedIds.has(session.id))
@@ -4133,10 +4135,8 @@ function CalendarView({
   const installationDayLabel = `${academicWeekdayLabel(visibleInstallationDate, installationDate, dayTypesByDate)}, ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(visibleInstallationDate)}`;
   const weeklyDayMinWidth = Math.max(120, weeklyLayout.maximumLaneCount * 96);
   const weeklyGridMinWidth = 58 + weeklyDayMinWidth * weekDays.length;
-  const installationHourWidth = 96;
-  const installationHourCount = calendarWeekEndHour - calendarWeekStartHour;
-  const installationRangeMinutes = installationHourCount * 60;
-  const installationGridMinWidth = 230 + installationHourCount * installationHourWidth;
+  const installationColumnMinWidth = Math.max(150, installationMaximumLaneCount * 112);
+  const installationGridMinWidth = 58 + calendarInstallations.length * installationColumnMinWidth;
   const visibleMonthValue = visibleMonth.getFullYear() * 12 + visibleMonth.getMonth();
   const semesterStartValue = activeSemester.startYear * 12 + activeSemester.startMonthIndex;
   const semesterEndValue = activeSemester.endYear * 12 + activeSemester.endMonthIndex;
@@ -4266,6 +4266,9 @@ function CalendarView({
 
   function changeFilter(filter: keyof CalendarFilters, value: string) {
     setFilters((current) => {
+      if (filter === "laboratoryId") {
+        return { ...current, laboratoryId: value, installationId: "" };
+      }
       if (filter === "degreeId") {
         return { ...current, degreeId: value, subjectId: "", practiceId: "" };
       }
@@ -4536,9 +4539,10 @@ function CalendarView({
         className={`installation-schedule-session${laneCount > 1 ? " conflict" : ""}${selected ? " selected" : ""}`}
         key={session.id}
         style={{
-          left: `calc(${((clippedStart - calendarWeekStartHour * 60) / installationRangeMinutes) * 100}% + 4px)`,
-          top: `${8 + lane * 50}px`,
-          width: `max(48px, calc(${((clippedEnd - clippedStart) / installationRangeMinutes) * 100}% - 8px))`,
+          top: `${((clippedStart - calendarWeekStartHour * 60) / 60) * calendarWeekHourHeight + 4}px`,
+          height: `${Math.max(38, ((clippedEnd - clippedStart) / 60) * calendarWeekHourHeight - 8)}px`,
+          left: `calc(${lane * (100 / laneCount)}% + 4px)`,
+          width: `calc(${100 / laneCount}% - 8px)`,
         }}
       >
         <button
@@ -4549,8 +4553,8 @@ function CalendarView({
           onClick={(event) => selectSession(session, event)}
           onDoubleClick={canEditSession(session) ? () => onEdit(session) : undefined}
         >
-          <span>{session.startTime.replace(/^0/, "")}–{endTime.replace(/^0/, "")}</span>
           <strong>{sessionPracticeTitle(session)}</strong>
+          <span>{session.startTime.replace(/^0/, "")}–{endTime.replace(/^0/, "")}</span>
           <small>{session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherName ? `Prof. ${session.teacherName}` : <em>Prof. sin asignar</em>}</small>
         </button>
       </article>
@@ -4600,18 +4604,18 @@ function CalendarView({
           <strong aria-live="polite">{filteredSemesterSessions.length} de {semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</strong>
         </div>
         <div className="calendar-filter-controls">
-          <label>
-            <span>Laboratorio</span>
-            <select aria-label="Filtrar por laboratorio" value={filters.laboratoryId} onChange={(event) => changeFilter("laboratoryId", event.target.value)}>
-              <option value="">Todos los laboratorios</option>
+          <label className={calendarView === "installations" && !filters.laboratoryId ? "calendar-filter-required" : undefined}>
+            <span>Laboratorio {calendarView === "installations" && <em>Obligatorio</em>}</span>
+            <select aria-label="Filtrar por laboratorio" aria-required={calendarView === "installations"} value={filters.laboratoryId} onChange={(event) => changeFilter("laboratoryId", event.target.value)}>
+              <option value="">{calendarView === "installations" ? "Selecciona un laboratorio" : "Todos los laboratorios"}</option>
               {laboratories.map((laboratory) => <option key={laboratory.id} value={laboratory.id}>{laboratory.code} · {laboratory.name}</option>)}
             </select>
           </label>
           <label>
             <span>Instalación</span>
-            <select aria-label="Filtrar por instalación" value={filters.installationId} onChange={(event) => changeFilter("installationId", event.target.value)}>
-              <option value="">Todas las instalaciones</option>
-              {installations.map((installation) => <option key={installation.id} value={installation.id}>{installation.code} · {installation.name}</option>)}
+            <select aria-label="Filtrar por instalación" disabled={calendarView === "installations" && !filters.laboratoryId} value={filters.installationId} onChange={(event) => changeFilter("installationId", event.target.value)}>
+              <option value="">{calendarView === "installations" && !filters.laboratoryId ? "Elige primero un laboratorio" : "Todas las instalaciones"}</option>
+              {filterInstallations.map((installation) => <option key={installation.id} value={installation.id}>{installation.code} · {installation.name}</option>)}
             </select>
           </label>
           <label>
@@ -4781,51 +4785,49 @@ function CalendarView({
         </div>
       ) : calendarView === "installations" ? (
         <div className="installation-schedule-scroll">
-          <div className="installation-schedule" style={{ minWidth: `${installationGridMinWidth}px` }}>
-            <div className="installation-schedule-header">
-              <div className="installation-schedule-resource-heading">
-                <span>Instalación</span>
-                <small>{calendarInstallations.length} {calendarInstallations.length === 1 ? "recurso" : "recursos"}</small>
-              </div>
-              <div className="installation-schedule-hours" style={{ backgroundSize: `${100 / installationHourCount}% 100%` }} aria-hidden="true">
-                {weekHours.map((hour, index) => (
-                  <span key={hour} style={{ left: `${(index / installationHourCount) * 100}%` }}>{String(hour).padStart(2, "0")}:00</span>
-                ))}
-              </div>
+          {!filters.laboratoryId ? (
+            <div className="installation-schedule-required" role="status">
+              <span aria-hidden="true">LAB</span>
+              <strong>Selecciona un laboratorio</strong>
+              <p>El horario mostrará sus instalaciones como columnas y las horas en vertical.</p>
             </div>
-            {calendarInstallations.length ? (
-              <div className="installation-schedule-rows" role="grid" aria-label={`Uso de instalaciones el ${installationDayLabel}`}>
-                {installationSchedule.map(({ installation, positionedSessions, laneCount }) => (
-                  <div className="installation-schedule-row" key={installation.id} role="row" style={{ minHeight: `${Math.max(68, laneCount * 50 + 16)}px` }}>
-                    <div className="installation-schedule-resource" role="rowheader">
-                      <span>{installation.code}</span>
-                      <strong title={installation.name}>{installation.name}</strong>
-                      <small title={installation.laboratoryName}>{installation.laboratoryName}</small>
-                    </div>
-                    <div
-                      className="installation-schedule-timeline"
-                      role="gridcell"
-                      style={{ backgroundSize: `${100 / installationHourCount}% 100%` }}
-                      aria-label={`${installation.name}: ${positionedSessions.length ? `${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"}` : "libre"}`}
-                    >
-                      {!positionedSessions.length && <span className="installation-schedule-free">Libre</span>}
-                      {positionedSessions.map(renderInstallationSession)}
-                    </div>
-                  </div>
-                ))}
+          ) : calendarInstallations.length ? (
+            <div
+              className="installation-schedule-grid"
+              role="grid"
+              aria-label={`Uso de instalaciones el ${installationDayLabel}`}
+              style={{ minWidth: `${installationGridMinWidth}px`, gridTemplateColumns: `58px repeat(${calendarInstallations.length}, minmax(${installationColumnMinWidth}px, 1fr))` }}
+            >
+              <div className="installation-schedule-corner" style={{ gridColumn: 1, gridRow: 1 }}>Hora</div>
+              {installationSchedule.map(({ installation, positionedSessions }, index) => (
+                <div className="installation-schedule-heading" style={{ gridColumn: index + 2, gridRow: 1 }} key={`heading-${installation.id}`}>
+                  <span>{installation.code}</span>
+                  <strong title={installation.name}>{installation.name}</strong>
+                  <small>{positionedSessions.length} {positionedSessions.length === 1 ? "sesión" : "sesiones"}</small>
+                </div>
+              ))}
+              <div className="installation-schedule-times" style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * calendarWeekHourHeight}px`, gridColumn: 1, gridRow: 2 }} aria-hidden="true">
+                {weekHours.map((hour, index) => <span key={hour} style={{ top: `${index * calendarWeekHourHeight}px` }}>{String(hour).padStart(2, "0")}:00</span>)}
               </div>
-            ) : (
-              <div className="installation-schedule-empty" role="status">
-                <strong>No hay instalaciones para mostrar</strong>
-                <p>{hasActiveFilters ? "Prueba a limpiar los filtros de laboratorio e instalación." : "Crea una instalación para consultar su ocupación diaria."}</p>
-              </div>
-            )}
-            {installationDayUnlocatedCount > 0 && (
-              <p className="installation-schedule-note" role="note">
-                {installationDayUnlocatedCount} {installationDayUnlocatedCount === 1 ? "sesión no aparece" : "sesiones no aparecen"} porque {installationDayUnlocatedCount === 1 ? "no tiene" : "no tienen"} una instalación asignada.
-              </p>
-            )}
-          </div>
+              {installationSchedule.map(({ installation, positionedSessions }, index) => (
+                <div
+                  className="installation-schedule-column"
+                  style={{ height: `${(calendarWeekEndHour - calendarWeekStartHour) * calendarWeekHourHeight}px`, gridColumn: index + 2, gridRow: 2 }}
+                  key={`column-${installation.id}`}
+                  role="gridcell"
+                  aria-label={`${installation.name}: ${positionedSessions.length ? `${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"}` : "libre"}`}
+                >
+                  {!positionedSessions.length && <span className="installation-schedule-free">Libre</span>}
+                  {positionedSessions.map(renderInstallationSession)}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="installation-schedule-empty" role="status">
+              <strong>No hay instalaciones para mostrar</strong>
+              <p>{filters.installationId ? "La instalación seleccionada no pertenece a este laboratorio." : "Este laboratorio todavía no tiene instalaciones."}</p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="calendar-list" aria-label={`Sesiones de ${selectedSemester} ordenadas cronológicamente`}>

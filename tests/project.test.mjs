@@ -355,7 +355,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Uso de instalaciones el \$\{installationDayLabel\}/);
   assert.match(page, /practice\?\.installationIds\.includes\(installation\.id\)/);
   assert.match(page, /type="date" min=\{activeSemester\.startDate\} max=\{activeSemester\.endDate\}/);
-  assert.match(page, /installationDayUnlocatedCount/);
+  assert.match(page, /Selecciona un laboratorio/);
+  assert.match(page, /aria-required=\{calendarView === "installations"\}/);
+  assert.match(page, /laboratoryId: value, installationId: ""/);
+  assert.match(page, /gridTemplateColumns: `58px repeat\(\$\{calendarInstallations\.length\}/);
+  assert.match(page, /top: `\$\{\(\(clippedStart - calendarWeekStartHour \* 60\)/);
   assert.match(page, /sessionsByDate\.entries\(\)/);
   assert.match(page, /dateSessions\.map\(renderListSession\)/);
   assert.match(page, /ordenadas cronológicamente/);
@@ -363,7 +367,8 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.calendar-list-session/);
   assert.match(styles, /\.calendar-list-session\.selected/);
   assert.match(styles, /\.installation-schedule-session\.selected/);
-  assert.match(styles, /\.installation-schedule-resource \{ position: sticky/);
+  assert.match(styles, /\.installation-schedule-times \{ position: sticky/);
+  assert.match(styles, /\.installation-schedule-column \{ position: relative/);
   assert.match(page, /preferences: \{ calendarStartHour: 8, calendarEndHour: 19 \}/);
   assert.match(page, /calendarWeekDayCount = 5/);
   assert.match(page, /Array\.from\(\{ length: calendarWeekDayCount \}/);

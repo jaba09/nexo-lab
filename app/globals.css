@@ -640,7 +640,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .calendar-filter-controls { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)) auto; align-items: end; gap: 8px; }
 .calendar-filter-controls label { min-width: 0; display: grid; gap: 5px; }
 .calendar-filter-controls label > span { color: #747c78; font: 650 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .05em; }
+.calendar-filter-controls label > span em { margin-left: 5px; padding: 2px 4px; border-radius: 4px; background: #fee2dd; color: #9b3d33; font: 800 6px var(--font-geist-mono); font-style: normal; letter-spacing: .04em; }
 .calendar-filter-controls select { width: 100%; min-width: 0; height: 35px; padding: 0 25px 0 9px; border: 1px solid #d4d5cf; border-radius: 7px; background: var(--white); color: var(--ink); font-size: 9px; cursor: pointer; }
+.calendar-filter-controls .calendar-filter-required select { border-color: #cf776c; background: #fff7f5; box-shadow: 0 0 0 2px rgba(207,119,108,.13); }
 .calendar-filter-controls button { height: 35px; padding: 0 11px; border: 1px solid #b9c49e; border-radius: 7px; background: #edf6d4; color: #526332; font-size: 8px; font-weight: 750; white-space: nowrap; cursor: pointer; }
 .calendar-filter-controls button:disabled { border-color: #d7d8d2; background: #f2f1ec; color: #a0a5a2; cursor: not-allowed; }
 .calendar-selection-bar { min-height: 38px; padding: 10px 21px; border-bottom: 1px solid var(--line); background: #f7f5ef; color: #727a76; display: flex; align-items: center; gap: 12px; font-size: 9px; }
@@ -751,39 +753,37 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .weekly-session.overlap-lane-2 { border-color: #d1ad83; background: #fff0dd; }
 .weekly-session.overlap-lane-3 { border-color: #b6a4ce; background: #f2ecfb; }
 .installation-schedule-scroll { overflow: auto; background: #f3f2ec; }
-.installation-schedule { width: 100%; background: var(--white); }
-.installation-schedule-header, .installation-schedule-row { display: grid; grid-template-columns: 230px minmax(0, 1fr); }
-.installation-schedule-header { position: sticky; top: 0; z-index: 8; min-height: 58px; border-bottom: 1px solid var(--line); background: #f7f5ef; }
-.installation-schedule-resource-heading { position: sticky; left: 0; z-index: 10; padding: 12px 16px; border-right: 1px solid var(--line); background: #f7f5ef; display: grid; align-content: center; gap: 3px; }
-.installation-schedule-resource-heading span { color: var(--ink); font: 750 9px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .07em; }
-.installation-schedule-resource-heading small { color: var(--muted); font-size: 8px; }
-.installation-schedule-hours { position: relative; min-height: 58px; background-image: linear-gradient(to right, transparent calc(100% - 1px), #dfe1da calc(100% - 1px)); }
-.installation-schedule-hours span { position: absolute; top: 21px; z-index: 1; color: #747c78; font: 700 8px var(--font-geist-mono); transform: translateX(-50%); }
-.installation-schedule-hours span:first-child { transform: none; }
-.installation-schedule-hours span:last-child { transform: translateX(-100%); }
-.installation-schedule-row { border-bottom: 1px solid #e1e2dc; background: var(--white); }
-.installation-schedule-row:last-child { border-bottom: 0; }
-.installation-schedule-resource { position: sticky; left: 0; z-index: 5; min-width: 0; padding: 10px 14px; border-right: 1px solid var(--line); background: #fbfaf6; display: grid; grid-template-columns: 52px minmax(0, 1fr); align-content: center; column-gap: 9px; }
-.installation-schedule-resource > span { grid-row: 1 / 3; align-self: center; min-height: 34px; padding: 0 6px; border-radius: 6px; background: var(--blue); display: grid; place-items: center; overflow: hidden; font: 750 8px var(--font-geist-mono); text-align: center; text-overflow: ellipsis; }
-.installation-schedule-resource strong, .installation-schedule-resource small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.installation-schedule-resource strong { align-self: end; font-size: 10px; }
-.installation-schedule-resource small { margin-top: 3px; color: var(--muted); font-size: 8px; }
-.installation-schedule-timeline { position: relative; min-height: 100%; background-image: linear-gradient(to right, transparent calc(100% - 1px), #e5e6df calc(100% - 1px)); }
-.installation-schedule-timeline::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 49%, rgba(223,225,218,.45) 50%, transparent 51%); pointer-events: none; }
-.installation-schedule-free { position: absolute; top: 50%; left: 12px; color: #a1a7a3; font: 700 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; transform: translateY(-50%); }
-.installation-schedule-session { position: absolute; z-index: 2; height: 42px; min-width: 48px; border: 1px solid #afc481; border-radius: 7px; background: #eaf5cc; overflow: hidden; box-shadow: 0 2px 6px rgba(23,32,29,.1); transition: border-color .15s, box-shadow .15s, background .15s; }
+.installation-schedule-grid { width: 100%; display: grid; background: var(--white); }
+.installation-schedule-corner, .installation-schedule-heading { position: sticky; top: 0; z-index: 8; min-height: 64px; border-right: 1px solid #e0e1da; border-bottom: 1px solid var(--line); background: #f7f5ef; }
+.installation-schedule-corner { left: 0; z-index: 10; display: grid; place-items: center; color: #8a918e; font: 700 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .08em; }
+.installation-schedule-heading { min-width: 0; padding: 8px 10px; display: grid; align-content: center; justify-items: center; gap: 3px; text-align: center; }
+.installation-schedule-heading span { padding: 3px 6px; border-radius: 4px; background: var(--blue); font: 800 8px var(--font-geist-mono); }
+.installation-schedule-heading strong { width: 100%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.installation-schedule-heading small { color: var(--muted); font: 650 7px var(--font-geist-mono); }
+.installation-schedule-times { position: sticky; left: 0; z-index: 5; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #f7f5ef; }
+.installation-schedule-times span { position: absolute; right: 8px; color: #858d89; font: 650 8px var(--font-geist-mono); transform: translateY(-50%); }
+.installation-schedule-times span:first-child { transform: none; }
+.installation-schedule-times span:last-child { transform: translateY(-100%); }
+.installation-schedule-column { position: relative; border-right: 1px solid #e6e5de; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, var(--white) 0, var(--white) 63px, #e6e5de 63px, #e6e5de 64px); }
+.installation-schedule-column:last-child { border-right: 0; }
+.installation-schedule-free { position: absolute; top: 18px; left: 50%; color: #a1a7a3; font: 700 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; transform: translateX(-50%); }
+.installation-schedule-session { position: absolute; z-index: 2; min-width: 0; min-height: 38px; border: 1px solid #afc481; border-radius: 7px; background: #eaf5cc; overflow: hidden; box-shadow: 0 2px 6px rgba(23,32,29,.1); transition: border-color .15s, box-shadow .15s, background .15s; }
 .installation-schedule-session:hover { z-index: 4; border-color: #78932f; box-shadow: 0 5px 15px rgba(23,32,29,.18); }
 .installation-schedule-session.conflict { border-color: #dc897e; background: #fff0ed; }
 .installation-schedule-session.selected { z-index: 5; border-color: var(--ink); background: #deff72; box-shadow: 0 0 0 2px var(--ink), 0 5px 15px rgba(23,32,29,.2); }
-.installation-schedule-session button { width: 100%; height: 100%; min-width: 0; padding: 5px 7px; border: 0; background: transparent; display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: center; align-items: baseline; column-gap: 7px; text-align: left; cursor: pointer; }
+.installation-schedule-session button { width: 100%; height: 100%; min-width: 0; padding: 7px; border: 0; background: transparent; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; text-align: left; cursor: pointer; }
 .installation-schedule-session button > span { color: #526332; font: 750 8px var(--font-geist-mono); white-space: nowrap; }
-.installation-schedule-session button > strong { min-width: 0; overflow: hidden; color: var(--ink); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.installation-schedule-session button > small { grid-column: 1 / -1; min-width: 0; margin-top: 3px; overflow: hidden; color: #66715c; font: 650 7px var(--font-geist-mono); text-overflow: ellipsis; white-space: nowrap; }
+.installation-schedule-session button > strong, .installation-schedule-session button > small { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.installation-schedule-session button > strong { color: var(--ink); font-size: 9px; }
+.installation-schedule-session button > small { color: #66715c; font: 650 7px var(--font-geist-mono); }
 .installation-schedule-session button > small em { color: var(--danger); font-style: normal; font-weight: 800; }
 .installation-schedule-empty { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 7px; color: var(--muted); text-align: center; }
 .installation-schedule-empty strong { color: var(--ink); font-size: 14px; }
 .installation-schedule-empty p { margin: 0; font-size: 10px; }
-.installation-schedule-note { margin: 0; padding: 10px 16px; border-top: 1px solid #e4c59d; background: #fff7e9; color: #81582c; font-size: 9px; }
+.installation-schedule-required { min-height: 300px; padding: 30px; display: grid; place-items: center; align-content: center; gap: 9px; color: var(--muted); text-align: center; }
+.installation-schedule-required > span { width: 54px; height: 54px; border-radius: 14px; background: var(--lime); color: var(--ink); display: grid; place-items: center; font: 850 10px var(--font-geist-mono); }
+.installation-schedule-required strong { color: var(--ink); font-size: 16px; }
+.installation-schedule-required p { max-width: 390px; margin: 0; font-size: 10px; line-height: 1.5; }
 .calendar-list { min-height: 260px; padding: 18px; background: #f3f2ec; display: grid; align-content: start; gap: 15px; }
 .calendar-list-day { min-width: 0; border: 1px solid #d9dbd3; border-radius: 12px; background: var(--white); overflow: hidden; box-shadow: 0 2px 7px rgba(23,32,29,.05); }
 .calendar-list-day-header { min-height: 55px; padding: 8px 14px; border-bottom: 1px solid #dfe1da; background: #f8f8f4; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
