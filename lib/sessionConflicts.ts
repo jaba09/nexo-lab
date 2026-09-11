@@ -80,6 +80,10 @@ function conflictsFor(
   return conflicts;
 }
 
+export function findSessionConflicts(sessions: ScheduledSession[]) {
+  return conflictsFor(sessions, new Set(sessions.map(({ id }) => id)));
+}
+
 /**
  * Returns the first conflict introduced by a proposed change. Conflicts that
  * already existed are deliberately ignored so legacy data does not block an

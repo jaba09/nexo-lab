@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findNewSessionConflict } from "../lib/sessionConflicts.ts";
+import { findNewSessionConflict, findSessionConflicts } from "../lib/sessionConflicts.ts";
 
 function session(overrides) {
   return {
@@ -72,4 +72,21 @@ test("does not block an edit because of a pre-existing conflict", () => {
     : item);
 
   assert.equal(findNewSessionConflict(before, after, new Set([1])), null);
+});
+
+test("audits every existing teacher and installation conflict", () => {
+  const sessions = [
+    session({ id: 1, teacherId: 7, installationIds: [10, 11] }),
+    session({ id: 2, startTime: "10:00", teacherId: 7, installationIds: [11] }),
+    session({ id: 3, sessionDate: "2026-09-15", teacherId: 7, installationIds: [11] }),
+  ];
+
+  const conflicts = findSessionConflicts(sessions);
+  assert.deepEqual(
+    conflicts.map(({ kind, resourceId }) => ({ kind, resourceId })),
+    [
+      { kind: "teacher", resourceId: 7 },
+      { kind: "installation", resourceId: 11 },
+    ],
+  );
 });

@@ -202,7 +202,7 @@ export default async function HelpPage() {
             >
               <div className="help-view-cards">
                 <div><span>MES</span><strong>Vista mensual</strong><p>Ofrece una visión global. Cada sesión muestra hora, asignatura, práctica y profesor en el espacio disponible.</p></div>
-                <div><span>SEM</span><strong>Vista semanal</strong><p>Muestra de lunes a viernes entre las horas definidas por el administrador en Preferencias. Es la mejor vista para detectar solapamientos.</p></div>
+                <div><span>SEM</span><strong>Vista semanal</strong><p>Muestra de lunes a viernes entre las horas definidas por el administrador en Admin. Es la mejor vista para detectar solapamientos.</p></div>
                 <div><span>LIS</span><strong>Vista de lista</strong><p>Ordena las sesiones cronológicamente y presenta toda la información en filas fáciles de revisar.</p></div>
               </div>
 
@@ -334,7 +334,7 @@ export default async function HelpPage() {
                   </tbody>
                 </table>
               </div>
-              <p>Un administrador concede el rol de editor desde la ficha de una asignatura. También puede ajustar desde Preferencias las horas inicial y final de la vista semanal. El sistema conserva siempre al menos una cuenta administradora.</p>
+              <p>Un administrador concede el rol de editor desde la ficha de una asignatura. Desde Admin también puede ajustar las horas de la vista semanal y ejecutar un chequeo completo de interferencias de profesores e instalaciones. El sistema conserva siempre al menos una cuenta administradora.</p>
               <div className="help-callout neutral">
                 <span aria-hidden="true">✉</span>
                 <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. La contraseña de Unizar se solicita en el primer envío y se conserva solo en memoria hasta cerrar sesión o recargar; los destinatarios reciben el mensaje en copia oculta.</p>

@@ -8,6 +8,7 @@ import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { messageAudienceTeacherIds } from "../lib/messageAudience";
 import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
+import { findSessionConflicts, type SessionConflict } from "../lib/sessionConflicts";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences";
 type Entity = Exclude<Section, "overview" | "messages" | "preferences">;
@@ -364,7 +365,7 @@ const navigation: { key: Section; label: string; short: string }[] = [
   { key: "practices", label: "Prácticas", short: "PRA" },
   { key: "teachers", label: "Profesores", short: "PRO" },
   { key: "messages", label: "Mensajes", short: "MEN" },
-  { key: "preferences", label: "Preferencias", short: "CFG" },
+  { key: "preferences", label: "Admin", short: "ADM" },
 ];
 
 const entityShortCodes: Record<Entity, string> = {
@@ -1270,7 +1271,7 @@ export default function Home() {
     ? "Inicio"
     : active === "messages"
       ? "Mensajes"
-      : active === "preferences" ? "Preferencias" : entityCopy[active].plural;
+      : active === "preferences" ? "Admin" : entityCopy[active].plural;
 
   if (!authenticationChecked) {
     return <div className="auth-loading" role="status"><span />Comprobando el acceso…</div>;
@@ -1380,8 +1381,9 @@ export default function Home() {
               })}
             />
           ) : active === "preferences" ? (
-            <PreferencesView
+            <AdminView
               key={`${data.preferences.calendarStartHour}-${data.preferences.calendarEndHour}`}
+              data={data}
               preferences={data.preferences}
               onSave={savePreferences}
             />
@@ -2957,10 +2959,25 @@ function SemesterFocus({
   );
 }
 
-function PreferencesView({
+function auditSessionEndTime(session: Session) {
+  const [hours, minutes] = session.startTime.split(":").map(Number);
+  const endMinutes = (hours * 60) + minutes + session.duration;
+  return `${String(Math.floor(endMinutes / 60) % 24).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+}
+
+function auditSessionDescription(session: Session) {
+  const details = [session.subjectCode];
+  if (session.groupCode) details.push(`G${session.groupCode}`);
+  details.push(sessionPracticeTitle(session));
+  return details.join(" · ");
+}
+
+function AdminView({
+  data,
   preferences,
   onSave,
 }: {
+  data: AppData;
   preferences: AppPreferences;
   onSave: (preferences: AppPreferences) => Promise<void>;
 }) {
@@ -2968,7 +2985,13 @@ function PreferencesView({
   const [calendarEndHour, setCalendarEndHour] = useState(preferences.calendarEndHour);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [auditConflicts, setAuditConflicts] = useState<SessionConflict[] | null>(null);
   const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
+  const sessionsById = useMemo(() => new Map(data.sessions.map((session) => [session.id, session])), [data.sessions]);
+  const teachersById = useMemo(() => new Map(data.teachers.map((teacher) => [teacher.id, teacher])), [data.teachers]);
+  const installationsById = useMemo(() => new Map(data.installations.map((installation) => [installation.id, installation])), [data.installations]);
+  const teacherConflicts = auditConflicts?.filter((conflict) => conflict.kind === "teacher") ?? [];
+  const installationConflicts = auditConflicts?.filter((conflict) => conflict.kind === "installation") ?? [];
 
   async function submitPreferences(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2987,49 +3010,117 @@ function PreferencesView({
     }
   }
 
+  function runInterferenceAudit() {
+    const installationsByPractice = new Map(data.practices.map((practice) => [practice.id, practice.installationIds]));
+    setAuditConflicts(findSessionConflicts(data.sessions.map((session) => ({
+      id: session.id,
+      sessionDate: session.sessionDate,
+      startTime: session.startTime,
+      duration: session.duration,
+      teacherId: session.teacherId,
+      installationIds: session.practiceId === null
+        ? []
+        : installationsByPractice.get(session.practiceId) ?? [],
+    }))));
+  }
+
+  function renderAuditConflict(conflict: SessionConflict) {
+    const first = sessionsById.get(conflict.first.id);
+    const second = sessionsById.get(conflict.second.id);
+    if (!first || !second) return null;
+    const resource = conflict.kind === "teacher"
+      ? teachersById.get(conflict.resourceId)
+      : installationsById.get(conflict.resourceId);
+    const resourceLabel = resource
+      ? `${resource.name} · ${resource.code}`
+      : `Registro #${conflict.resourceId}`;
+    return (
+      <li key={`${conflict.kind}-${conflict.resourceId}-${first.id}-${second.id}`}>
+        <span className={`admin-audit-kind ${conflict.kind}`}>{conflict.kind === "teacher" ? "PRO" : "INS"}</span>
+        <div>
+          <strong>{resourceLabel}</strong>
+          <span>{calendarListDateFormatter.format(parseLocalDate(first.sessionDate))} · {first.startTime}–{auditSessionEndTime(first)} / {second.startTime}–{auditSessionEndTime(second)}</span>
+          <small>{auditSessionDescription(first)} ↔ {auditSessionDescription(second)}</small>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <>
       <section className="entity-hero preferences-hero">
         <div>
-          <span className="section-kicker">Configuración / CFG</span>
-          <h1>Preferencias</h1>
-          <p>Ajustes generales que se aplican a todos los usuarios de la aplicación.</p>
+          <span className="section-kicker">Administración / ADM</span>
+          <h1>Admin</h1>
+          <p>Configuración global y herramientas de comprobación para administradores.</p>
         </div>
         <span className="preferences-access-badge">Solo administradores</span>
       </section>
 
-      <form className="panel preferences-panel" onSubmit={submitPreferences}>
-        <div className="panel-head">
-          <div><span className="section-kicker">Calendario</span><h2>Horario de la vista semanal</h2></div>
-          <span className="panel-tag">{String(calendarStartHour).padStart(2, "0")}:00–{String(calendarEndHour).padStart(2, "0")}:00</span>
-        </div>
-        <div className="preferences-fields">
-          <div className="preferences-time-grid">
-            <label>
-              <span>Hora inicial</span>
-              <select value={calendarStartHour} onChange={(event) => { setCalendarStartHour(Number(event.target.value)); setError(""); }}>
-                {hourOptions.slice(0, -1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
-              </select>
-              <small>Primera hora visible en el calendario semanal.</small>
-            </label>
-            <label>
-              <span>Hora final</span>
-              <select value={calendarEndHour} onChange={(event) => { setCalendarEndHour(Number(event.target.value)); setError(""); }}>
-                {hourOptions.slice(1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
-              </select>
-              <small>Última hora visible en el calendario semanal.</small>
-            </label>
+      <div className="admin-panels">
+        <form className="panel preferences-panel" onSubmit={submitPreferences}>
+          <div className="panel-head">
+            <div><span className="section-kicker">Calendario</span><h2>Horario de la vista semanal</h2></div>
+            <span className="panel-tag">{String(calendarStartHour).padStart(2, "0")}:00–{String(calendarEndHour).padStart(2, "0")}:00</span>
           </div>
-          <div className="preferences-note">
-            <span aria-hidden="true">i</span>
-            <p>Las sesiones que queden completamente fuera de este intervalo no se mostrarán en la vista semanal, pero seguirán disponibles en las vistas mensual y de lista.</p>
+          <div className="preferences-fields">
+            <div className="preferences-time-grid">
+              <label>
+                <span>Hora inicial</span>
+                <select value={calendarStartHour} onChange={(event) => { setCalendarStartHour(Number(event.target.value)); setError(""); }}>
+                  {hourOptions.slice(0, -1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
+                </select>
+                <small>Primera hora visible en el calendario semanal.</small>
+              </label>
+              <label>
+                <span>Hora final</span>
+                <select value={calendarEndHour} onChange={(event) => { setCalendarEndHour(Number(event.target.value)); setError(""); }}>
+                  {hourOptions.slice(1).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
+                </select>
+                <small>Última hora visible en el calendario semanal.</small>
+              </label>
+            </div>
+            <div className="preferences-note">
+              <span aria-hidden="true">i</span>
+              <p>Las sesiones que queden completamente fuera de este intervalo no se mostrarán en la vista semanal, pero seguirán disponibles en las vistas mensual y de lista.</p>
+            </div>
+            {error && <p className="messages-error" role="alert">{error}</p>}
+            <button className="primary-button preferences-save-button" type="submit" disabled={saving || calendarEndHour <= calendarStartHour}>
+              {saving ? "Guardando…" : "Guardar preferencias"}
+            </button>
           </div>
-          {error && <p className="messages-error" role="alert">{error}</p>}
-          <button className="primary-button preferences-save-button" type="submit" disabled={saving || calendarEndHour <= calendarStartHour}>
-            {saving ? "Guardando…" : "Guardar preferencias"}
-          </button>
-        </div>
-      </form>
+        </form>
+
+        <section className="panel admin-audit-panel">
+          <div className="panel-head">
+            <div><span className="section-kicker">Control horario</span><h2>Interferencias</h2></div>
+            {auditConflicts !== null && <span className={`panel-tag ${auditConflicts.length ? "has-conflicts" : "no-conflicts"}`}>{auditConflicts.length} {auditConflicts.length === 1 ? "conflicto" : "conflictos"}</span>}
+          </div>
+          <div className="admin-audit-body">
+            <p>Comprueba todas las sesiones guardadas y localiza profesores o instalaciones asignados a horarios superpuestos.</p>
+            <button className="secondary-button admin-audit-button" type="button" onClick={runInterferenceAudit}>
+              {auditConflicts === null ? "Comprobar interferencias" : "Repetir comprobación"}
+            </button>
+
+            {auditConflicts === null ? (
+              <div className="admin-audit-pending"><span aria-hidden="true">⌕</span><p>El chequeo todavía no se ha ejecutado.</p></div>
+            ) : auditConflicts.length === 0 ? (
+              <div className="admin-audit-clear" role="status"><span aria-hidden="true">✓</span><div><strong>Sin interferencias</strong><p>Se han comprobado {data.sessions.length} sesiones.</p></div></div>
+            ) : (
+              <>
+                <div className="admin-audit-summary" role="status">
+                  <span><strong>{teacherConflicts.length}</strong> {teacherConflicts.length === 1 ? "conflicto de profesor" : "conflictos de profesor"}</span>
+                  <span><strong>{installationConflicts.length}</strong> {installationConflicts.length === 1 ? "conflicto de instalación" : "conflictos de instalación"}</span>
+                </div>
+                <ul className="admin-audit-results">
+                  {teacherConflicts.map(renderAuditConflict)}
+                  {installationConflicts.map(renderAuditConflict)}
+                </ul>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
     </>
   );
 }

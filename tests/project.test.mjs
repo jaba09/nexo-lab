@@ -69,7 +69,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Asignaturas agrupadas por grado/);
   assert.doesNotMatch(page, /key: "degrees", label: "Grados"/);
   assert.match(page, /key: "subjects", label: "Grados\/asignaturas", short: "G\/A"/);
-  assert.match(page, /key: "preferences", label: "Preferencias", short: "CFG"/);
+  assert.match(page, /key: "preferences", label: "Admin", short: "ADM"/);
   assert.match(page, /item\.key !== "preferences" \|\| authenticatedTeacher\.isAdmin/);
   assert.match(page, /key: "subjects"[\s\S]*?key: "practices"/);
   assert.match(page, /Crear grado/);
@@ -365,6 +365,12 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Vista semanal de \$\{String\(calendarWeekStartHour\)/);
   assert.match(page, /calendarPreferences\.calendarStartHour/);
   assert.match(page, /Guardar preferencias/);
+  assert.match(page, /function AdminView/);
+  assert.match(page, /Comprobar interferencias/);
+  assert.match(page, /findSessionConflicts/);
+  assert.match(page, /conflicto de profesor/);
+  assert.match(page, /conflicto de instalación/);
+  assert.match(styles, /\.admin-audit-results/);
   assert.match(page, /layoutOverlappingSessions/);
   assert.match(page, /overlapping-session/);
   assert.match(page, /weeklyLayout\.maximumLaneCount/);
