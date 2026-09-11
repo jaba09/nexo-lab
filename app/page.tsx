@@ -304,7 +304,7 @@ type CalendarFilters = {
   practiceId: string;
 };
 
-type CalendarViewMode = "month" | "week" | "list";
+type CalendarViewMode = "month" | "week" | "list" | "installations";
 
 type CalendarDropPreview = {
   date: string;
@@ -3947,6 +3947,9 @@ function CalendarView({
   const [visibleWeekStart, setVisibleWeekStart] = useState(() => {
     return initialWeekForSemester(selectedSemester, allSessions, referenceDate);
   });
+  const [visibleInstallationDate, setVisibleInstallationDate] = useState(() => {
+    return initialDateForSemester(selectedSemester, allSessions, referenceDate);
+  });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [anchorId, setAnchorId] = useState<number | null>(null);
   const [assigning, setAssigning] = useState(false);
@@ -4072,6 +4075,37 @@ function CalendarView({
     }
     return { byDate, maximumLaneCount };
   }, [calendarWeekEndHour, calendarWeekStartHour, sessionsByDate, weekDays]);
+  const installationDate = localIsoDate(visibleInstallationDate);
+  const installationDaySessions = useMemo(() => (
+    sessionsByDate.get(installationDate) ?? []
+  ), [installationDate, sessionsByDate]);
+  const calendarInstallations = useMemo(() => installations
+    .filter((installation) => !filters.laboratoryId || String(installation.laboratoryId) === filters.laboratoryId)
+    .filter((installation) => !filters.installationId || String(installation.id) === filters.installationId)
+    .sort((left, right) => (
+      left.laboratoryName.localeCompare(right.laboratoryName, "es", { sensitivity: "base" })
+      || left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+      || left.code.localeCompare(right.code, "es", { sensitivity: "base" })
+    )), [filters.installationId, filters.laboratoryId, installations]);
+  const installationSchedule = useMemo(() => calendarInstallations.map((installation) => {
+    const visibleSessions = installationDaySessions.filter((session) => {
+      const practice = session.practiceId === null ? undefined : practicesById.get(session.practiceId);
+      const start = calendarSessionStartMinutes(session);
+      return practice?.installationIds.includes(installation.id)
+        && start < calendarWeekEndHour * 60
+        && start + session.duration > calendarWeekStartHour * 60;
+    });
+    const positionedSessions = layoutOverlappingSessions(visibleSessions);
+    return {
+      installation,
+      positionedSessions,
+      laneCount: Math.max(1, ...positionedSessions.map((item) => item.laneCount)),
+    };
+  }), [calendarInstallations, calendarWeekEndHour, calendarWeekStartHour, installationDaySessions, practicesById]);
+  const installationDayUnlocatedCount = useMemo(() => installationDaySessions.filter((session) => {
+    const practice = session.practiceId === null ? undefined : practicesById.get(session.practiceId);
+    return !practice?.installationIds.length;
+  }).length, [installationDaySessions, practicesById]);
 
   const selectedSessions = useMemo(() => (
     filteredSemesterSessions.filter((session) => selectedIds.has(session.id))
@@ -4080,7 +4114,7 @@ function CalendarView({
     && selectedSessions.every(canEditSession);
 
   useEffect(() => {
-    if (calendarView !== "list") return;
+    if (calendarView !== "list" && calendarView !== "installations") return;
     const clearSelectionWithEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setSelectedIds(new Set());
@@ -4096,8 +4130,13 @@ function CalendarView({
   const weekLabel = visibleWeekStart.getMonth() === weekEnd.getMonth()
     ? `${visibleWeekStart.getDate()}–${weekEnd.getDate()} de ${new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(weekEnd)}`
     : `${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" }).format(visibleWeekStart)}–${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(weekEnd)}`;
+  const installationDayLabel = `${academicWeekdayLabel(visibleInstallationDate, installationDate, dayTypesByDate)}, ${new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(visibleInstallationDate)}`;
   const weeklyDayMinWidth = Math.max(120, weeklyLayout.maximumLaneCount * 96);
   const weeklyGridMinWidth = 58 + weeklyDayMinWidth * weekDays.length;
+  const installationHourWidth = 96;
+  const installationHourCount = calendarWeekEndHour - calendarWeekStartHour;
+  const installationRangeMinutes = installationHourCount * 60;
+  const installationGridMinWidth = 230 + installationHourCount * installationHourWidth;
   const visibleMonthValue = visibleMonth.getFullYear() * 12 + visibleMonth.getMonth();
   const semesterStartValue = activeSemester.startYear * 12 + activeSemester.startMonthIndex;
   const semesterEndValue = activeSemester.endYear * 12 + activeSemester.endMonthIndex;
@@ -4105,10 +4144,14 @@ function CalendarView({
   const semesterLastWeek = startOfCalendarWeek(parseLocalDate(activeSemester.endDate));
   const canMovePrevious = calendarView === "month"
     ? visibleMonthValue > semesterStartValue
-    : calendarView === "week" && visibleWeekStart.getTime() > semesterFirstWeek.getTime();
+    : calendarView === "week"
+      ? visibleWeekStart.getTime() > semesterFirstWeek.getTime()
+      : calendarView === "installations" && installationDate > activeSemester.startDate;
   const canMoveNext = calendarView === "month"
     ? visibleMonthValue < semesterEndValue
-    : calendarView === "week" && visibleWeekStart.getTime() < semesterLastWeek.getTime();
+    : calendarView === "week"
+      ? visibleWeekStart.getTime() < semesterLastWeek.getTime()
+      : calendarView === "installations" && installationDate < activeSemester.endDate;
 
   function moveMonth(offset: number) {
     const candidate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1);
@@ -4123,15 +4166,24 @@ function CalendarView({
     setVisibleWeekStart(candidate);
   }
 
+  function moveInstallationDay(offset: number) {
+    const candidate = addCalendarDays(visibleInstallationDate, offset);
+    const candidateDate = localIsoDate(candidate);
+    if (candidateDate < activeSemester.startDate || candidateDate > activeSemester.endDate) return;
+    setVisibleInstallationDate(candidate);
+  }
+
   function moveCalendar(offset: number) {
     if (calendarView === "month") moveMonth(offset);
     else if (calendarView === "week") moveWeek(offset);
+    else if (calendarView === "installations") moveInstallationDay(offset);
     clearSelection();
   }
 
   function goToToday() {
     setVisibleMonth(initialMonthForSemester(selectedSemester, allSessions, referenceDate));
     setVisibleWeekStart(initialWeekForSemester(selectedSemester, allSessions, referenceDate));
+    setVisibleInstallationDate(initialDateForSemester(selectedSemester, allSessions, referenceDate));
     clearSelection();
   }
 
@@ -4139,6 +4191,7 @@ function CalendarView({
     onSelectedSemesterChange(semesterId);
     setVisibleMonth(initialMonthForSemester(semesterId, allSessions, referenceDate));
     setVisibleWeekStart(initialWeekForSemester(semesterId, allSessions, referenceDate));
+    setVisibleInstallationDate(initialDateForSemester(semesterId, allSessions, referenceDate));
     clearSelection();
   }
 
@@ -4178,16 +4231,34 @@ function CalendarView({
         ? reference.getFullYear() === visibleMonth.getFullYear() && reference.getMonth() === visibleMonth.getMonth()
           ? reference
           : new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
+        : calendarView === "installations"
+          ? visibleInstallationDate
         : initialDateForSemester(selectedSemester, allSessions, referenceDate);
       const candidate = startOfCalendarWeek(weekTarget);
       setVisibleWeekStart(candidate < semesterFirstWeek ? semesterFirstWeek : candidate > semesterLastWeek ? semesterLastWeek : candidate);
     } else if (view === "month") {
       const middleOfWeek = calendarView === "week"
         ? addCalendarDays(visibleWeekStart, 3)
+        : calendarView === "installations"
+          ? visibleInstallationDate
         : initialDateForSemester(selectedSemester, allSessions, referenceDate);
       const candidateValue = middleOfWeek.getFullYear() * 12 + middleOfWeek.getMonth();
       const clampedValue = Math.max(semesterStartValue, Math.min(candidateValue, semesterEndValue));
       setVisibleMonth(new Date(Math.floor(clampedValue / 12), clampedValue % 12, 1));
+    } else if (view === "installations") {
+      const target = calendarView === "week"
+        ? visibleWeekStart
+        : calendarView === "month"
+          ? new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
+          : initialDateForSemester(selectedSemester, allSessions, referenceDate);
+      const targetDate = localIsoDate(target);
+      setVisibleInstallationDate(parseLocalDate(
+        targetDate < activeSemester.startDate
+          ? activeSemester.startDate
+          : targetDate > activeSemester.endDate
+            ? activeSemester.endDate
+            : targetDate,
+      ));
     }
     setCalendarView(view);
     clearSelection();
@@ -4208,6 +4279,12 @@ function CalendarView({
 
   function clearFilters() {
     setFilters(emptyCalendarFilters);
+    clearSelection();
+  }
+
+  function changeInstallationDate(value: string) {
+    if (!value || value < activeSemester.startDate || value > activeSemester.endDate) return;
+    setVisibleInstallationDate(parseLocalDate(value));
     clearSelection();
   }
 
@@ -4447,6 +4524,39 @@ function CalendarView({
     );
   }
 
+  function renderInstallationSession(position: WeeklySessionPosition) {
+    const { session, lane, laneCount } = position;
+    const start = calendarSessionStartMinutes(session);
+    const clippedStart = Math.max(start, calendarWeekStartHour * 60);
+    const clippedEnd = Math.min(start + session.duration, calendarWeekEndHour * 60);
+    const selected = selectedIds.has(session.id);
+    const endTime = formatCalendarTime(start + session.duration);
+    return (
+      <article
+        className={`installation-schedule-session${laneCount > 1 ? " conflict" : ""}${selected ? " selected" : ""}`}
+        key={session.id}
+        style={{
+          left: `calc(${((clippedStart - calendarWeekStartHour * 60) / installationRangeMinutes) * 100}% + 4px)`,
+          top: `${8 + lane * 50}px`,
+          width: `max(48px, calc(${((clippedEnd - clippedStart) / installationRangeMinutes) * 100}% - 8px))`,
+        }}
+      >
+        <button
+          type="button"
+          aria-pressed={selected}
+          aria-label={`Seleccionar ${sessionPracticeTitle(session)}, de ${session.startTime} a ${endTime}, ${session.teacherName ? `profesor ${session.teacherName}` : "sin profesor asignado"}`}
+          title={`${session.startTime}–${endTime} · ${sessionPracticeTitle(session)} · ${session.subjectName} · ${session.teacherName ? `Prof. ${session.teacherName}` : "Prof. sin asignar"}${canEditSession(session) ? " · Doble clic para editar" : ""}`}
+          onClick={(event) => selectSession(session, event)}
+          onDoubleClick={canEditSession(session) ? () => onEdit(session) : undefined}
+        >
+          <span>{session.startTime.replace(/^0/, "")}–{endTime.replace(/^0/, "")}</span>
+          <strong>{sessionPracticeTitle(session)}</strong>
+          <small>{session.subjectAbbreviation || session.subjectCode}-{session.degreeCode} · {session.groupCode ? `G${session.groupCode}` : "G—"} · {session.teacherName ? `Prof. ${session.teacherName}` : <em>Prof. sin asignar</em>}</small>
+        </button>
+      </article>
+    );
+  }
+
   return (
     <section className="calendar-shell" aria-label="Calendario de sesiones">
       <SemesterFocus
@@ -4457,23 +4567,30 @@ function CalendarView({
       />
       <div className="calendar-toolbar">
         <div>
-          <span className="section-kicker">Planificación {calendarView === "month" ? "mensual" : calendarView === "week" ? "semanal" : "en lista"}</span>
-          <h2>{calendarView === "month" ? monthLabel : calendarView === "week" ? weekLabel : "Sesiones ordenadas"}</h2>
+          <span className="section-kicker">Planificación {calendarView === "month" ? "mensual" : calendarView === "week" ? "semanal" : calendarView === "installations" ? "por instalaciones" : "en lista"}</span>
+          <h2 className={calendarView === "installations" ? "calendar-installation-day-title" : undefined}>{calendarView === "month" ? monthLabel : calendarView === "week" ? weekLabel : calendarView === "installations" ? installationDayLabel : "Sesiones ordenadas"}</h2>
         </div>
         <div className="calendar-toolbar-side">
           <div className="calendar-view-switch" role="group" aria-label="Vista del calendario">
             <button type="button" aria-pressed={calendarView === "month"} onClick={() => changeCalendarView("month")}>Mes</button>
             <button type="button" aria-pressed={calendarView === "week"} onClick={() => changeCalendarView("week")}>Semana</button>
             <button type="button" aria-pressed={calendarView === "list"} onClick={() => changeCalendarView("list")}>Lista</button>
+            <button type="button" aria-pressed={calendarView === "installations"} onClick={() => changeCalendarView("installations")}>Instalaciones</button>
           </div>
           {canDelete && <button className="calendar-delete-button" type="button" disabled={!allSemesterSessionIds.length || deleting} onClick={() => void deleteSemesterSessions()}>Borrar semestre</button>}
           <span className="incomplete-legend"><i /> Incompleta: sin práctica</span>
           {calendarView !== "list" && (
-            <div className="calendar-navigation" aria-label={calendarView === "month" ? "Navegar por meses" : "Navegar por semanas"}>
-              <button type="button" disabled={!canMovePrevious} onClick={() => moveCalendar(-1)} aria-label={calendarView === "month" ? "Mes anterior del semestre" : "Semana anterior del semestre"}>←</button>
+            <div className="calendar-navigation" aria-label={calendarView === "month" ? "Navegar por meses" : calendarView === "week" ? "Navegar por semanas" : "Navegar por días"}>
+              <button type="button" disabled={!canMovePrevious} onClick={() => moveCalendar(-1)} aria-label={calendarView === "month" ? "Mes anterior del semestre" : calendarView === "week" ? "Semana anterior del semestre" : "Día anterior del semestre"}>←</button>
               <button type="button" onClick={goToToday}>{semesterFromDate(referenceDate) === selectedSemester ? "Hoy" : "Inicio"}</button>
-              <button type="button" disabled={!canMoveNext} onClick={() => moveCalendar(1)} aria-label={calendarView === "month" ? "Mes siguiente del semestre" : "Semana siguiente del semestre"}>→</button>
+              <button type="button" disabled={!canMoveNext} onClick={() => moveCalendar(1)} aria-label={calendarView === "month" ? "Mes siguiente del semestre" : calendarView === "week" ? "Semana siguiente del semestre" : "Día siguiente del semestre"}>→</button>
             </div>
+          )}
+          {calendarView === "installations" && (
+            <label className="installation-date-picker">
+              <span>Día</span>
+              <input type="date" min={activeSemester.startDate} max={activeSemester.endDate} value={installationDate} onChange={(event) => changeInstallationDate(event.target.value)} />
+            </label>
           )}
         </div>
       </div>
@@ -4531,7 +4648,7 @@ function CalendarView({
           <>
             <strong>{selectedIds.size} {selectedIds.size === 1 ? "sesión seleccionada" : "sesiones seleccionadas"}</strong>
             <span>{canEditSelectedSessions
-              ? calendarView === "list" ? "Shift + clic amplía el rango · Esc limpia" : "Arrastra para mover · Shift + clic amplía el rango"
+              ? calendarView === "list" || calendarView === "installations" ? "Shift + clic amplía el rango · Esc limpia" : "Arrastra para mover · Shift + clic amplía el rango"
               : "Exporta la selección en PDF o ICS · Esc limpia"}</span>
             <SessionSelectionActions
               sessions={selectedSessions}
@@ -4550,7 +4667,7 @@ function CalendarView({
           </>
         ) : (
           <span>{canEdit
-            ? calendarView === "list" ? "Selecciona una sesión para mostrar la barra de acciones. Shift + clic selecciona un rango y Esc limpia la selección." : "Selecciona una sesión para asignar práctica o profesor. Arrastra una sesión para cambiar su día y hora."
+            ? calendarView === "list" || calendarView === "installations" ? "Selecciona una sesión para mostrar la barra de acciones. Shift + clic selecciona un rango y Esc limpia la selección." : "Selecciona una sesión para asignar práctica o profesor. Arrastra una sesión para cambiar su día y hora."
             : "Modo de solo lectura: selecciona sesiones para exportarlas en PDF o ICS."}</span>
         )}
       </div>
@@ -4660,6 +4777,54 @@ function CalendarView({
                 </div>
               );
             })}
+          </div>
+        </div>
+      ) : calendarView === "installations" ? (
+        <div className="installation-schedule-scroll">
+          <div className="installation-schedule" style={{ minWidth: `${installationGridMinWidth}px` }}>
+            <div className="installation-schedule-header">
+              <div className="installation-schedule-resource-heading">
+                <span>Instalación</span>
+                <small>{calendarInstallations.length} {calendarInstallations.length === 1 ? "recurso" : "recursos"}</small>
+              </div>
+              <div className="installation-schedule-hours" style={{ backgroundSize: `${100 / installationHourCount}% 100%` }} aria-hidden="true">
+                {weekHours.map((hour, index) => (
+                  <span key={hour} style={{ left: `${(index / installationHourCount) * 100}%` }}>{String(hour).padStart(2, "0")}:00</span>
+                ))}
+              </div>
+            </div>
+            {calendarInstallations.length ? (
+              <div className="installation-schedule-rows" role="grid" aria-label={`Uso de instalaciones el ${installationDayLabel}`}>
+                {installationSchedule.map(({ installation, positionedSessions, laneCount }) => (
+                  <div className="installation-schedule-row" key={installation.id} role="row" style={{ minHeight: `${Math.max(68, laneCount * 50 + 16)}px` }}>
+                    <div className="installation-schedule-resource" role="rowheader">
+                      <span>{installation.code}</span>
+                      <strong title={installation.name}>{installation.name}</strong>
+                      <small title={installation.laboratoryName}>{installation.laboratoryName}</small>
+                    </div>
+                    <div
+                      className="installation-schedule-timeline"
+                      role="gridcell"
+                      style={{ backgroundSize: `${100 / installationHourCount}% 100%` }}
+                      aria-label={`${installation.name}: ${positionedSessions.length ? `${positionedSessions.length} ${positionedSessions.length === 1 ? "sesión" : "sesiones"}` : "libre"}`}
+                    >
+                      {!positionedSessions.length && <span className="installation-schedule-free">Libre</span>}
+                      {positionedSessions.map(renderInstallationSession)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="installation-schedule-empty" role="status">
+                <strong>No hay instalaciones para mostrar</strong>
+                <p>{hasActiveFilters ? "Prueba a limpiar los filtros de laboratorio e instalación." : "Crea una instalación para consultar su ocupación diaria."}</p>
+              </div>
+            )}
+            {installationDayUnlocatedCount > 0 && (
+              <p className="installation-schedule-note" role="note">
+                {installationDayUnlocatedCount} {installationDayUnlocatedCount === 1 ? "sesión no aparece" : "sesiones no aparecen"} porque {installationDayUnlocatedCount === 1 ? "no tiene" : "no tienen"} una instalación asignada.
+              </p>
+            )}
           </div>
         </div>
       ) : (
