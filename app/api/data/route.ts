@@ -2,7 +2,7 @@ import { getDatabase } from "../../../lib/database";
 import { semesterDefinition } from "../../../lib/semesters";
 import { getAuthenticatedTeacher, hashPassword, passwordValidationError, readOnlyResponse, unauthorizedResponse } from "../../../lib/auth";
 import { readAppPreferences } from "../../../lib/preferences";
-import { findNewSessionConflict, type ScheduledSession } from "../../../lib/sessionConflicts";
+import { findNewSessionConflict, installationIncludedInConflictChecks, type ScheduledSession } from "../../../lib/sessionConflicts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -98,10 +98,25 @@ type SessionConflictChange = {
 
 function practiceInstallations(database: ReturnType<typeof getDatabase>) {
   const result = new Map<number, number[]>();
-  const rows = database.prepare(`SELECT practice_id AS practiceId, installation_id AS installationId
-    FROM practice_installations
-    ORDER BY practice_id, installation_id`).all() as { practiceId: number; installationId: number }[];
+  const rows = database.prepare(`SELECT
+      pi.practice_id AS practiceId,
+      i.id AS installationId,
+      i.code AS installationCode,
+      i.name AS installationName
+    FROM practice_installations pi
+    JOIN installations i ON i.id = pi.installation_id
+    ORDER BY pi.practice_id, i.id`).all() as {
+      practiceId: number;
+      installationId: number;
+      installationCode: string;
+      installationName: string;
+    }[];
   for (const row of rows) {
+    if (!installationIncludedInConflictChecks({
+      id: Number(row.installationId),
+      code: row.installationCode,
+      name: row.installationName,
+    })) continue;
     const installationIds = result.get(Number(row.practiceId)) ?? [];
     installationIds.push(Number(row.installationId));
     result.set(Number(row.practiceId), installationIds);

@@ -14,6 +14,33 @@ export type SessionConflict = {
   second: ScheduledSession;
 };
 
+type ConflictInstallation = {
+  id: number;
+  code?: string | null;
+  name?: string | null;
+};
+
+function normalizedConflictInstallationText(value: string | null | undefined) {
+  return value?.trim().toLocaleLowerCase("es") ?? "";
+}
+
+export function installationIncludedInConflictChecks(installation: ConflictInstallation) {
+  return installation.code?.trim().toUpperCase() !== "INS-ORD"
+    && normalizedConflictInstallationText(installation.name) !== "sala ordenadores eina";
+}
+
+export function filterConflictInstallationIds(
+  installationIds: number[],
+  installations: ConflictInstallation[],
+) {
+  const includedIds = new Set(
+    installations
+      .filter(installationIncludedInConflictChecks)
+      .map(({ id }) => id),
+  );
+  return installationIds.filter((installationId) => includedIds.has(installationId));
+}
+
 function timeInMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   return (hours * 60) + minutes;

@@ -8,7 +8,7 @@ import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { messageAudienceTeacherIds } from "../lib/messageAudience";
 import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
-import { findSessionConflicts, type SessionConflict } from "../lib/sessionConflicts";
+import { findSessionConflicts, installationIncludedInConflictChecks, type SessionConflict } from "../lib/sessionConflicts";
 import { downloadInterferenceReportPdf, type InterferenceReportItem } from "../lib/interferenceReport";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences";
@@ -3082,6 +3082,9 @@ function AdminView({
 
   function runInterferenceAudit() {
     const installationsByPractice = new Map(data.practices.map((practice) => [practice.id, practice.installationIds]));
+    const includedInstallationIds = new Set(data.installations
+      .filter(installationIncludedInConflictChecks)
+      .map((installation) => installation.id));
     setReportError("");
     setAuditConflicts(findSessionConflicts(data.sessions.map((session) => ({
       id: session.id,
@@ -3091,7 +3094,8 @@ function AdminView({
       teacherId: session.teacherId,
       installationIds: session.practiceId === null
         ? []
-        : installationsByPractice.get(session.practiceId) ?? [],
+        : (installationsByPractice.get(session.practiceId) ?? [])
+          .filter((installationId) => includedInstallationIds.has(installationId)),
     }))));
   }
 
@@ -3221,7 +3225,7 @@ function AdminView({
             {auditConflicts !== null && <span className={`panel-tag ${auditConflicts.length ? "has-conflicts" : "no-conflicts"}`}>{auditConflicts.length} {auditConflicts.length === 1 ? "conflicto" : "conflictos"}</span>}
           </div>
           <div className="admin-audit-body">
-            <p>Comprueba todas las sesiones guardadas y localiza profesores o instalaciones asignados a horarios superpuestos.</p>
+            <p>Comprueba todas las sesiones guardadas y localiza profesores o instalaciones asignados a horarios superpuestos. Sala ordenadores EINA queda excluida del control de instalaciones.</p>
             <div className="admin-audit-actions">
               <button className="secondary-button admin-audit-button" type="button" onClick={runInterferenceAudit}>
                 {auditConflicts === null ? "Comprobar interferencias" : "Repetir comprobación"}

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findNewSessionConflict, findSessionConflicts } from "../lib/sessionConflicts.ts";
+import {
+  findNewSessionConflict,
+  findSessionConflicts,
+  installationIncludedInConflictChecks,
+} from "../lib/sessionConflicts.ts";
 
 function session(overrides) {
   return {
@@ -24,6 +28,24 @@ test("detects a newly introduced teacher overlap", () => {
   const conflict = findNewSessionConflict(before, after, new Set([2]));
   assert.equal(conflict?.kind, "teacher");
   assert.equal(conflict?.resourceId, 1);
+});
+
+test("excludes Sala ordenadores EINA from installation conflict checks", () => {
+  assert.equal(installationIncludedInConflictChecks({
+    id: 10,
+    code: "INS-ORD",
+    name: "Aula de informática",
+  }), false);
+  assert.equal(installationIncludedInConflictChecks({
+    id: 11,
+    code: "INS-OTRA",
+    name: "Sala ordenadores EINA",
+  }), false);
+  assert.equal(installationIncludedInConflictChecks({
+    id: 12,
+    code: "INS-VIS",
+    name: "Viscosidad",
+  }), true);
 });
 
 test("detects an overlap through any installation used by a practice", () => {

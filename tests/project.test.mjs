@@ -419,6 +419,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Descargar sesiones PDF/);
   assert.match(page, /agrupadas por asignatura y ordenadas por fecha y hora/);
   assert.match(page, /findSessionConflicts/);
+  assert.match(page, /Sala ordenadores EINA queda excluida del control de instalaciones/);
+  assert.match(page, /\.filter\(installationIncludedInConflictChecks\)/);
+  assert.match(await readFile(new URL("../app/api/data/route.ts", import.meta.url), "utf8"), /if \(!installationIncludedInConflictChecks\(/);
   assert.match(page, /conflicto de profesor/);
   assert.match(page, /conflicto de instalación/);
   assert.match(styles, /\.admin-audit-results/);
