@@ -646,6 +646,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .calendar-filter-head { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .calendar-filter-head span { color: #747c78; font: 700 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .08em; }
 .calendar-filter-head strong { color: #5c6661; font: 650 8px var(--font-geist-mono); }
+.calendar-filter-summary { display: flex; align-items: center; justify-content: flex-end; gap: 15px; }
+.calendar-hide-incomplete-filter { min-height: 27px; padding: 0 9px; border: 1px solid #c8d4aa; border-radius: 7px; background: #f5f9e9; display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.calendar-hide-incomplete-filter input { width: 15px; height: 15px; margin: 0; accent-color: #607f1e; cursor: pointer; }
+.calendar-hide-incomplete-filter span { color: #53643a; font-size: 7px; letter-spacing: .04em; }
+.calendar-hide-incomplete-filter:has(input:checked) { border-color: #789532; background: #eaff9d; }
 .calendar-filter-controls { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)) auto; align-items: end; gap: 8px; }
 .calendar-filter-controls label { min-width: 0; display: grid; gap: 5px; }
 .calendar-filter-controls label > span { color: #747c78; font: 650 8px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .05em; }
@@ -979,7 +984,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .degree-card { grid-template-columns: 72px 1fr auto; gap: 13px; }.degree-card .tag-list { grid-column: 1 / -1; }.degree-card > .record-actions { grid-column: 3; grid-row: 1; }.degree-code { width: 72px; }
   .teacher-semester-toolbar { align-items: stretch; flex-direction: column; }.teacher-semester-toolbar label { min-width: 0; }
   .calendar-toolbar { align-items: flex-start; flex-direction: column; }.calendar-toolbar-side { width: 100%; align-items: stretch; flex-direction: column; }.calendar-view-switch { width: 100%; }.calendar-view-switch button { flex: 1; }.calendar-navigation { width: 100%; }.calendar-navigation button:nth-child(2) { flex: 1; }
-  .calendar-filter-head { align-items: flex-start; flex-direction: column; }.calendar-filter-controls { grid-template-columns: 1fr; }.calendar-filter-controls button { width: 100%; }
+  .calendar-filter-head { align-items: stretch; flex-direction: column; }.calendar-filter-summary { align-items: stretch; flex-direction: column; gap: 8px; }.calendar-hide-incomplete-filter { justify-content: center; }.calendar-filter-controls { grid-template-columns: 1fr; }.calendar-filter-controls button { width: 100%; }
   .calendar-selection-bar { align-items: flex-start; flex-wrap: wrap; }.calendar-selection-bar.active { left: 50%; right: auto; bottom: 12px; width: calc(100vw - 24px); max-height: calc(100vh - 82px); overflow-y: auto; }.calendar-selection-bar strong { width: 100%; }.session-selection-actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; }.session-selection-actions label { min-width: 0; }.session-selection-actions button { margin-left: 0; }
   .calendar-list { padding: 9px; gap: 10px; }.calendar-list-day-header { padding: 8px 10px; }.calendar-list-session { grid-template-columns: 36px minmax(0, 1fr) 36px; }.overview-session-row { grid-template-columns: 36px minmax(0, 1fr); }.calendar-list-main { min-height: 0; padding: 12px 8px 12px 2px; grid-template-columns: 1fr; gap: 10px; }.calendar-list-main small { margin-top: 3px; }.calendar-list-time { padding: 0 0 8px; border-right: 0; border-bottom: 1px solid #e5e6e0; }.calendar-list-teacher { grid-column: auto; }
   .import-dialog-layer { padding: 0; place-items: stretch; }.import-dialog { max-height: 100vh; width: 100%; border-radius: 0; }.ics-import-form { padding-left: 22px; padding-right: 22px; }.ics-summary strong { font-size: 19px; }.ics-summary span { font-size: 8px; }.assignment-conflict-options { grid-template-columns: 1fr; }.assignment-import-warning { display: grid; }

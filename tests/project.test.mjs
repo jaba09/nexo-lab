@@ -319,6 +319,12 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /const monthlySessionTooltip = \[/);
   assert.match(page, /Instalaciones: \$\{session\.installationName\?\.trim\(\) \|\| "sin instalaciones asignadas"\}/);
   assert.match(page, /weekly \? \(editable \? [\s\S]*?\) : monthlySessionTooltip/);
+  assert.match(page, /hideSessionsWithoutPractice/);
+  assert.match(page, /calendarView === "month" && hideSessionsWithoutPractice && session\.practiceId === null/);
+  assert.match(page, /Ocultar sesiones sin prácticas/);
+  assert.match(page, /setHideSessionsWithoutPractice\(false\)/);
+  assert.match(styles, /\.calendar-hide-incomplete-filter/);
+  assert.match(styles, /\.calendar-hide-incomplete-filter:has\(input:checked\)/);
   assert.match(page, /El código de cinco dígitos de SUMMARY identifica la asignatura/);
   assert.match(page, /Grupos detectados/);
   assert.match(page, /el número que sigue a “Grupo:” se guarda en cada sesión/);

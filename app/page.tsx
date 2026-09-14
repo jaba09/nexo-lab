@@ -3998,6 +3998,7 @@ function CalendarView({
   const [assigning, setAssigning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>(emptyCalendarFilters);
+  const [hideSessionsWithoutPractice, setHideSessionsWithoutPractice] = useState(false);
   const [draggedSessionId, setDraggedSessionId] = useState<number | null>(null);
   const [movingSessionId, setMovingSessionId] = useState<number | null>(null);
   const [monthDropDate, setMonthDropDate] = useState<string | null>(null);
@@ -4062,6 +4063,7 @@ function CalendarView({
         : comparePracticesByName(left, right));
   }, [filters.subjectId, practices, subjects]);
   const filteredSemesterSessions = useMemo(() => semesterSessions.filter((session) => {
+    if (calendarView === "month" && hideSessionsWithoutPractice && session.practiceId === null) return false;
     if (filters.degreeId && String(session.degreeId) !== filters.degreeId) return false;
     if (filters.subjectId && String(session.subjectId) !== filters.subjectId) return false;
     if (filters.practiceId && String(session.practiceId ?? "") !== filters.practiceId) return false;
@@ -4072,8 +4074,8 @@ function CalendarView({
       String(installationsById.get(id)?.laboratoryId ?? "") === filters.laboratoryId
     ))) return false;
     return true;
-  }), [semesterSessions, filters, practicesById, installationsById]);
-  const hasActiveFilters = Object.values(filters).some(Boolean);
+  }), [semesterSessions, calendarView, hideSessionsWithoutPractice, filters, practicesById, installationsById]);
+  const hasActiveFilters = Object.values(filters).some(Boolean) || (calendarView === "month" && hideSessionsWithoutPractice);
   const draggedSession = draggedSessionId === null
     ? undefined
     : filteredSemesterSessions.find((session) => session.id === draggedSessionId);
@@ -4267,6 +4269,7 @@ function CalendarView({
 
   function changeCalendarView(view: CalendarViewMode) {
     if (view === calendarView) return;
+    if (view !== "month") setHideSessionsWithoutPractice(false);
     if (view === "week") {
       const reference = parseLocalDate(referenceDate);
       const weekTarget = calendarView === "month"
@@ -4324,6 +4327,7 @@ function CalendarView({
 
   function clearFilters() {
     setFilters(emptyCalendarFilters);
+    setHideSessionsWithoutPractice(false);
     clearSelection();
   }
 
@@ -4687,7 +4691,22 @@ function CalendarView({
       <div className={hasActiveFilters ? "calendar-filters active" : "calendar-filters"} aria-label="Filtros del calendario">
         <div className="calendar-filter-head">
           <span>Filtrar sesiones</span>
-          <strong aria-live="polite">{filteredSemesterSessions.length} de {semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</strong>
+          <div className="calendar-filter-summary">
+            {calendarView === "month" && (
+              <label className="calendar-hide-incomplete-filter">
+                <input
+                  type="checkbox"
+                  checked={hideSessionsWithoutPractice}
+                  onChange={(event) => {
+                    setHideSessionsWithoutPractice(event.target.checked);
+                    clearSelection();
+                  }}
+                />
+                <span>Ocultar sesiones sin prácticas</span>
+              </label>
+            )}
+            <strong aria-live="polite">{filteredSemesterSessions.length} de {semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</strong>
+          </div>
         </div>
         <div className="calendar-filter-controls">
           <label className={calendarView === "installations" && !filters.laboratoryId ? "calendar-filter-required" : undefined}>
