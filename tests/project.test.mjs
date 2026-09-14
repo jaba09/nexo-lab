@@ -183,6 +183,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.overview-subject-list/);
   assert.match(styles, /\.overview-session-list\.calendar-list/);
   assert.match(styles, /\.overview-selection-bar/);
+  assert.match(page, /function OverviewSessionsList[\s\S]*?onDoubleClick=\{canEditSession\(session\) \? \(\) => onEdit\(session\) : undefined\}/);
+  assert.match(page, /onEditSession=\{\(session\) => openEdit\("sessions", session\)\}/);
+  assert.match(page, /function canEditOverviewSession\(session: Session\)[\s\S]*?editableSubjectIdSet\.has\(session\.subjectId\)/);
   assert.match(styles, /\.calendar-selection-bar\.active \{[\s\S]*?position: fixed;/);
   assert.match(styles, /\.calendar-selection-bar\.active \{[\s\S]*?bottom: 18px;/);
   assert.match(styles, /\.content-frame:has\(\.calendar-selection-bar\.active\)/);

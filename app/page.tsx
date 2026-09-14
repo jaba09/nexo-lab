@@ -1383,6 +1383,7 @@ export default function Home() {
               onAssignTeacher={assignTeacherToSessions}
               onDeleteSessions={deleteSessions}
               onImportAssignments={() => setAssignmentImportOpen(true)}
+              onEditSession={(session) => openEdit("sessions", session)}
             />
           ) : active === "messages" ? (
             <MessagesView
@@ -1991,6 +1992,8 @@ function OverviewSessionsList({
   dayTypesByDate,
   selectedIds,
   onSelect,
+  canEditSession,
+  onEdit,
 }: {
   headingPrefix: string;
   ariaLabel: string;
@@ -1999,6 +2002,8 @@ function OverviewSessionsList({
   dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  canEditSession: (session: Session) => boolean;
+  onEdit: (session: Session) => void;
 }) {
   if (!sessions.length) {
     return <p className="overview-session-empty">{emptyMessage}</p>;
@@ -2043,9 +2048,12 @@ function OverviewSessionsList({
                     className="calendar-list-main"
                     type="button"
                     aria-pressed={selectedIds.has(session.id)}
-          aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"} del ${calendarListDateFormatter.format(parseLocalDate(session.sessionDate))} a las ${session.startTime}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
+                    aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"} del ${calendarListDateFormatter.format(parseLocalDate(session.sessionDate))} a las ${session.startTime}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
                     onClick={(event) => onSelect(session, event)}
-                    title="Clic para seleccionar · Shift + clic para ampliar el rango"
+                    onDoubleClick={canEditSession(session) ? () => onEdit(session) : undefined}
+                    title={canEditSession(session)
+                      ? "Clic para seleccionar · Shift + clic para ampliar el rango · doble clic para editar"
+                      : "Clic para seleccionar · Shift + clic para ampliar el rango"}
                   >
                     <SessionListColumns session={session} />
                   </button>
@@ -2065,12 +2073,16 @@ function OverviewSubjectSessions({
   dayTypesByDate,
   selectedIds,
   onSelect,
+  canEditSession,
+  onEdit,
 }: {
   subjectId: number;
   sessions: Session[];
   dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  canEditSession: (session: Session) => boolean;
+  onEdit: (session: Session) => void;
 }) {
   return (
     <OverviewSessionsList
@@ -2081,6 +2093,8 @@ function OverviewSubjectSessions({
       dayTypesByDate={dayTypesByDate}
       selectedIds={selectedIds}
       onSelect={onSelect}
+      canEditSession={canEditSession}
+      onEdit={onEdit}
     />
   );
 }
@@ -2113,12 +2127,16 @@ function OverviewGroupedSubjectSessions({
   dayTypesByDate,
   selectedIds,
   onSelect,
+  canEditSession,
+  onEdit,
 }: {
   subjectId: number;
   sessions: Session[];
   dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>, selectionScope?: Session[]) => void;
+  canEditSession: (session: Session) => boolean;
+  onEdit: (session: Session) => void;
 }) {
   if (!sessions.length) {
     return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
@@ -2216,6 +2234,8 @@ function OverviewGroupedSubjectSessions({
               dayTypesByDate={dayTypesByDate}
               selectedIds={selectedIds}
               onSelect={(session, event) => onSelect(session, event, group.sessions)}
+              canEditSession={canEditSession}
+              onEdit={onEdit}
             />
           </details>
         );
@@ -2230,12 +2250,16 @@ function OverviewTeacherGroupedSubjectSessions({
   dayTypesByDate,
   selectedIds,
   onSelect,
+  canEditSession,
+  onEdit,
 }: {
   subjectId: number;
   sessions: Session[];
   dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>, selectionScope?: Session[]) => void;
+  canEditSession: (session: Session) => boolean;
+  onEdit: (session: Session) => void;
 }) {
   if (!sessions.length) {
     return <p className="overview-session-empty">Esta asignatura no tiene sesiones en el semestre seleccionado.</p>;
@@ -2288,6 +2312,8 @@ function OverviewTeacherGroupedSubjectSessions({
               dayTypesByDate={dayTypesByDate}
               selectedIds={selectedIds}
               onSelect={(session, event) => onSelect(session, event, group.sessions)}
+              canEditSession={canEditSession}
+              onEdit={onEdit}
             />
           </details>
         );
@@ -2303,6 +2329,8 @@ function OverviewTeacherSessions({
   dayTypesByDate,
   selectedIds,
   onSelect,
+  canEditSession,
+  onEdit,
 }: {
   teacherKey: string;
   teacherName: string;
@@ -2310,6 +2338,8 @@ function OverviewTeacherSessions({
   dayTypesByDate: Map<string, "A" | "B">;
   selectedIds: Set<number>;
   onSelect: (session: Session, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  canEditSession: (session: Session) => boolean;
+  onEdit: (session: Session) => void;
 }) {
   return (
     <OverviewSessionsList
@@ -2320,6 +2350,8 @@ function OverviewTeacherSessions({
       dayTypesByDate={dayTypesByDate}
       selectedIds={selectedIds}
       onSelect={onSelect}
+      canEditSession={canEditSession}
+      onEdit={onEdit}
     />
   );
 }
@@ -2335,6 +2367,7 @@ function Overview({
   onAssignTeacher,
   onDeleteSessions,
   onImportAssignments,
+  onEditSession,
 }: {
   data: AppData;
   canEdit: boolean;
@@ -2346,6 +2379,7 @@ function Overview({
   onAssignTeacher: (ids: number[], teacherId: number | null) => Promise<boolean>;
   onDeleteSessions: (request: SessionDeleteRequest, confirmation: string) => Promise<boolean>;
   onImportAssignments: () => void;
+  onEditSession: (session: Session) => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [anchorId, setAnchorId] = useState<number | null>(null);
@@ -2429,6 +2463,10 @@ function Overview({
   const editableSubjectIdSet = new Set(editableSubjectIds.map(Number));
   const canEditSelectedSessions = selectedSessions.length > 0
     && selectedSessions.every((session) => editableSubjectIdSet.has(session.subjectId));
+
+  function canEditOverviewSession(session: Session) {
+    return editableSubjectIdSet.has(session.subjectId);
+  }
 
   useEffect(() => {
     const clearSelectionWithEscape = (event: KeyboardEvent) => {
@@ -2722,6 +2760,8 @@ function Overview({
                                 dayTypesByDate={dayTypesByDate}
                                 selectedIds={selectedIds}
                                 onSelect={selectOverviewSession}
+                                canEditSession={canEditOverviewSession}
+                                onEdit={onEditSession}
                               />
                             ) : groupedSubjectIds.has(subject.id) ? (
                               <OverviewGroupedSubjectSessions
@@ -2730,6 +2770,8 @@ function Overview({
                                 dayTypesByDate={dayTypesByDate}
                                 selectedIds={selectedIds}
                                 onSelect={selectOverviewSession}
+                                canEditSession={canEditOverviewSession}
+                                onEdit={onEditSession}
                               />
                             ) : (
                               <OverviewSubjectSessions
@@ -2738,6 +2780,8 @@ function Overview({
                                 dayTypesByDate={dayTypesByDate}
                                 selectedIds={selectedIds}
                                 onSelect={selectOverviewSession}
+                                canEditSession={canEditOverviewSession}
+                                onEdit={onEditSession}
                               />
                             )}
                           </details>
@@ -2808,6 +2852,8 @@ function Overview({
                               dayTypesByDate={dayTypesByDate}
                               selectedIds={selectedIds}
                               onSelect={selectOverviewTeacherSession}
+                              canEditSession={canEditOverviewSession}
+                              onEdit={onEditSession}
                             />
                           </td>
                         </tr>
@@ -2844,6 +2890,8 @@ function Overview({
                             dayTypesByDate={dayTypesByDate}
                             selectedIds={selectedIds}
                             onSelect={selectOverviewTeacherSession}
+                            canEditSession={canEditOverviewSession}
+                            onEdit={onEditSession}
                           />
                         </td>
                       </tr>
