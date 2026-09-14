@@ -328,6 +328,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /colorSessionsByLaboratory/);
   assert.match(page, /Colores por laboratorio/);
   assert.match(page, /monthlyLaboratoryPalette/);
+  assert.match(page, /"LAB-TQ": "#ffc9c2"/);
+  assert.match(page, /"LAB-REO": "#ffe680"/);
+  assert.match(page, /"LAB-BET": "#cce8a8"/);
+  assert.match(page, /monthlyLaboratoryFixedColors\[laboratory\.code\.trim\(\)\.toUpperCase\(\)\]/);
   assert.match(page, /linear-gradient\(135deg/);
   assert.match(page, /calendar-laboratory-color-legend/);
   assert.match(styles, /\.session-event\.monthly-session\.laboratory-colored/);

@@ -333,6 +333,11 @@ const monthlyLaboratoryPalette = [
   "#e7ebef",
   "#ffe5c3",
 ];
+const monthlyLaboratoryFixedColors: Record<string, string> = {
+  "LAB-TQ": "#ffc9c2",
+  "LAB-REO": "#ffe680",
+  "LAB-BET": "#cce8a8",
+};
 const calendarListDateFormatter = new Intl.DateTimeFormat("es-ES", {
   weekday: "short",
   day: "numeric",
@@ -4054,7 +4059,8 @@ function CalendarView({
     ))
     .map((laboratory, index) => ({
       laboratory,
-      color: monthlyLaboratoryPalette[index % monthlyLaboratoryPalette.length],
+      color: monthlyLaboratoryFixedColors[laboratory.code.trim().toUpperCase()]
+        ?? monthlyLaboratoryPalette[index % monthlyLaboratoryPalette.length],
     })), [laboratories]);
   const laboratoryColorsById = useMemo(() => new Map(
     laboratoryColorAssignments.map(({ laboratory, color }) => [laboratory.id, color]),
