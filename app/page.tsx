@@ -4522,6 +4522,11 @@ function CalendarView({
 
   function renderSession(session: Session, weekly = false, weeklyPosition?: WeeklySessionPosition) {
     const editable = canEditSession(session);
+    const monthlySessionTooltip = [
+      `${session.startTime} · ${sessionPracticeTitle(session)}`,
+      `Instalaciones: ${session.installationName?.trim() || "sin instalaciones asignadas"}`,
+      editable ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar",
+    ].join("\n");
     const start = calendarSessionStartMinutes(session);
     const clippedStart = Math.max(start, calendarWeekStartHour * 60);
     const clippedEnd = Math.min(start + session.duration, calendarWeekEndHour * 60);
@@ -4552,7 +4557,7 @@ function CalendarView({
           onClick={(event) => selectSession(session, event)}
           onDoubleClick={editable ? () => onEdit(session) : undefined}
           aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
-          title={editable ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar"}
+          title={weekly ? (editable ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar") : monthlySessionTooltip}
         >
           {weekly ? (
             <>

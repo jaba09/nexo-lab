@@ -316,6 +316,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.calendar-day\.creatable/);
   assert.match(styles, /\.calendar-day-add-hint/);
   assert.match(styles, /\.calendar-week-column\.creatable/);
+  assert.match(page, /const monthlySessionTooltip = \[/);
+  assert.match(page, /Instalaciones: \$\{session\.installationName\?\.trim\(\) \|\| "sin instalaciones asignadas"\}/);
+  assert.match(page, /weekly \? \(editable \? [\s\S]*?\) : monthlySessionTooltip/);
   assert.match(page, /El código de cinco dígitos de SUMMARY identifica la asignatura/);
   assert.match(page, /Grupos detectados/);
   assert.match(page, /el número que sigue a “Grupo:” se guarda en cada sesión/);
