@@ -323,8 +323,14 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /calendarView === "month" && hideSessionsWithoutPractice && session\.practiceId === null/);
   assert.match(page, /Ocultar sesiones sin prácticas/);
   assert.match(page, /setHideSessionsWithoutPractice\(false\)/);
-  assert.match(styles, /\.calendar-hide-incomplete-filter/);
-  assert.match(styles, /\.calendar-hide-incomplete-filter:has\(input:checked\)/);
+  assert.match(styles, /\.calendar-month-option/);
+  assert.match(styles, /\.calendar-month-option:has\(input:checked\)/);
+  assert.match(page, /colorSessionsByLaboratory/);
+  assert.match(page, /Colores por laboratorio/);
+  assert.match(page, /monthlyLaboratoryPalette/);
+  assert.match(page, /linear-gradient\(135deg/);
+  assert.match(page, /calendar-laboratory-color-legend/);
+  assert.match(styles, /\.session-event\.monthly-session\.laboratory-colored/);
   assert.match(page, /El código de cinco dígitos de SUMMARY identifica la asignatura/);
   assert.match(page, /Grupos detectados/);
   assert.match(page, /el número que sigue a “Grupo:” se guarda en cada sesión/);

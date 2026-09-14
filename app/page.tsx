@@ -323,6 +323,16 @@ type WeeklySessionPosition = {
 
 const calendarWeekHourHeight = 64;
 const calendarWeekDayCount = 5;
+const monthlyLaboratoryPalette = [
+  "#dceeff",
+  "#ffe1d9",
+  "#eee2ff",
+  "#fff1ba",
+  "#d7f3ea",
+  "#f9dff0",
+  "#e7ebef",
+  "#ffe5c3",
+];
 const calendarListDateFormatter = new Intl.DateTimeFormat("es-ES", {
   weekday: "short",
   day: "numeric",
@@ -3999,6 +4009,7 @@ function CalendarView({
   const [deleting, setDeleting] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>(emptyCalendarFilters);
   const [hideSessionsWithoutPractice, setHideSessionsWithoutPractice] = useState(false);
+  const [colorSessionsByLaboratory, setColorSessionsByLaboratory] = useState(false);
   const [draggedSessionId, setDraggedSessionId] = useState<number | null>(null);
   const [movingSessionId, setMovingSessionId] = useState<number | null>(null);
   const [monthDropDate, setMonthDropDate] = useState<string | null>(null);
@@ -4035,6 +4046,19 @@ function CalendarView({
   ), [allSessions, selectedSemester]);
   const practicesById = useMemo(() => new Map(practices.map((practice) => [practice.id, practice])), [practices]);
   const installationsById = useMemo(() => new Map(installations.map((installation) => [installation.id, installation])), [installations]);
+  const laboratoryColorAssignments = useMemo(() => [...laboratories]
+    .sort((left, right) => (
+      left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+      || left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+      || left.id - right.id
+    ))
+    .map((laboratory, index) => ({
+      laboratory,
+      color: monthlyLaboratoryPalette[index % monthlyLaboratoryPalette.length],
+    })), [laboratories]);
+  const laboratoryColorsById = useMemo(() => new Map(
+    laboratoryColorAssignments.map(({ laboratory, color }) => [laboratory.id, color]),
+  ), [laboratoryColorAssignments]);
   const filterInstallations = useMemo(() => (
     filters.laboratoryId
       ? installations.filter((installation) => String(installation.laboratoryId) === filters.laboratoryId)
@@ -4075,7 +4099,8 @@ function CalendarView({
     ))) return false;
     return true;
   }), [semesterSessions, calendarView, hideSessionsWithoutPractice, filters, practicesById, installationsById]);
-  const hasActiveFilters = Object.values(filters).some(Boolean) || (calendarView === "month" && hideSessionsWithoutPractice);
+  const hasActiveFilters = Object.values(filters).some(Boolean)
+    || (calendarView === "month" && (hideSessionsWithoutPractice || colorSessionsByLaboratory));
   const draggedSession = draggedSessionId === null
     ? undefined
     : filteredSemesterSessions.find((session) => session.id === draggedSessionId);
@@ -4269,7 +4294,10 @@ function CalendarView({
 
   function changeCalendarView(view: CalendarViewMode) {
     if (view === calendarView) return;
-    if (view !== "month") setHideSessionsWithoutPractice(false);
+    if (view !== "month") {
+      setHideSessionsWithoutPractice(false);
+      setColorSessionsByLaboratory(false);
+    }
     if (view === "week") {
       const reference = parseLocalDate(referenceDate);
       const weekTarget = calendarView === "month"
@@ -4328,6 +4356,7 @@ function CalendarView({
   function clearFilters() {
     setFilters(emptyCalendarFilters);
     setHideSessionsWithoutPractice(false);
+    setColorSessionsByLaboratory(false);
     clearSelection();
   }
 
@@ -4526,6 +4555,21 @@ function CalendarView({
 
   function renderSession(session: Session, weekly = false, weeklyPosition?: WeeklySessionPosition) {
     const editable = canEditSession(session);
+    const sessionLaboratoryColors = session.practiceId === null ? [] : [...new Set(
+      (practicesById.get(session.practiceId)?.installationIds ?? [])
+        .map((installationId) => installationsById.get(installationId)?.laboratoryId)
+        .filter((laboratoryId): laboratoryId is number => laboratoryId !== undefined)
+        .map((laboratoryId) => laboratoryColorsById.get(laboratoryId))
+        .filter((color): color is string => Boolean(color)),
+    )];
+    const monthlyLaboratoryBackground = sessionLaboratoryColors.length <= 1
+      ? sessionLaboratoryColors[0]
+      : `linear-gradient(135deg, ${sessionLaboratoryColors.flatMap((color, index) => {
+        const start = (index / sessionLaboratoryColors.length) * 100;
+        const end = ((index + 1) / sessionLaboratoryColors.length) * 100;
+        return [`${color} ${start}%`, `${color} ${end}%`];
+      }).join(", ")})`;
+    const laboratoryColored = !weekly && colorSessionsByLaboratory && Boolean(monthlyLaboratoryBackground);
     const monthlySessionTooltip = [
       `${session.startTime} · ${sessionPracticeTitle(session)}`,
       `Instalaciones: ${session.installationName?.trim() || "sin instalaciones asignadas"}`,
@@ -4546,9 +4590,9 @@ function CalendarView({
 
     return (
       <article
-        className={`session-event ${weekly ? "weekly-session" : "monthly-session"}${weeklyPosition && weeklyPosition.laneCount > 1 ? ` overlapping-session overlap-lane-${weeklyPosition.lane % 4}` : ""}${session.practiceId === null ? " incomplete" : ""}${selectedIds.has(session.id) ? " selected" : ""}${draggedSessionId === session.id ? " dragging" : ""}${movingSessionId === session.id ? " moving" : ""}`}
+        className={`session-event ${weekly ? "weekly-session" : "monthly-session"}${laboratoryColored ? " laboratory-colored" : ""}${weeklyPosition && weeklyPosition.laneCount > 1 ? ` overlapping-session overlap-lane-${weeklyPosition.lane % 4}` : ""}${session.practiceId === null ? " incomplete" : ""}${selectedIds.has(session.id) ? " selected" : ""}${draggedSessionId === session.id ? " dragging" : ""}${movingSessionId === session.id ? " moving" : ""}`}
         key={session.id}
-        style={weeklyStyle}
+        style={weeklyStyle ?? (laboratoryColored ? { background: monthlyLaboratoryBackground } : undefined)}
         draggable={editable && movingSessionId === null}
         aria-roledescription={editable ? "Sesión arrastrable" : undefined}
         onDragStart={editable ? (event) => beginSessionDrag(event, session) : undefined}
@@ -4693,7 +4737,7 @@ function CalendarView({
           <span>Filtrar sesiones</span>
           <div className="calendar-filter-summary">
             {calendarView === "month" && (
-              <label className="calendar-hide-incomplete-filter">
+              <label className="calendar-month-option">
                 <input
                   type="checkbox"
                   checked={hideSessionsWithoutPractice}
@@ -4703,6 +4747,16 @@ function CalendarView({
                   }}
                 />
                 <span>Ocultar sesiones sin prácticas</span>
+              </label>
+            )}
+            {calendarView === "month" && (
+              <label className="calendar-month-option">
+                <input
+                  type="checkbox"
+                  checked={colorSessionsByLaboratory}
+                  onChange={(event) => setColorSessionsByLaboratory(event.target.checked)}
+                />
+                <span>Colores por laboratorio</span>
               </label>
             )}
             <strong aria-live="polite">{filteredSemesterSessions.length} de {semesterSessions.length} {semesterSessions.length === 1 ? "sesión" : "sesiones"}</strong>
@@ -4751,6 +4805,14 @@ function CalendarView({
           </label>
           <button type="button" disabled={!hasActiveFilters} onClick={clearFilters}>Limpiar filtros</button>
         </div>
+        {calendarView === "month" && colorSessionsByLaboratory && (
+          <div className="calendar-laboratory-color-legend" aria-label="Colores asignados a los laboratorios">
+            <strong>Laboratorios</strong>
+            {laboratoryColorAssignments.map(({ laboratory, color }) => (
+              <span key={laboratory.id} title={laboratory.name}><i style={{ background: color }} />{laboratory.code}</span>
+            ))}
+          </div>
+        )}
       </div>
       <div className={selectedIds.size ? "calendar-selection-bar active" : "calendar-selection-bar"}>
         {selectedIds.size ? (
