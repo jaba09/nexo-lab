@@ -20,6 +20,7 @@ const schemaStatements = [
     category TEXT NOT NULL,
     capacity INTEGER NOT NULL CHECK (capacity > 0),
     status TEXT NOT NULL DEFAULT 'Operativa',
+    materials_description TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS practices (
@@ -456,6 +457,11 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("PRAGMA journal_mode = WAL");
   database.exec("PRAGMA busy_timeout = 5000");
   for (const statement of schemaStatements) database.exec(statement);
+
+  const installationColumnInfo = database.prepare("PRAGMA table_info(installations)").all() as { name: string }[];
+  if (!installationColumnInfo.some((column) => column.name === "materials_description")) {
+    database.exec("ALTER TABLE installations ADD COLUMN materials_description TEXT NOT NULL DEFAULT ''");
+  }
 
   const sessionColumnInfo = database.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
   const sessionColumns = new Set(sessionColumnInfo.map((column) => column.name));

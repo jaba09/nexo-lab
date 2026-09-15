@@ -107,6 +107,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const initialData = await (await fetch(`${origin}/api/data`)).json();
   assert.equal(initialData.laboratories.length, 3);
   assert.equal(initialData.installations.length, 4);
+  assert.ok(initialData.installations.every((installation) => installation.materialsDescription === ""));
   assert.equal(initialData.practices.length, 5);
   assert.deepEqual(
     initialData.practices.map((practice) => practice.name),
@@ -274,6 +275,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       category: "Docente",
       capacity: 20,
       status: "Planificada",
+      materialsDescription: "Probetas normalizadas, mordazas y gafas de protección.",
     },
     {
       entity: "practices",
@@ -331,6 +333,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(editedLaboratory.location, "Edificio Norte · Planta 3");
   assert.equal(editedInstallation.laboratoryId, 2);
   assert.equal(editedInstallation.status, "Planificada");
+  assert.equal(editedInstallation.materialsDescription, "Probetas normalizadas, mordazas y gafas de protección.");
   assert.deepEqual(editedPractice.installationIds, [3, 4]);
   assert.equal(editedPractice.installationCount, 2);
   assert.equal(editedPractice.riskLevel, "Alto");

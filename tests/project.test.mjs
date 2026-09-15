@@ -61,6 +61,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Editar laboratorio/);
   assert.match(page, /onEdit\("laboratories", laboratory\)/);
   assert.match(page, /installation-laboratory-group/);
+  assert.match(page, /Materiales necesarios/);
+  assert.match(page, /form\.materialsDescription/);
+  assert.match(page, /className="installation-materials-field"/);
+  assert.match(styles, /\.entity-form textarea \{ min-height: 170px/);
   assert.match(page, /laboratoryInstallations\.length === 1 \? "instalación" : "instalaciones"/);
   assert.match(page, /entity === "installations" && catalog\.laboratories\.length > 0/);
   assert.match(styles, /\.installation-laboratory-group\[open\] \.installation-laboratory-chevron/);

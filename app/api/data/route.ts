@@ -260,6 +260,7 @@ export async function GET() {
     const installations = database.prepare(`SELECT
       i.id, i.code, i.name, i.laboratory_id AS laboratoryId,
       l.name AS laboratoryName, i.category, i.capacity, i.status,
+      i.materials_description AS materialsDescription,
       COUNT(pi.practice_id) AS practiceCount
       FROM installations i
       JOIN laboratories l ON l.id = i.laboratory_id
@@ -474,8 +475,9 @@ export async function POST(request: Request) {
       const capacity = positiveInteger(payload.capacity);
       const category = cleanString(payload.category);
       const status = cleanString(payload.status);
+      const materialsDescription = cleanString(payload.materialsDescription);
       if (!laboratoryId || !capacity || !category || !status) return Response.json({ error: "Completa todos los datos de la instalación." }, { status: 400 });
-      database.prepare("INSERT INTO installations (code, name, laboratory_id, category, capacity, status) VALUES (?, ?, ?, ?, ?, ?)").run(code, name, laboratoryId, category, capacity, status);
+      database.prepare("INSERT INTO installations (code, name, laboratory_id, category, capacity, status, materials_description) VALUES (?, ?, ?, ?, ?, ?, ?)").run(code, name, laboratoryId, category, capacity, status, materialsDescription);
     } else if (entity === "practices") {
       const installationIds = positiveIntegerList(payload.installationIds);
       const editorSubjectId = authenticatedTeacher.isAdmin ? null : positiveInteger(payload.subjectId);
@@ -622,8 +624,9 @@ export async function PUT(request: Request) {
       const capacity = positiveInteger(payload.capacity);
       const category = cleanString(payload.category);
       const status = cleanString(payload.status);
+      const materialsDescription = cleanString(payload.materialsDescription);
       if (!laboratoryId || !capacity || !category || !status) return Response.json({ error: "Completa todos los datos de la instalación." }, { status: 400 });
-      database.prepare("UPDATE installations SET code = ?, name = ?, laboratory_id = ?, category = ?, capacity = ?, status = ? WHERE id = ?").run(code, name, laboratoryId, category, capacity, status, id);
+      database.prepare("UPDATE installations SET code = ?, name = ?, laboratory_id = ?, category = ?, capacity = ?, status = ?, materials_description = ? WHERE id = ?").run(code, name, laboratoryId, category, capacity, status, materialsDescription, id);
     } else if (entity === "practices") {
       const installationIds = positiveIntegerList(payload.installationIds);
       const duration = positiveInteger(payload.duration);

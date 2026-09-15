@@ -15,6 +15,9 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.equal(getDatabasePath(), process.env.NEXO_LAB_DB_PATH);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM laboratories").get().total, 3);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM installations").get().total, 4);
+  const installationColumns = database.prepare("PRAGMA table_info(installations)").all();
+  assert.equal(installationColumns.find((column) => column.name === "materials_description").notnull, 1);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM installations WHERE materials_description = ''").get().total, 4);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM practices").get().total, 5);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM practice_installations").get().total, 5);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM degrees").get().total, 3);

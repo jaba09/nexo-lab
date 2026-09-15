@@ -33,6 +33,7 @@ type Installation = {
   category: string;
   capacity: number;
   status: string;
+  materialsDescription: string;
   practiceCount: number;
 };
 
@@ -561,6 +562,7 @@ const initialForm = {
   category: "Docente",
   capacity: "24",
   status: "Operativa",
+  materialsDescription: "",
   installationIds: [] as number[],
   duration: "120",
   riskLevel: "Bajo",
@@ -1007,6 +1009,7 @@ export default function Home() {
         category: installation.category,
         capacity: String(installation.capacity),
         status: installation.status,
+        materialsDescription: installation.materialsDescription,
       });
     } else if (entity === "practices") {
       const practice = item as Practice;
@@ -1552,6 +1555,17 @@ export default function Home() {
                     <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
                       <option>Operativa</option><option>Mantenimiento</option><option>Planificada</option>
                     </select>
+                  </label>
+                  <label className="installation-materials-field">
+                    <span>Materiales necesarios</span>
+                    <textarea
+                      rows={7}
+                      maxLength={5000}
+                      value={form.materialsDescription}
+                      onChange={(event) => setForm({ ...form, materialsDescription: event.target.value })}
+                      placeholder="Describe el material fungible, las herramientas, los equipos auxiliares o la preparación necesaria para utilizar esta instalación."
+                    />
+                    <small>Campo opcional · máximo 5.000 caracteres</small>
                   </label>
                 </>
               )}

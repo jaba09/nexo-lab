@@ -101,6 +101,8 @@ test("migrates degree-practice relations to subjects without losing sessions", a
   const practiceColumn = sessionColumns.find((column) => column.name === "practice_id");
 
   assert.equal(practiceColumn.notnull, 0);
+  assert.ok(database.prepare("PRAGMA table_info(installations)").all().some((column) => column.name === "materials_description"));
+  assert.equal(database.prepare("SELECT materials_description AS materialsDescription FROM installations WHERE id = 1").get().materialsDescription, "");
   assert.ok(database.prepare("PRAGMA table_info(degrees)").all().some((column) => column.name === "ics_code"));
   assert.equal(database.prepare("SELECT ics_code AS icsCode FROM degrees WHERE id = 1").get().icsCode, "");
   assert.ok(sessionColumns.some((column) => column.name === "subject_id"));
