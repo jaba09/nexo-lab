@@ -544,11 +544,6 @@ function initialDateForSemester(semesterId: string, sessions: Session[], referen
   return parseLocalDate(targetDate);
 }
 
-function initialMonthForSemester(semesterId: string, sessions: Session[], referenceDate: string) {
-  const date = initialDateForSemester(semesterId, sessions, referenceDate);
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
 function initialWeekForSemester(semesterId: string, sessions: Session[], referenceDate: string) {
   return startOfCalendarWeek(initialDateForSemester(semesterId, sessions, referenceDate));
 }
@@ -4051,9 +4046,6 @@ function CalendarView({
   const calendarWeekStartHour = calendarPreferences.calendarStartHour;
   const calendarWeekEndHour = calendarPreferences.calendarEndHour;
   const [calendarView, setCalendarView] = useState<CalendarViewMode>("month");
-  const [visibleMonth, setVisibleMonth] = useState(() => {
-    return initialMonthForSemester(selectedSemester, allSessions, referenceDate);
-  });
   const [visibleWeekStart, setVisibleWeekStart] = useState(() => {
     return initialWeekForSemester(selectedSemester, allSessions, referenceDate);
   });
@@ -4071,9 +4063,6 @@ function CalendarView({
   const [movingSessionId, setMovingSessionId] = useState<number | null>(null);
   const [monthDropDate, setMonthDropDate] = useState<string | null>(null);
   const [weekDropPreview, setWeekDropPreview] = useState<CalendarDropPreview | null>(null);
-  const monthCalendarScrollRef = useRef<HTMLDivElement | null>(null);
-  const monthWheelGestureRef = useRef({ accumulated: 0, navigated: false });
-  const monthWheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editableSubjectIdSet = useMemo(
     () => new Set(editableSubjectIds.map(Number)),
     [editableSubjectIds],
@@ -4166,14 +4155,24 @@ function CalendarView({
     ? undefined
     : filteredSemesterSessions.find((session) => session.id === draggedSessionId);
 
-  const days = useMemo(() => {
-    const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
-    const mondayOffset = (firstDay.getDay() + 6) % 7;
-    const gridStart = new Date(firstDay.getFullYear(), firstDay.getMonth(), 1 - mondayOffset);
-    return Array.from({ length: 42 }, (_, index) => (
-      new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index)
-    ));
-  }, [visibleMonth]);
+  const semesterMonthCalendars = useMemo(() => {
+    const firstMonthValue = activeSemester.startYear * 12 + activeSemester.startMonthIndex;
+    const lastMonthValue = activeSemester.endYear * 12 + activeSemester.endMonthIndex;
+    return Array.from({ length: lastMonthValue - firstMonthValue + 1 }, (_, monthOffset) => {
+      const monthValue = firstMonthValue + monthOffset;
+      const month = new Date(Math.floor(monthValue / 12), monthValue % 12, 1);
+      const mondayOffset = (month.getDay() + 6) % 7;
+      const gridStart = new Date(month.getFullYear(), month.getMonth(), 1 - mondayOffset);
+      const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      const gridDayCount = Math.ceil((mondayOffset + daysInMonth) / 7) * 7;
+      return {
+        month,
+        days: Array.from({ length: gridDayCount }, (_, dayOffset) => (
+          new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + dayOffset)
+        )),
+      };
+    });
+  }, [activeSemester.endMonthIndex, activeSemester.endYear, activeSemester.startMonthIndex, activeSemester.startYear]);
   const weekDays = useMemo(() => (
     Array.from({ length: calendarWeekDayCount }, (_, index) => addCalendarDays(visibleWeekStart, index))
   ), [visibleWeekStart]);
@@ -4256,7 +4255,6 @@ function CalendarView({
   }, [calendarView]);
 
   const today = localIsoDate();
-  const monthLabel = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(visibleMonth);
   const weekEnd = weekDays[weekDays.length - 1];
   const weekLabel = visibleWeekStart.getMonth() === weekEnd.getMonth()
     ? `${visibleWeekStart.getDate()}–${weekEnd.getDate()} de ${new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(weekEnd)}`
@@ -4267,76 +4265,14 @@ function CalendarView({
   const installationColumnMinWidth = 76;
   const installationHourHeight = 36;
   const installationGridMinWidth = 58 + calendarInstallations.length * installationColumnMinWidth;
-  const visibleMonthValue = visibleMonth.getFullYear() * 12 + visibleMonth.getMonth();
-  const semesterStartValue = activeSemester.startYear * 12 + activeSemester.startMonthIndex;
-  const semesterEndValue = activeSemester.endYear * 12 + activeSemester.endMonthIndex;
   const semesterFirstWeek = startOfCalendarWeek(parseLocalDate(activeSemester.startDate));
   const semesterLastWeek = startOfCalendarWeek(parseLocalDate(activeSemester.endDate));
-  const canMovePrevious = calendarView === "month"
-    ? visibleMonthValue > semesterStartValue
-    : calendarView === "week"
-      ? visibleWeekStart.getTime() > semesterFirstWeek.getTime()
-      : calendarView === "installations" && installationDate > activeSemester.startDate;
-  const canMoveNext = calendarView === "month"
-    ? visibleMonthValue < semesterEndValue
-    : calendarView === "week"
-      ? visibleWeekStart.getTime() < semesterLastWeek.getTime()
-      : calendarView === "installations" && installationDate < activeSemester.endDate;
-
-  useEffect(() => {
-    const calendarScroll = monthCalendarScrollRef.current;
-    if (calendarView !== "month" || !calendarScroll) return;
-
-    const resetGesture = () => {
-      monthWheelGestureRef.current = { accumulated: 0, navigated: false };
-      monthWheelResetTimerRef.current = null;
-    };
-    const navigateWithWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.deltaY === 0 || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      const offset = event.deltaY > 0 ? 1 : -1;
-      const canNavigate = offset > 0
-        ? visibleMonthValue < semesterEndValue
-        : visibleMonthValue > semesterStartValue;
-      if (!canNavigate) return;
-
-      event.preventDefault();
-      const gesture = monthWheelGestureRef.current;
-      if (gesture.accumulated !== 0 && Math.sign(gesture.accumulated) !== Math.sign(event.deltaY)) {
-        gesture.accumulated = 0;
-        gesture.navigated = false;
-      }
-      const deltaMultiplier = event.deltaMode === 1
-        ? 16
-        : event.deltaMode === 2
-          ? Math.max(calendarScroll.clientHeight, 1)
-          : 1;
-      gesture.accumulated += event.deltaY * deltaMultiplier;
-      if (monthWheelResetTimerRef.current) clearTimeout(monthWheelResetTimerRef.current);
-      monthWheelResetTimerRef.current = setTimeout(resetGesture, 220);
-      if (gesture.navigated || Math.abs(gesture.accumulated) < 60) return;
-
-      gesture.navigated = true;
-      gesture.accumulated = 0;
-      const candidateValue = visibleMonthValue + offset;
-      setVisibleMonth(new Date(Math.floor(candidateValue / 12), candidateValue % 12, 1));
-      setSelectedIds(new Set());
-      setAnchorId(null);
-    };
-
-    calendarScroll.addEventListener("wheel", navigateWithWheel, { passive: false });
-    return () => calendarScroll.removeEventListener("wheel", navigateWithWheel);
-  }, [calendarView, semesterEndValue, semesterStartValue, visibleMonthValue]);
-
-  useEffect(() => () => {
-    if (monthWheelResetTimerRef.current) clearTimeout(monthWheelResetTimerRef.current);
-  }, []);
-
-  function moveMonth(offset: number) {
-    const candidate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1);
-    const candidateValue = candidate.getFullYear() * 12 + candidate.getMonth();
-    if (candidateValue < semesterStartValue || candidateValue > semesterEndValue) return;
-    setVisibleMonth(candidate);
-  }
+  const canMovePrevious = calendarView === "week"
+    ? visibleWeekStart.getTime() > semesterFirstWeek.getTime()
+    : calendarView === "installations" && installationDate > activeSemester.startDate;
+  const canMoveNext = calendarView === "week"
+    ? visibleWeekStart.getTime() < semesterLastWeek.getTime()
+    : calendarView === "installations" && installationDate < activeSemester.endDate;
 
   function moveWeek(offset: number) {
     const candidate = addCalendarDays(visibleWeekStart, offset * 7);
@@ -4352,14 +4288,12 @@ function CalendarView({
   }
 
   function moveCalendar(offset: number) {
-    if (calendarView === "month") moveMonth(offset);
-    else if (calendarView === "week") moveWeek(offset);
+    if (calendarView === "week") moveWeek(offset);
     else if (calendarView === "installations") moveInstallationDay(offset);
     clearSelection();
   }
 
   function goToToday() {
-    setVisibleMonth(initialMonthForSemester(selectedSemester, allSessions, referenceDate));
     setVisibleWeekStart(initialWeekForSemester(selectedSemester, allSessions, referenceDate));
     setVisibleInstallationDate(initialDateForSemester(selectedSemester, allSessions, referenceDate));
     clearSelection();
@@ -4367,7 +4301,6 @@ function CalendarView({
 
   function changeSemester(semesterId: string) {
     onSelectedSemesterChange(semesterId);
-    setVisibleMonth(initialMonthForSemester(semesterId, allSessions, referenceDate));
     setVisibleWeekStart(initialWeekForSemester(semesterId, allSessions, referenceDate));
     setVisibleInstallationDate(initialDateForSemester(semesterId, allSessions, referenceDate));
     clearSelection();
@@ -4408,31 +4341,15 @@ function CalendarView({
       setColorSessionsByLaboratory(false);
     }
     if (view === "week") {
-      const reference = parseLocalDate(referenceDate);
-      const weekTarget = calendarView === "month"
-        ? reference.getFullYear() === visibleMonth.getFullYear() && reference.getMonth() === visibleMonth.getMonth()
-          ? reference
-          : new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
-        : calendarView === "installations"
-          ? visibleInstallationDate
+      const weekTarget = calendarView === "installations"
+        ? visibleInstallationDate
         : initialDateForSemester(selectedSemester, allSessions, referenceDate);
       const candidate = startOfCalendarWeek(weekTarget);
       setVisibleWeekStart(candidate < semesterFirstWeek ? semesterFirstWeek : candidate > semesterLastWeek ? semesterLastWeek : candidate);
-    } else if (view === "month") {
-      const middleOfWeek = calendarView === "week"
-        ? addCalendarDays(visibleWeekStart, 3)
-        : calendarView === "installations"
-          ? visibleInstallationDate
-        : initialDateForSemester(selectedSemester, allSessions, referenceDate);
-      const candidateValue = middleOfWeek.getFullYear() * 12 + middleOfWeek.getMonth();
-      const clampedValue = Math.max(semesterStartValue, Math.min(candidateValue, semesterEndValue));
-      setVisibleMonth(new Date(Math.floor(clampedValue / 12), clampedValue % 12, 1));
     } else if (view === "installations") {
       const target = calendarView === "week"
         ? visibleWeekStart
-        : calendarView === "month"
-          ? new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
-          : initialDateForSemester(selectedSemester, allSessions, referenceDate);
+        : initialDateForSemester(selectedSemester, allSessions, referenceDate);
       const targetDate = localIsoDate(target);
       setVisibleInstallationDate(parseLocalDate(
         targetDate < activeSemester.startDate
@@ -4815,7 +4732,7 @@ function CalendarView({
       <div className="calendar-toolbar">
         <div>
           <span className="section-kicker">Planificación {calendarView === "month" ? "mensual" : calendarView === "week" ? "semanal" : calendarView === "installations" ? "por instalaciones" : "en lista"}</span>
-          <h2 className={calendarView === "installations" ? "calendar-installation-day-title" : undefined}>{calendarView === "month" ? monthLabel : calendarView === "week" ? weekLabel : calendarView === "installations" ? installationDayLabel : "Sesiones ordenadas"}</h2>
+          <h2 className={calendarView === "installations" ? "calendar-installation-day-title" : undefined}>{calendarView === "month" ? "Semestre completo" : calendarView === "week" ? weekLabel : calendarView === "installations" ? installationDayLabel : "Sesiones ordenadas"}</h2>
         </div>
         <div className="calendar-toolbar-side">
           <div className="calendar-view-switch" role="group" aria-label="Vista del calendario">
@@ -4826,11 +4743,11 @@ function CalendarView({
           </div>
           {canDelete && <button className="calendar-delete-button" type="button" disabled={!allSemesterSessionIds.length || deleting} onClick={() => void deleteSemesterSessions()}>Borrar semestre</button>}
           <span className="incomplete-legend"><i /> Incompleta: sin práctica</span>
-          {calendarView !== "list" && (
-            <div className="calendar-navigation" aria-label={calendarView === "month" ? "Navegar por meses" : calendarView === "week" ? "Navegar por semanas" : "Navegar por días"}>
-              <button type="button" disabled={!canMovePrevious} onClick={() => moveCalendar(-1)} aria-label={calendarView === "month" ? "Mes anterior del semestre" : calendarView === "week" ? "Semana anterior del semestre" : "Día anterior del semestre"}>←</button>
+          {(calendarView === "week" || calendarView === "installations") && (
+            <div className="calendar-navigation" aria-label={calendarView === "week" ? "Navegar por semanas" : "Navegar por días"}>
+              <button type="button" disabled={!canMovePrevious} onClick={() => moveCalendar(-1)} aria-label={calendarView === "week" ? "Semana anterior del semestre" : "Día anterior del semestre"}>←</button>
               <button type="button" onClick={goToToday}>{semesterFromDate(referenceDate) === selectedSemester ? "Hoy" : "Inicio"}</button>
-              <button type="button" disabled={!canMoveNext} onClick={() => moveCalendar(1)} aria-label={calendarView === "month" ? "Mes siguiente del semestre" : calendarView === "week" ? "Semana siguiente del semestre" : "Día siguiente del semestre"}>→</button>
+              <button type="button" disabled={!canMoveNext} onClick={() => moveCalendar(1)} aria-label={calendarView === "week" ? "Semana siguiente del semestre" : "Día siguiente del semestre"}>→</button>
             </div>
           )}
           {calendarView === "installations" && (
@@ -4954,62 +4871,70 @@ function CalendarView({
         )}
       </div>
       {calendarView === "month" ? (
-        <div
-          className="calendar-scroll"
-          ref={monthCalendarScrollRef}
-          aria-label="Vista mensual; desplázate hacia abajo para avanzar de mes y hacia arriba para retroceder"
-        >
-          <div className="calendar-body">
-            <div className="calendar-weekdays" aria-hidden="true">
-              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((weekday) => <span key={weekday}>{weekday}</span>)}
-            </div>
-            <div className="calendar-grid" role="grid">
-              {days.map((day) => {
-                const date = localIsoDate(day);
-                const dateSessions = sessionsByDate.get(date) ?? [];
-                const holiday = holidaysByDate.get(date);
-                const dayType = dayTypesByDate.get(date);
-                const outsideMonth = day.getMonth() !== visibleMonth.getMonth();
-                const dateCanCreateSession = canCreateSessionOnDate(date);
-                return (
-                  <div
-                    className={`calendar-day${outsideMonth ? " outside" : ""}${date === today ? " today" : ""}${holiday ? " holiday" : ""}${dateCanCreateSession ? " creatable" : ""}${monthDropDate === date ? " drop-target" : ""}`}
-                    key={date}
-                    role="gridcell"
-                    tabIndex={dateCanCreateSession ? 0 : -1}
-                    aria-disabled={Boolean(holiday)}
-                    title={holiday ? "Día festivo · no se pueden programar sesiones" : dateCanCreateSession ? "Haz clic para añadir una sesión este día" : undefined}
-                    aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}${dateCanCreateSession ? ", pulsa para añadir una sesión" : ""}`}
-                    onClick={dateCanCreateSession ? (event) => createSessionFromMonthDay(event, date) : undefined}
-                    onKeyDown={dateCanCreateSession ? (event) => createSessionWithKeyboard(event, date) : undefined}
-                    onDragOver={canEdit ? (event) => previewMonthDrop(event, date) : undefined}
-                    onDrop={canEdit ? (event) => dropOnMonth(event, date) : undefined}
-                  >
-                    <span className="calendar-day-number">{day.getDate()}</span>
-                    {dayType && <span className="calendar-day-type" aria-label={`Tipo de día ${dayType}`}>{dayType}</span>}
-                    {holiday && <span className="calendar-holiday-label">Festivo</span>}
-                    {dateCanCreateSession && <span className="calendar-day-add-hint" aria-hidden="true">+ sesión</span>}
-                    <div className="calendar-events">
-                      {monthDropDate === date && draggedSession && draggedSession.sessionDate !== date && (
-                        <div className={`session-event monthly-session calendar-month-drop-preview${draggedSession.practiceId === null ? " incomplete" : ""}`} aria-hidden="true">
-                          <div className="session-event-main">
-                            <span className="monthly-session-line">
-                              <b>{draggedSession.startTime.replace(/^0/, "")}</b>
-                              <strong>{draggedSession.practiceCode || "—"}</strong>
-                              <small>{draggedSession.subjectAbbreviation || draggedSession.subjectCode}-{draggedSession.degreeCode} · {draggedSession.groupCode ? `G${draggedSession.groupCode}` : "G—"}</small>
-                            </span>
-                            <em>Soltar aquí</em>
+        <div className="calendar-semester-months" aria-label="Todos los meses del semestre">
+          {semesterMonthCalendars.map(({ month, days: monthDays }) => {
+            const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+            const monthHeadingId = `calendar-month-${monthKey}`;
+            const monthTitle = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(month);
+            return (
+              <section className="calendar-semester-month" key={monthKey} aria-labelledby={monthHeadingId}>
+                <h3 className="calendar-semester-month-title" id={monthHeadingId}>{monthTitle}</h3>
+                <div className="calendar-scroll">
+                  <div className="calendar-body">
+                    <div className="calendar-weekdays" aria-hidden="true">
+                      {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((weekday) => <span key={weekday}>{weekday}</span>)}
+                    </div>
+                    <div className="calendar-grid" role="grid">
+                      {monthDays.map((day) => {
+                        const date = localIsoDate(day);
+                        const outsideMonth = day.getMonth() !== month.getMonth();
+                        const dateSessions = outsideMonth ? [] : sessionsByDate.get(date) ?? [];
+                        const holiday = outsideMonth ? undefined : holidaysByDate.get(date);
+                        const dayType = outsideMonth ? undefined : dayTypesByDate.get(date);
+                        const dateCanCreateSession = !outsideMonth && canCreateSessionOnDate(date);
+                        return (
+                          <div
+                            className={`calendar-day${outsideMonth ? " outside" : ""}${date === today ? " today" : ""}${holiday ? " holiday" : ""}${dateCanCreateSession ? " creatable" : ""}${!outsideMonth && monthDropDate === date ? " drop-target" : ""}`}
+                            key={date}
+                            role="gridcell"
+                            tabIndex={dateCanCreateSession ? 0 : -1}
+                            aria-disabled={Boolean(holiday || outsideMonth)}
+                            title={holiday ? "Día festivo · no se pueden programar sesiones" : dateCanCreateSession ? "Haz clic para añadir una sesión este día" : undefined}
+                            aria-label={`${day.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}${dayType ? `, tipo de día ${dayType}` : ""}${holiday ? ", día festivo" : ""}, ${dateSessions.length} ${dateSessions.length === 1 ? "sesión" : "sesiones"}${dateCanCreateSession ? ", pulsa para añadir una sesión" : ""}`}
+                            onClick={dateCanCreateSession ? (event) => createSessionFromMonthDay(event, date) : undefined}
+                            onKeyDown={dateCanCreateSession ? (event) => createSessionWithKeyboard(event, date) : undefined}
+                            onDragOver={canEdit && !outsideMonth ? (event) => previewMonthDrop(event, date) : undefined}
+                            onDrop={canEdit && !outsideMonth ? (event) => dropOnMonth(event, date) : undefined}
+                          >
+                            <span className="calendar-day-number">{day.getDate()}</span>
+                            {dayType && <span className="calendar-day-type" aria-label={`Tipo de día ${dayType}`}>{dayType}</span>}
+                            {holiday && <span className="calendar-holiday-label">Festivo</span>}
+                            {dateCanCreateSession && <span className="calendar-day-add-hint" aria-hidden="true">+ sesión</span>}
+                            <div className="calendar-events">
+                              {!outsideMonth && monthDropDate === date && draggedSession && draggedSession.sessionDate !== date && (
+                                <div className={`session-event monthly-session calendar-month-drop-preview${draggedSession.practiceId === null ? " incomplete" : ""}`} aria-hidden="true">
+                                  <div className="session-event-main">
+                                    <span className="monthly-session-line">
+                                      <b>{draggedSession.startTime.replace(/^0/, "")}</b>
+                                      <strong>{draggedSession.practiceCode || "—"}</strong>
+                                      <small>{draggedSession.subjectAbbreviation || draggedSession.subjectCode}-{draggedSession.degreeCode} · {draggedSession.groupCode ? `G${draggedSession.groupCode}` : "G—"}</small>
+                                    </span>
+                                    <em>Soltar aquí</em>
+                                  </div>
+                                  <span className="session-drop-indicator">↳</span>
+                                </div>
+                              )}
+                              {dateSessions.map((session) => renderSession(session))}
+                            </div>
                           </div>
-                          <span className="session-drop-indicator">↳</span>
-                        </div>
-                      )}
-                      {dateSessions.map((session) => renderSession(session))}
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </div>
+              </section>
+            );
+          })}
         </div>
       ) : calendarView === "week" ? (
         <div className="calendar-week-scroll">

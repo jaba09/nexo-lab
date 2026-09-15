@@ -436,10 +436,14 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /session-drag-image/);
   assert.match(page, /calendar-month-drop-preview/);
   assert.match(page, /monthly-session-line/);
-  assert.match(page, /monthCalendarScrollRef/);
-  assert.match(page, /addEventListener\("wheel", navigateWithWheel, \{ passive: false \}\)/);
-  assert.match(page, /Math\.abs\(gesture\.accumulated\) < 60/);
-  assert.match(page, /desplázate hacia abajo para avanzar de mes y hacia arriba para retroceder/);
+  assert.match(page, /const semesterMonthCalendars = useMemo/);
+  assert.match(page, /Todos los meses del semestre/);
+  assert.match(page, /gridDayCount = Math\.ceil/);
+  assert.match(page, /const dateSessions = outsideMonth \? \[\] : sessionsByDate\.get\(date\) \?\? \[\]/);
+  assert.doesNotMatch(page, /addEventListener\("wheel"/);
+  assert.doesNotMatch(page, /visibleMonth/);
+  assert.match(styles, /\.calendar-semester-months/);
+  assert.match(styles, /\.calendar-semester-month-title/);
   assert.match(page, /subjectAbbreviation \|\| session\.subjectCode/);
   assert.match(page, /session\.startTime\.replace\(\/\^0\//);
   assert.match(styles, /\.monthly-session-line strong \{ margin: 0 7px; font-size: 11px;/);

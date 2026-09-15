@@ -697,6 +697,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .calendar-selection-bar .danger-action { border-color: #d79b94; color: #913a33; background: #fff7f5; }
 .calendar-selection-bar .danger-action:hover { background: #ffe9e6; }
 .calendar-selection-bar .danger-action:disabled { opacity: .45; cursor: wait; }
+.calendar-semester-months { padding: 18px; background: #f2f1eb; display: grid; gap: 22px; scroll-behavior: smooth; }
+.calendar-semester-month { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--white); box-shadow: 0 4px 14px rgba(23,32,29,.05); }
+.calendar-semester-month-title { margin: 0; padding: 13px 17px; border-bottom: 1px solid var(--line); background: #fbfaf6; color: var(--ink); font-size: 18px; font-weight: 680; letter-spacing: -.025em; text-transform: capitalize; }
 .calendar-scroll { overflow-x: auto; }
 .calendar-body { min-width: 880px; }
 .calendar-weekdays { min-height: 38px; display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; border-bottom: 1px solid var(--line); background: #f7f5ef; }
