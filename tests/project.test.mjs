@@ -323,9 +323,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.calendar-day\.creatable/);
   assert.match(styles, /\.calendar-day-add-hint/);
   assert.match(styles, /\.calendar-week-column\.creatable/);
-  assert.match(page, /const monthlySessionTooltip = \[/);
-  assert.match(page, /Instalaciones: \$\{session\.installationName\?\.trim\(\) \|\| "sin instalaciones asignadas"\}/);
-  assert.match(page, /weekly \? \(editable \? [\s\S]*?\) : monthlySessionTooltip/);
+  assert.match(page, /const sessionTooltip = \[/);
+  assert.match(page, /Instalaciones: \$\{sessionInstallations\.map/);
+  assert.match(page, /title=\{sessionTooltip\}/);
   assert.match(page, /hideSessionsWithoutPractice/);
   assert.match(page, /calendarView === "month" && hideSessionsWithoutPractice && session\.practiceId === null/);
   assert.match(page, /Ocultar sesiones sin prácticas/);
@@ -453,6 +453,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(styles, /\.monthly-session-line strong \{ margin: 0 7px; font-size: 11px;/);
   assert.match(page, /weekly-practice-name/);
   assert.match(page, /sessionPracticeTitle\(session\)/);
+  assert.match(page, /const sessionMaterialsTooltip/);
+  assert.match(page, /Materiales necesarios:\\n/);
+  assert.match(page, /title=\{sessionTooltip\}/);
+  assert.doesNotMatch(page, /Arrastra para cambiar día y hora · doble clic para editar/);
   assert.match(page, /session-teacher-unassigned/);
   assert.match(page, /Prof\. sin asignar/);
   assert.match(styles, /\.session-teacher-unassigned \{ color: var\(--danger\)/);

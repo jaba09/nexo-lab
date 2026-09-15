@@ -4595,13 +4595,27 @@ function CalendarView({
 
   function renderSession(session: Session, weekly = false, weeklyPosition?: WeeklySessionPosition) {
     const editable = canEditSession(session);
-    const sessionLaboratoryColors = session.practiceId === null ? [] : [...new Set(
-      (practicesById.get(session.practiceId)?.installationIds ?? [])
-        .map((installationId) => installationsById.get(installationId)?.laboratoryId)
-        .filter((laboratoryId): laboratoryId is number => laboratoryId !== undefined)
+    const sessionInstallations = session.practiceId === null ? [] : [...new Set(
+      practicesById.get(session.practiceId)?.installationIds ?? [],
+    )]
+      .map((installationId) => installationsById.get(installationId))
+      .filter((installation): installation is Installation => Boolean(installation));
+    const sessionLaboratoryColors = [...new Set(
+      sessionInstallations
+        .map((installation) => installation.laboratoryId)
         .map((laboratoryId) => laboratoryColorsById.get(laboratoryId))
         .filter((color): color is string => Boolean(color)),
     )];
+    const materialsByDescription = new Map<string, string[]>();
+    for (const installation of sessionInstallations) {
+      const description = installation.materialsDescription.trim() || "Sin especificar";
+      materialsByDescription.set(description, [...(materialsByDescription.get(description) ?? []), installation.name]);
+    }
+    const sessionMaterialsTooltip = sessionInstallations.length
+      ? `Materiales necesarios:\n${[...materialsByDescription.entries()]
+        .map(([description, installationNames]) => `• ${installationNames.join(" · ")}: ${description}`)
+        .join("\n")}`
+      : "Materiales necesarios: sin instalaciones asignadas";
     const monthlyLaboratoryBackground = sessionLaboratoryColors.length <= 1
       ? sessionLaboratoryColors[0]
       : `linear-gradient(135deg, ${sessionLaboratoryColors.flatMap((color, index) => {
@@ -4610,10 +4624,11 @@ function CalendarView({
         return [`${color} ${start}%`, `${color} ${end}%`];
       }).join(", ")})`;
     const laboratoryColored = !weekly && colorSessionsByLaboratory && Boolean(monthlyLaboratoryBackground);
-    const monthlySessionTooltip = [
+    const sessionTooltip = [
       `${session.startTime} · ${sessionPracticeTitle(session)}`,
-      `Instalaciones: ${session.installationName?.trim() || "sin instalaciones asignadas"}`,
-      editable ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar",
+      `Instalaciones: ${sessionInstallations.map((installation) => installation.name).join(" · ") || "sin instalaciones asignadas"}`,
+      sessionMaterialsTooltip,
+      editable ? "Doble clic para editar" : "Clic para seleccionar y exportar",
     ].join("\n");
     const start = calendarSessionStartMinutes(session);
     const clippedStart = Math.max(start, calendarWeekStartHour * 60);
@@ -4645,7 +4660,7 @@ function CalendarView({
           onClick={(event) => selectSession(session, event)}
           onDoubleClick={editable ? () => onEdit(session) : undefined}
           aria-label={`Seleccionar ${session.practiceName || "sesión sin práctica"}, ${session.groupCode ? `grupo ${session.groupCode}` : "sin grupo"}`}
-          title={weekly ? (editable ? "Arrastra para cambiar día y hora · doble clic para editar" : "Clic para seleccionar y exportar") : monthlySessionTooltip}
+          title={sessionTooltip}
         >
           {weekly ? (
             <>
