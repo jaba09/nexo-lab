@@ -436,6 +436,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /session-drag-image/);
   assert.match(page, /calendar-month-drop-preview/);
   assert.match(page, /monthly-session-line/);
+  assert.match(page, /monthCalendarScrollRef/);
+  assert.match(page, /addEventListener\("wheel", navigateWithWheel, \{ passive: false \}\)/);
+  assert.match(page, /Math\.abs\(gesture\.accumulated\) < 60/);
+  assert.match(page, /desplázate hacia abajo para avanzar de mes y hacia arriba para retroceder/);
   assert.match(page, /subjectAbbreviation \|\| session\.subjectCode/);
   assert.match(page, /session\.startTime\.replace\(\/\^0\//);
   assert.match(styles, /\.monthly-session-line strong \{ margin: 0 7px; font-size: 11px;/);

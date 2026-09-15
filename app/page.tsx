@@ -4071,6 +4071,9 @@ function CalendarView({
   const [movingSessionId, setMovingSessionId] = useState<number | null>(null);
   const [monthDropDate, setMonthDropDate] = useState<string | null>(null);
   const [weekDropPreview, setWeekDropPreview] = useState<CalendarDropPreview | null>(null);
+  const monthCalendarScrollRef = useRef<HTMLDivElement | null>(null);
+  const monthWheelGestureRef = useRef({ accumulated: 0, navigated: false });
+  const monthWheelResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editableSubjectIdSet = useMemo(
     () => new Set(editableSubjectIds.map(Number)),
     [editableSubjectIds],
@@ -4279,6 +4282,54 @@ function CalendarView({
     : calendarView === "week"
       ? visibleWeekStart.getTime() < semesterLastWeek.getTime()
       : calendarView === "installations" && installationDate < activeSemester.endDate;
+
+  useEffect(() => {
+    const calendarScroll = monthCalendarScrollRef.current;
+    if (calendarView !== "month" || !calendarScroll) return;
+
+    const resetGesture = () => {
+      monthWheelGestureRef.current = { accumulated: 0, navigated: false };
+      monthWheelResetTimerRef.current = null;
+    };
+    const navigateWithWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.deltaY === 0 || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const offset = event.deltaY > 0 ? 1 : -1;
+      const canNavigate = offset > 0
+        ? visibleMonthValue < semesterEndValue
+        : visibleMonthValue > semesterStartValue;
+      if (!canNavigate) return;
+
+      event.preventDefault();
+      const gesture = monthWheelGestureRef.current;
+      if (gesture.accumulated !== 0 && Math.sign(gesture.accumulated) !== Math.sign(event.deltaY)) {
+        gesture.accumulated = 0;
+        gesture.navigated = false;
+      }
+      const deltaMultiplier = event.deltaMode === 1
+        ? 16
+        : event.deltaMode === 2
+          ? Math.max(calendarScroll.clientHeight, 1)
+          : 1;
+      gesture.accumulated += event.deltaY * deltaMultiplier;
+      if (monthWheelResetTimerRef.current) clearTimeout(monthWheelResetTimerRef.current);
+      monthWheelResetTimerRef.current = setTimeout(resetGesture, 220);
+      if (gesture.navigated || Math.abs(gesture.accumulated) < 60) return;
+
+      gesture.navigated = true;
+      gesture.accumulated = 0;
+      const candidateValue = visibleMonthValue + offset;
+      setVisibleMonth(new Date(Math.floor(candidateValue / 12), candidateValue % 12, 1));
+      setSelectedIds(new Set());
+      setAnchorId(null);
+    };
+
+    calendarScroll.addEventListener("wheel", navigateWithWheel, { passive: false });
+    return () => calendarScroll.removeEventListener("wheel", navigateWithWheel);
+  }, [calendarView, semesterEndValue, semesterStartValue, visibleMonthValue]);
+
+  useEffect(() => () => {
+    if (monthWheelResetTimerRef.current) clearTimeout(monthWheelResetTimerRef.current);
+  }, []);
 
   function moveMonth(offset: number) {
     const candidate = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1);
@@ -4903,7 +4954,11 @@ function CalendarView({
         )}
       </div>
       {calendarView === "month" ? (
-        <div className="calendar-scroll">
+        <div
+          className="calendar-scroll"
+          ref={monthCalendarScrollRef}
+          aria-label="Vista mensual; desplázate hacia abajo para avanzar de mes y hacia arriba para retroceder"
+        >
           <div className="calendar-body">
             <div className="calendar-weekdays" aria-hidden="true">
               {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((weekday) => <span key={weekday}>{weekday}</span>)}
