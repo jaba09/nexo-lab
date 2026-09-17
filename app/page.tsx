@@ -20,7 +20,6 @@ type Laboratory = {
   code: string;
   name: string;
   location: string;
-  manager: string;
   installationCount: number;
 };
 
@@ -399,7 +398,7 @@ const entityCopy: Record<Entity, { singular: string; plural: string; description
   laboratories: {
     singular: "laboratorio",
     plural: "Laboratorios",
-    description: "Unidades responsables que agrupan espacios e instalaciones.",
+    description: "Espacios que agrupan instalaciones y equipos.",
   },
   installations: {
     singular: "instalación",
@@ -557,7 +556,6 @@ const initialForm = {
   password: "",
   name: "",
   location: "",
-  manager: "",
   laboratoryId: "",
   category: "Docente",
   capacity: "24",
@@ -997,7 +995,6 @@ export default function Home() {
         code: laboratory.code,
         name: laboratory.name,
         location: laboratory.location,
-        manager: laboratory.manager,
       });
     } else if (entity === "installations") {
       const installation = item as Installation;
@@ -1521,10 +1518,6 @@ export default function Home() {
                   <label>
                     <span>Ubicación</span>
                     <input required value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="Edificio y planta" />
-                  </label>
-                  <label>
-                    <span>Responsable</span>
-                    <input required value={form.manager} onChange={(event) => setForm({ ...form, manager: event.target.value })} placeholder="Nombre de coordinación" />
                   </label>
                 </>
               )}
@@ -3548,7 +3541,7 @@ function InstallationHierarchy({
       || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
     ))
     .map((laboratory) => {
-      const laboratoryMatches = term && [laboratory.code, laboratory.name, laboratory.location, laboratory.manager]
+      const laboratoryMatches = term && [laboratory.code, laboratory.name, laboratory.location]
         .join(" ")
         .toLocaleLowerCase("es")
         .includes(term);
@@ -3594,13 +3587,12 @@ function InstallationHierarchy({
           </summary>
           {laboratoryInstallations.length ? (
             <div className="installation-laboratory-table-wrap">
-              <div className="installation-laboratory-management">
-                <span><small>Responsable</small><strong>{laboratory.manager || "Sin indicar"}</strong></span>
+              {(canEditLaboratories || canDelete) && <div className="installation-laboratory-management">
                 <div>
                   {canEditLaboratories && <button className="secondary-button" type="button" onClick={() => onEditLaboratory(laboratory)}>Editar laboratorio</button>}
                   {canDelete && <button className="delete-button" type="button" onClick={() => onDeleteLaboratory(laboratory)} aria-label={`Eliminar ${laboratory.name}`}>×</button>}
                 </div>
-              </div>
+              </div>}
               <table className="entity-table installation-laboratory-table">
                 <thead><tr>
                   <th>Código / Nombre</th>
@@ -3630,11 +3622,11 @@ function InstallationHierarchy({
             </div>
           ) : (
             <div className="installation-laboratory-management empty">
-              <span><small>Responsable</small><strong>{laboratory.manager || "Sin indicar"}</strong><em>Este laboratorio todavía no tiene instalaciones.</em></span>
-              <div>
+              <span><em>Este laboratorio todavía no tiene instalaciones.</em></span>
+              {(canEditLaboratories || canDelete) && <div>
                 {canEditLaboratories && <button className="secondary-button" type="button" onClick={() => onEditLaboratory(laboratory)}>Editar laboratorio</button>}
                 {canDelete && <button className="delete-button" type="button" onClick={() => onDeleteLaboratory(laboratory)} aria-label={`Eliminar ${laboratory.name}`}>×</button>}
-              </div>
+              </div>}
             </div>
           )}
         </details>
@@ -3930,7 +3922,6 @@ function EntityView({
               <div className="card-top"><span className="entity-pill">{lab.code}</span>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, lab.id, lab.name); }} aria-label={`Eliminar ${lab.name}`}>×</button></div>}</div>
               <h2>{lab.name}</h2>
               <p><span>Ubicación</span>{lab.location}</p>
-              <p><span>Responsable</span>{lab.manager}</p>
               <div className="card-foot"><strong>{lab.installationCount}</strong><span>instalaciones<br />conectadas</span><ArrowIcon /></div>
             </div>
           ))}

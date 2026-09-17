@@ -271,7 +271,6 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       code: "LAB-01A",
       name: "Materiales avanzados",
       location: "Edificio Norte · Planta 3",
-      manager: "Dra. Elena Martín",
     },
     {
       entity: "installations",
@@ -338,6 +337,10 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const editedTeacher = editedData.teachers.find((teacher) => teacher.id === 1);
   assert.equal(editedLaboratory.code, "LAB-01A");
   assert.equal(editedLaboratory.location, "Edificio Norte · Planta 3");
+  assert.equal(Object.hasOwn(editedLaboratory, "manager"), false);
+  const legacyLaboratoryDatabase = new DatabaseSync(databasePath);
+  assert.equal(legacyLaboratoryDatabase.prepare("SELECT manager FROM laboratories WHERE id = 1").get().manager, "Dra. Elena Martín");
+  legacyLaboratoryDatabase.close();
   assert.equal(editedInstallation.laboratoryId, 2);
   assert.equal(editedInstallation.status, "Planificada");
   assert.equal(editedInstallation.materialsDescription, "Probetas normalizadas, mordazas y gafas de protección.");
@@ -606,7 +609,6 @@ END:VCALENDAR\r
       code: "LAB-99",
       name: "Laboratorio temporal",
       location: "Pruebas",
-      manager: "Coordinación",
     }),
   });
   assert.equal(createResponse.status, 201);
@@ -615,6 +617,10 @@ END:VCALENDAR\r
   assert.equal(updatedData.laboratories.length, 4);
   const createdLaboratory = updatedData.laboratories.find((laboratory) => laboratory.code === "LAB-99");
   assert.ok(createdLaboratory);
+  assert.equal(Object.hasOwn(createdLaboratory, "manager"), false);
+  const newLaboratoryDatabase = new DatabaseSync(databasePath);
+  assert.equal(newLaboratoryDatabase.prepare("SELECT manager FROM laboratories WHERE id = ?").get(createdLaboratory.id).manager, "");
+  newLaboratoryDatabase.close();
 
   const deleteResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",

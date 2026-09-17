@@ -251,7 +251,7 @@ export async function GET() {
   try {
     const database = getDatabase();
     const laboratories = database.prepare(`SELECT
-      l.id, l.code, l.name, l.location, l.manager,
+      l.id, l.code, l.name, l.location,
       COUNT(i.id) AS installationCount
       FROM laboratories l
       LEFT JOIN installations i ON i.laboratory_id = l.id
@@ -467,9 +467,9 @@ export async function POST(request: Request) {
 
     if (entity === "laboratories") {
       const location = cleanString(payload.location);
-      const manager = cleanString(payload.manager);
-      if (!location || !manager) return Response.json({ error: "La ubicación y la persona responsable son obligatorias." }, { status: 400 });
-      database.prepare("INSERT INTO laboratories (code, name, location, manager) VALUES (?, ?, ?, ?)").run(code, name, location, manager);
+      if (!location) return Response.json({ error: "La ubicación es obligatoria." }, { status: 400 });
+      // The legacy manager column is required in existing databases, but no longer used by the app.
+      database.prepare("INSERT INTO laboratories (code, name, location, manager) VALUES (?, ?, ?, '')").run(code, name, location);
     } else if (entity === "installations") {
       const laboratoryId = positiveInteger(payload.laboratoryId);
       const capacity = positiveInteger(payload.capacity);
@@ -616,9 +616,8 @@ export async function PUT(request: Request) {
 
     if (entity === "laboratories") {
       const location = cleanString(payload.location);
-      const manager = cleanString(payload.manager);
-      if (!location || !manager) return Response.json({ error: "La ubicación y la persona responsable son obligatorias." }, { status: 400 });
-      database.prepare("UPDATE laboratories SET code = ?, name = ?, location = ?, manager = ? WHERE id = ?").run(code, name, location, manager, id);
+      if (!location) return Response.json({ error: "La ubicación es obligatoria." }, { status: 400 });
+      database.prepare("UPDATE laboratories SET code = ?, name = ?, location = ? WHERE id = ?").run(code, name, location, id);
     } else if (entity === "installations") {
       const laboratoryId = positiveInteger(payload.laboratoryId);
       const capacity = positiveInteger(payload.capacity);

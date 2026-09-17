@@ -549,10 +549,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .installation-laboratory-management { min-height: 58px; padding: 9px 17px 9px 58px; border-bottom: 1px solid var(--line); background: #f7f8f2; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .installation-laboratory-management.empty { border-top: 1px solid var(--line); border-bottom: 0; }
 .installation-laboratory-management > span { min-width: 0; display: grid; gap: 3px; }
-.installation-laboratory-management small { color: var(--muted); font: 650 7px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .06em; }
-.installation-laboratory-management strong { font-size: 10px; }
 .installation-laboratory-management em { color: var(--muted); font-size: 9px; }
-.installation-laboratory-management > div { display: flex; align-items: center; gap: 7px; }
+.installation-laboratory-management > div { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .installation-laboratory-management .secondary-button { min-height: 34px; padding: 0 12px; font-size: 9px; }
 .installation-laboratory-table { min-width: 650px; }
 .installation-laboratory-table th { background: #f3f5ec; }
