@@ -3,6 +3,8 @@ import { semesterDefinition } from "../../../lib/semesters";
 import { getAuthenticatedTeacher, hashPassword, passwordValidationError, readOnlyResponse, unauthorizedResponse } from "../../../lib/auth";
 import { readAppPreferences } from "../../../lib/preferences";
 import { findNewSessionConflict, installationIncludedInConflictChecks, type ScheduledSession } from "../../../lib/sessionConflicts";
+import { publishDataChange } from "../../../lib/dataEvents";
+import { recordVersion, type EditableEntity } from "../../../lib/recordVersion";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +15,65 @@ const entities: Entity[] = ["laboratories", "installations", "practices", "degre
 
 function isEntity(value: unknown): value is Entity {
   return typeof value === "string" && entities.includes(value as Entity);
+}
+
+function currentRecordVersion(database: ReturnType<typeof getDatabase>, entity: EditableEntity, id: number): string | null {
+  const queries: Record<EditableEntity, string> = {
+    laboratories: "SELECT code, name, location FROM laboratories WHERE id = ?",
+    installations: `SELECT code, name, laboratory_id AS laboratoryId, category, capacity, status,
+      materials_description AS materialsDescription FROM installations WHERE id = ?`,
+    practices: "SELECT code, name, duration, risk_level AS riskLevel FROM practices WHERE id = ?",
+    degrees: "SELECT code, ics_code AS icsCode, name, level FROM degrees WHERE id = ?",
+    subjects: "SELECT code, abbreviation, name, degree_id AS degreeId FROM subjects WHERE id = ?",
+    teachers: "SELECT code, name, email, is_admin AS isAdmin FROM teachers WHERE id = ?",
+    sessions: `SELECT session_date AS sessionDate, start_time AS startTime, duration,
+      subject_id AS subjectId, teacher_id AS teacherId, practice_id AS practiceId,
+      group_code AS groupCode FROM sessions WHERE id = ?`,
+  };
+  const record = database.prepare(queries[entity]).get(id) as Record<string, unknown> | undefined;
+  if (!record) return null;
+
+  if (entity === "practices") {
+    record.installationIds = (database.prepare(
+      "SELECT installation_id AS id FROM practice_installations WHERE practice_id = ? ORDER BY installation_id",
+    ).all(id) as { id: number }[]).map(({ id: installationId }) => installationId);
+  } else if (entity === "subjects") {
+    record.practiceIds = (database.prepare(`SELECT p.id FROM subject_practices sp
+      JOIN practices p ON p.id = sp.practice_id WHERE sp.subject_id = ?
+      ORDER BY sp.position, p.name COLLATE NOCASE, p.code COLLATE NOCASE, p.id`
+    ).all(id) as { id: number }[]).map(({ id: practiceId }) => practiceId);
+    record.editorIds = (database.prepare(
+      "SELECT teacher_id AS id FROM subject_editors WHERE subject_id = ? ORDER BY teacher_id",
+    ).all(id) as { id: number }[]).map(({ id: teacherId }) => teacherId);
+  }
+  return recordVersion(entity, record);
+}
+
+function staleRecordResponse() {
+  return Response.json({
+    code: "STALE_RECORD",
+    error: "Otro usuario ha modificado este registro. Tus cambios no se han guardado. Cierra la ficha y vuelve a abrirla para revisar la versión actual.",
+  }, { status: 409 });
+}
+
+function staleSessionsResponse() {
+  return Response.json({
+    code: "STALE_RECORD",
+    error: "Una o varias sesiones han cambiado desde que las seleccionaste. No se ha aplicado la operación. Revisa la lista y vuelve a seleccionarlas.",
+  }, { status: 409 });
+}
+
+function selectedVersionsMatch(database: ReturnType<typeof getDatabase>, ids: number[], expected: unknown): boolean {
+  if (expected === undefined) return true; // Older clients can still use the API during a deploy.
+  if (!expected || typeof expected !== "object" || Array.isArray(expected)) return false;
+  const versions = expected as Record<string, unknown>;
+  return ids.every((id) => typeof versions[id] === "string"
+    && versions[id] === currentRecordVersion(database, "sessions", id));
+}
+
+function changedResponse(body: Record<string, unknown>, init?: ResponseInit) {
+  publishDataChange();
+  return Response.json(body, init);
 }
 
 function cleanString(value: unknown) {
@@ -380,16 +441,21 @@ export async function GET() {
       ORDER BY day_date`).all();
 
     return Response.json({
-      laboratories,
-      installations,
+      laboratories: laboratories.map((laboratory) => ({ ...laboratory, editVersion: recordVersion("laboratories", laboratory) })),
+      installations: installations.map((installation) => ({ ...installation, editVersion: recordVersion("installations", installation) })),
       practices: practices.map((practice) => ({
         ...practice,
         installationIds: String(practice.installationIds || "").split(",").filter(Boolean).map(Number),
+        editVersion: recordVersion("practices", {
+          ...practice,
+          installationIds: String(practice.installationIds || "").split(",").filter(Boolean).map(Number),
+        }),
       })),
       degrees: degrees.map((degree) => ({
         ...degree,
         subjectCodes: String(degree.subjectCodes || "").split(",").filter(Boolean),
         subjectIds: String(degree.subjectIds || "").split(",").filter(Boolean).map(Number),
+        editVersion: recordVersion("degrees", degree),
       })),
       subjects: subjects.map((subject) => ({
         ...subject,
@@ -397,15 +463,26 @@ export async function GET() {
         practiceIds: String(subject.practiceIds || "").split(",").filter(Boolean).map(Number),
         editorIds: String(subject.editorIds || "").split(",").filter(Boolean).map(Number),
         editorCodes: String(subject.editorCodes || "").split(",").filter(Boolean),
+        editVersion: recordVersion("subjects", {
+          ...subject,
+          practiceIds: String(subject.practiceIds || "").split(",").filter(Boolean).map(Number),
+          editorIds: String(subject.editorIds || "").split(",").filter(Boolean).map(Number),
+        }),
       })),
-      teachers: teachers.map((teacher) => ({ ...teacher, isAdmin: Boolean(teacher.isAdmin) })),
+      teachers: teachers.map((teacher) => ({
+        ...teacher,
+        isAdmin: Boolean(teacher.isAdmin),
+        editVersion: recordVersion("teachers", teacher),
+      })),
       sessions: sessions.map((session) => ({
         ...session,
         degreePracticeIds: String(session.degreePracticeIds || "").split(",").filter(Boolean).map(Number),
+        editVersion: recordVersion("sessions", session),
       })),
       holidays,
       academicDayTypes,
       preferences: readAppPreferences(database),
+      viewer: authenticatedTeacher,
       editableSubjectIds: authenticatedTeacher.isAdmin
         ? subjects.map((subject) => Number(subject.id))
         : editableSubjectIds(database, authenticatedTeacher.id),
@@ -458,7 +535,7 @@ export async function POST(request: Request) {
       }]);
       if (overlap) return overlap;
       database.prepare("INSERT INTO sessions (session_date, start_time, duration, subject_id, teacher_id, practice_id) VALUES (?, ?, ?, ?, ?, ?)").run(sessionDate, startTime, duration, subjectId, teacherId, practiceId);
-      return Response.json({ ok: true }, { status: 201 });
+      return changedResponse({ ok: true }, { status: 201 });
     }
 
     const code = cleanCode(payload.code);
@@ -535,7 +612,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return Response.json({ ok: true }, { status: 201 });
+    return changedResponse({ ok: true }, { status: 201 });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }
@@ -566,6 +643,10 @@ export async function PUT(request: Request) {
     if (!authenticatedTeacher.isAdmin && entity !== "sessions") {
       return editorPermissionResponse("Como editor de asignatura solo puedes editar sus sesiones.");
     }
+    if (authenticatedTeacher.isAdmin && typeof payload.expectedVersion === "string"
+      && payload.expectedVersion !== currentRecordVersion(database, entity, id)) {
+      return staleRecordResponse();
+    }
 
     if (entity === "sessions") {
       const { sessionDate, startTime, duration, subjectId, teacherId, practiceId } = sessionFields(payload);
@@ -585,6 +666,10 @@ export async function PUT(request: Request) {
         || !canEditSubject(database, authenticatedTeacher.id, subjectId)
       )) {
         return editorPermissionResponse();
+      }
+      if (!authenticatedTeacher.isAdmin && typeof payload.expectedVersion === "string"
+        && payload.expectedVersion !== currentRecordVersion(database, entity, id)) {
+        return staleRecordResponse();
       }
       if (practiceId !== null && !subjectPracticeRelationExists(subjectId, practiceId)) {
         return Response.json({ error: "La práctica seleccionada no está asignada a esa asignatura." }, { status: 409 });
@@ -607,7 +692,7 @@ export async function PUT(request: Request) {
       }]);
       if (overlap) return overlap;
       database.prepare("UPDATE sessions SET session_date = ?, start_time = ?, duration = ?, subject_id = ?, teacher_id = ?, practice_id = ? WHERE id = ?").run(sessionDate, startTime, resolvedDuration, subjectId, teacherId, practiceId, id);
-      return Response.json({ ok: true });
+      return changedResponse({ ok: true });
     }
 
     const code = cleanCode(payload.code);
@@ -720,7 +805,7 @@ export async function PUT(request: Request) {
       }
     }
 
-    return Response.json({ ok: true });
+    return changedResponse({ ok: true });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }
@@ -751,6 +836,10 @@ export async function PATCH(request: Request) {
       if (!authenticatedTeacher.isAdmin && !canEditSubject(database, authenticatedTeacher.id, session.subjectId)) {
         return editorPermissionResponse();
       }
+      if (typeof payload.expectedVersion === "string"
+        && payload.expectedVersion !== currentRecordVersion(database, "sessions", id)) {
+        return staleSessionsResponse();
+      }
       if (isHoliday(database, sessionDate)) {
         return Response.json({ error: "No se puede mover una sesión a un día festivo." }, { status: 409 });
       }
@@ -759,7 +848,7 @@ export async function PATCH(request: Request) {
       database.prepare(
         "UPDATE sessions SET session_date = ?, start_time = ? WHERE id = ?",
       ).run(sessionDate, startTime, id);
-      return Response.json({ ok: true });
+      return changedResponse({ ok: true });
     }
 
     const ids = positiveIntegerList(payload.ids);
@@ -782,6 +871,7 @@ export async function PATCH(request: Request) {
     ))) {
       return editorPermissionResponse("La selección contiene sesiones de una asignatura que no puedes editar.");
     }
+    if (!selectedVersionsMatch(database, ids, payload.expectedVersions)) return staleSessionsResponse();
 
     if (payload.action === "assign-teacher") {
       const teacherId = payload.teacherId === null ? null : positiveInteger(payload.teacherId);
@@ -804,7 +894,7 @@ export async function PATCH(request: Request) {
         throw error;
       }
 
-      return Response.json({ ok: true, updatedCount: ids.length });
+      return changedResponse({ ok: true, updatedCount: ids.length });
     }
 
     const practiceId = payload.practiceId === null ? null : positiveInteger(payload.practiceId);
@@ -855,7 +945,7 @@ export async function PATCH(request: Request) {
       throw error;
     }
 
-    return Response.json({ ok: true, updatedCount: ids.length, linkedSubjectCount });
+    return changedResponse({ ok: true, updatedCount: ids.length, linkedSubjectCount });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }
@@ -868,7 +958,7 @@ export async function DELETE(request: Request) {
     return editorPermissionResponse("Solo los administradores pueden borrar registros o sesiones.");
   }
   try {
-    const payload = await request.json() as { entity?: Entity; id?: unknown; ids?: unknown; semesterId?: unknown };
+    const payload = await request.json() as { entity?: Entity; id?: unknown; ids?: unknown; semesterId?: unknown; expectedVersion?: unknown; expectedVersions?: unknown };
     const entity = payload.entity;
     if (!isEntity(entity)) return Response.json({ error: "Solicitud no válida." }, { status: 400 });
 
@@ -883,23 +973,34 @@ export async function DELETE(request: Request) {
         }
         const result = database.prepare("DELETE FROM sessions WHERE session_date BETWEEN ? AND ?")
           .run(semester.startDate, semester.endDate);
-        return Response.json({ ok: true, deletedCount: Number(result.changes) });
+        return Number(result.changes)
+          ? changedResponse({ ok: true, deletedCount: Number(result.changes) })
+          : Response.json({ ok: true, deletedCount: 0 });
       }
       if (Array.isArray(payload.ids)) {
         const ids = positiveIntegerList(payload.ids);
         if (!ids.length) return Response.json({ error: "Selecciona al menos una sesión." }, { status: 400 });
+        if (!selectedVersionsMatch(database, ids, payload.expectedVersions)) return staleSessionsResponse();
         const placeholders = ids.map(() => "?").join(", ");
         const result = database.prepare(`DELETE FROM sessions WHERE id IN (${placeholders})`).run(...ids);
-        return Response.json({ ok: true, deletedCount: Number(result.changes) });
+        return Number(result.changes)
+          ? changedResponse({ ok: true, deletedCount: Number(result.changes) })
+          : Response.json({ ok: true, deletedCount: 0 });
       }
       const id = positiveInteger(payload.id);
       if (!id) return Response.json({ error: "Solicitud no válida." }, { status: 400 });
+      if (typeof payload.expectedVersion === "string"
+        && payload.expectedVersion !== currentRecordVersion(database, "sessions", id)) return staleSessionsResponse();
       const result = database.prepare("DELETE FROM sessions WHERE id = ?").run(id);
-      return Response.json({ ok: true, deletedCount: Number(result.changes) });
+      return Number(result.changes)
+        ? changedResponse({ ok: true, deletedCount: Number(result.changes) })
+        : Response.json({ ok: true, deletedCount: 0 });
     }
 
     const id = positiveInteger(payload.id);
     if (!id) return Response.json({ error: "Solicitud no válida." }, { status: 400 });
+    if (typeof payload.expectedVersion === "string"
+      && payload.expectedVersion !== currentRecordVersion(database, entity, id)) return staleRecordResponse();
     if (entity === "laboratories") {
       const usage = database.prepare("SELECT COUNT(*) AS total FROM installations WHERE laboratory_id = ?").get(id) as { total: number };
       if (Number(usage.total)) return Response.json({ error: "No puedes eliminar este laboratorio porque todavía contiene instalaciones." }, { status: 409 });
@@ -928,7 +1029,7 @@ export async function DELETE(request: Request) {
       if (Number(usage.total)) return Response.json({ error: "No puedes eliminar este grado porque todavía contiene asignaturas." }, { status: 409 });
       database.prepare("DELETE FROM degrees WHERE id = ?").run(id);
     }
-    return Response.json({ ok: true });
+    return changedResponse({ ok: true });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }

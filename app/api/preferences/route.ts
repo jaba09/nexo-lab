@@ -1,6 +1,7 @@
 import { getAuthenticatedTeacher, unauthorizedResponse } from "../../../lib/auth";
 import { getDatabase } from "../../../lib/database";
 import { saveAppPreferences, validateAppPreferences } from "../../../lib/preferences";
+import { publishDataChange } from "../../../lib/dataEvents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export async function PUT(request: Request) {
       return Response.json({ error: "Elige horas completas y asegúrate de que la hora final sea posterior a la inicial." }, { status: 400 });
     }
     saveAppPreferences(getDatabase(), preferences);
+    publishDataChange();
     return Response.json({ ok: true, preferences });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "No se pudieron guardar las preferencias." }, { status: 500 });

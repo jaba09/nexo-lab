@@ -77,6 +77,8 @@ test("serves the web app and persists CRUD operations through its own API", asyn
 
   const unauthorizedDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(unauthorizedDataResponse.status, 401);
+  const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
+  assert.equal(unauthorizedEventsResponse.status, 401);
 
   const unauthorizedHelpResponse = await fetch(`${origin}/ayuda`, { redirect: "manual" });
   assert.equal(unauthorizedHelpResponse.status, 307);
@@ -112,6 +114,14 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.match(helpHtml, /Administrador/);
 
   const initialData = await (await fetch(`${origin}/api/data`)).json();
+  assert.ok(initialData.laboratories[0].editVersion);
+  assert.ok(initialData.sessions[0].editVersion);
+  const eventAbort = new AbortController();
+  const eventsResponse = await fetch(`${origin}/api/events`, { signal: eventAbort.signal });
+  assert.equal(eventsResponse.status, 200);
+  assert.match(eventsResponse.headers.get("content-type") ?? "", /text\/event-stream/);
+  const eventReader = eventsResponse.body.getReader();
+  assert.match(new TextDecoder().decode((await eventReader.read()).value), /connected/);
   assert.equal(initialData.laboratories.length, 3);
   assert.equal(initialData.installations.length, 4);
   assert.ok(initialData.installations.every((installation) => installation.materialsDescription === ""));
@@ -156,6 +166,11 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   });
   assert.equal(updatePreferencesResponse.status, 200);
   assert.deepEqual((await updatePreferencesResponse.json()).preferences, { calendarStartHour: 7, calendarEndHour: 20 });
+  const eventTimeout = setTimeout(() => eventAbort.abort(), 5000);
+  const changeEvent = await eventReader.read();
+  clearTimeout(eventTimeout);
+  assert.match(new TextDecoder().decode(changeEvent.value), /event: data-changed/);
+  eventAbort.abort();
   assert.deepEqual((await (await fetch(`${origin}/api/data`)).json()).preferences, { calendarStartHour: 7, calendarEndHour: 20 });
   const restorePreferencesResponse = await fetch(`${origin}/api/preferences`, {
     method: "PUT",
@@ -319,17 +334,45 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     },
   ];
 
+  const entityEventAbort = new AbortController();
+  const entityEventsResponse = await fetch(`${origin}/api/events`, { signal: entityEventAbort.signal });
+  assert.equal(entityEventsResponse.status, 200);
+  const entityEventReader = entityEventsResponse.body.getReader();
+  assert.match(new TextDecoder().decode((await entityEventReader.read()).value), /connected/);
+
   for (const update of updates) {
     const updateResponse = await fetch(`${origin}/api/data`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(update),
+      body: JSON.stringify({
+        ...update,
+        expectedVersion: initialData[update.entity].find((item) => item.id === update.id).editVersion,
+      }),
     });
     assert.equal(updateResponse.status, 200, `No se pudo editar ${update.entity}`);
+    if (update.entity === "laboratories") {
+      const timeout = setTimeout(() => entityEventAbort.abort(), 5000);
+      const entityChangeEvent = await entityEventReader.read();
+      clearTimeout(timeout);
+      assert.match(new TextDecoder().decode(entityChangeEvent.value), /event: data-changed/);
+      entityEventAbort.abort();
+    }
   }
+
+  const staleLaboratoryResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "laboratories", id: 1, code: "LAB-01A", name: "Edición antigua",
+      location: "Edificio Norte · Planta 3", expectedVersion: initialData.laboratories[0].editVersion,
+    }),
+  });
+  assert.equal(staleLaboratoryResponse.status, 409);
+  assert.equal((await staleLaboratoryResponse.json()).code, "STALE_RECORD");
 
   const editedData = await (await fetch(`${origin}/api/data`)).json();
   const editedLaboratory = editedData.laboratories.find((laboratory) => laboratory.id === 1);
+  assert.equal(editedLaboratory.name, "Materiales avanzados");
   const editedInstallation = editedData.installations.find((installation) => installation.id === 1);
   const editedPractice = editedData.practices.find((practice) => practice.id === 1);
   const editedDegree = editedData.degrees.find((degree) => degree.id === 1);
@@ -475,6 +518,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     body: JSON.stringify({
       entity: "sessions",
       id: createdSession.id,
+      expectedVersion: createdSession.editVersion,
       sessionDate: "2099-09-18",
       startTime: "14:15",
       duration: 999,
@@ -484,6 +528,29 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     }),
   });
   assert.equal(editSessionResponse.status, 200);
+
+  const staleSessionResponse = await fetch(`${origin}/api/data`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions", id: createdSession.id, expectedVersion: createdSession.editVersion,
+      sessionDate: "2099-09-18", startTime: "15:00", duration: 120,
+      subjectId: 3, teacherId: 2, practiceId: 3,
+    }),
+  });
+  assert.equal(staleSessionResponse.status, 409);
+  assert.equal((await staleSessionResponse.json()).code, "STALE_RECORD");
+
+  const staleMoveResponse = await fetch(`${origin}/api/data`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      entity: "sessions", action: "move", id: createdSession.id,
+      sessionDate: "2099-09-19", startTime: "16:30", expectedVersion: createdSession.editVersion,
+    }),
+  });
+  assert.equal(staleMoveResponse.status, 409);
+  assert.equal((await staleMoveResponse.json()).code, "STALE_RECORD");
 
   const editedSessionData = await (await fetch(`${origin}/api/data`)).json();
   const editedSession = editedSessionData.sessions.find((session) => session.id === createdSession.id);
@@ -504,6 +571,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       id: createdSession.id,
       sessionDate: "2099-09-19",
       startTime: "16:30",
+      expectedVersion: editedSession.editVersion,
     }),
   });
   assert.equal(moveSessionResponse.status, 200);

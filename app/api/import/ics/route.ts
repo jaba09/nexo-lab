@@ -1,6 +1,7 @@
 import { getDatabase } from "../../../../lib/database";
 import { IcsLabSession, parseIcsLabSessions } from "../../../../lib/ics";
 import { getAuthenticatedTeacher, readOnlyResponse, unauthorizedResponse } from "../../../../lib/auth";
+import { publishDataChange } from "../../../../lib/dataEvents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -246,6 +247,8 @@ export async function POST(request: Request) {
       database.exec("ROLLBACK");
       throw error;
     }
+
+    if (importedCount || importedHolidayCount || createdSubjectCount || createdDegreeCount) publishDataChange();
 
     return Response.json({
       importedCount,

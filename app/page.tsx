@@ -1,6 +1,6 @@
 "use client";
 
-import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { DragEvent as ReactDragEvent, FormEvent, Fragment, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
 import { downloadAllSessionsReportPdf, downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
@@ -14,8 +14,9 @@ import { downloadInterferenceReportPdf, type InterferenceReportItem } from "../l
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences";
 type Entity = Exclude<Section, "overview" | "messages" | "preferences">;
 type MessageAudience = "subject" | "semester";
+type EditableRecord = { editVersion?: string };
 
-type Laboratory = {
+type Laboratory = EditableRecord & {
   id: number;
   code: string;
   name: string;
@@ -23,7 +24,7 @@ type Laboratory = {
   installationCount: number;
 };
 
-type Installation = {
+type Installation = EditableRecord & {
   id: number;
   code: string;
   name: string;
@@ -36,7 +37,7 @@ type Installation = {
   practiceCount: number;
 };
 
-type Practice = {
+type Practice = EditableRecord & {
   id: number;
   code: string;
   name: string;
@@ -49,7 +50,7 @@ type Practice = {
   subjectCount: number;
 };
 
-type Degree = {
+type Degree = EditableRecord & {
   id: number;
   code: string;
   icsCode: string;
@@ -60,7 +61,7 @@ type Degree = {
   subjectIds: number[];
 };
 
-type Subject = {
+type Subject = EditableRecord & {
   id: number;
   code: string;
   abbreviation: string;
@@ -75,7 +76,7 @@ type Subject = {
   editorIds: number[];
 };
 
-type Teacher = {
+type Teacher = EditableRecord & {
   id: number;
   code: string;
   name: string;
@@ -107,7 +108,7 @@ function practicePositionInSubject(subject: Subject | undefined, practiceId: num
   return index >= 0 ? index + 1 : null;
 }
 
-type Session = {
+type Session = EditableRecord & {
   id: number;
   sessionDate: string;
   startTime: string;
@@ -293,6 +294,7 @@ type AppData = {
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
   preferences: AppPreferences;
+  viewer?: AuthenticatedTeacher;
   editableSubjectIds: number[];
 };
 
@@ -777,6 +779,7 @@ export default function Home() {
   const [active, setActive] = useState<Section>("overview");
   const [drawer, setDrawer] = useState<Entity | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingVersion, setEditingVersion] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
@@ -787,23 +790,35 @@ export default function Home() {
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
   const [smtpPassword, setSmtpPassword] = useState("");
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const latestDataRequest = useRef(0);
 
-  async function loadData() {
+  const loadData = useCallback(async (silent = false) => {
+    const requestId = ++latestDataRequest.current;
     try {
       const response = await fetch(apiUrl("/api/data"), { cache: "no-store" });
       const payload = (await response.json()) as AppData & { error?: string };
+      if (requestId !== latestDataRequest.current) return;
       if (response.status === 401) setAuthenticatedTeacher(null);
       if (!response.ok) throw new Error(payload.error || "No se pudieron cargar los datos.");
+      const viewer = payload.viewer;
+      if (viewer) setAuthenticatedTeacher((current) => (
+        current?.id === viewer.id
+          && current.code === viewer.code
+          && current.name === viewer.name
+          && current.email === viewer.email
+          && current.isAdmin === viewer.isAdmin
+          ? current : viewer
+      ));
       setData(payload);
     } catch (error) {
-      setNotice({
+      if (requestId === latestDataRequest.current && !silent) setNotice({
         kind: "error",
         message: clientErrorMessage(error, "No se pudieron cargar los datos."),
       });
     } finally {
-      setLoading(false);
+      if (requestId === latestDataRequest.current) setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -842,6 +857,37 @@ export default function Home() {
     };
   }, []);
 
+  const authenticatedTeacherId = authenticatedTeacher?.id;
+  useEffect(() => {
+    if (!authenticatedTeacherId) return;
+    const stream = new EventSource(apiUrl("/api/events"));
+    let refreshTimer: number | undefined;
+    let fallbackTimer: number | undefined;
+    const refresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => { void loadData(true); }, 100);
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    const onOpen = () => {
+      if (fallbackTimer) window.clearInterval(fallbackTimer);
+      fallbackTimer = undefined;
+      refresh();
+    };
+    const onError = () => {
+      if (!fallbackTimer) fallbackTimer = window.setInterval(refresh, 60_000);
+    };
+    stream.addEventListener("data-changed", refresh);
+    stream.addEventListener("open", onOpen);
+    stream.addEventListener("error", onError);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stream.close();
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      if (fallbackTimer) window.clearInterval(fallbackTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [authenticatedTeacherId, loadData]);
+
   async function finishLogin(teacher: AuthenticatedTeacher) {
     setAuthenticatedTeacher(teacher);
     setActive("overview");
@@ -855,11 +901,13 @@ export default function Home() {
     try {
       await fetch(apiUrl("/api/auth/session"), { method: "DELETE" });
     } finally {
+      latestDataRequest.current += 1;
       setAuthenticatedTeacher(null);
       setData(emptyData);
       setActive("overview");
       setSmtpPassword("");
       setDrawer(null);
+      setEditingVersion(null);
       setNotice(null);
     }
   }
@@ -932,6 +980,11 @@ export default function Home() {
     .map((practiceId) => data.practices.find((practice) => practice.id === practiceId))
     .filter((practice): practice is Practice => Boolean(practice));
   const editingSession = editingId === null ? undefined : data.sessions.find((session) => session.id === editingId);
+  const editingRecord = drawer && editingId !== null
+    ? (data[drawer] as EntityRecord[]).find((item) => item.id === editingId)
+    : undefined;
+  const editingStale = Boolean(editingId !== null && editingVersion
+    && (!editingRecord || editingRecord.editVersion !== editingVersion));
   const editingSubjectScheduledPracticeCounts = new Map<number, number>();
   if (drawer === "subjects" && editingId !== null) {
     for (const session of data.sessions) {
@@ -970,6 +1023,7 @@ export default function Home() {
       sessionPracticeId: schedulableSubject?.practiceIds[0]?.toString() ?? "",
     });
     setEditingId(null);
+    setEditingVersion(null);
     setNotice(null);
     setDrawerError("");
     setDrawer(entity);
@@ -1062,6 +1116,7 @@ export default function Home() {
     }
 
     setEditingId(item.id);
+    setEditingVersion(item.editVersion ?? null);
     setNotice(null);
     setDrawerError("");
     setDrawer(entity);
@@ -1070,6 +1125,10 @@ export default function Home() {
   async function submitEntity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!drawer) return;
+    if (editingStale) {
+      setDrawerError("Otro usuario ha modificado este registro. Tus cambios siguen aquí, pero no se han guardado. Cierra la ficha y vuelve a abrirla para revisar la versión actual.");
+      return;
+    }
     const editingAllowed = editingId === null
       ? canCreateEntity(drawer)
       : drawer === "sessions" && editingSession
@@ -1093,12 +1152,16 @@ export default function Home() {
         body: JSON.stringify({
           entity: drawer,
           id: editingId,
+          expectedVersion: editingId === null ? undefined : editingVersion,
           ...form,
           practiceId: drawer === "sessions" ? form.sessionPracticeId : undefined,
         }),
       });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "No se pudo guardar el registro.");
+      const payload = (await response.json()) as { error?: string; code?: string };
+      if (!response.ok) {
+        if (payload.code === "STALE_RECORD") void loadData(true);
+        throw new Error(payload.error || "No se pudo guardar el registro.");
+      }
       setDrawer(null);
       await loadData();
       setActive(drawer);
@@ -1107,6 +1170,7 @@ export default function Home() {
         message: `El registro se ha ${editingId === null ? "creado" : "actualizado"} correctamente.`,
       });
       setEditingId(null);
+      setEditingVersion(null);
     } catch (error) {
       setDrawerError(clientErrorMessage(error, "No se pudo guardar el registro."));
     } finally {
@@ -1117,12 +1181,13 @@ export default function Home() {
   async function deleteEntity(entity: Entity, id: number, label: string) {
     if (!authenticatedTeacher?.isAdmin) return;
     if (!window.confirm(`¿Eliminar “${label}”? Esta acción no se puede deshacer.`)) return;
+    const expectedVersion = (data[entity] as EntityRecord[]).find((item) => item.id === id)?.editVersion;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entity, id }),
+        body: JSON.stringify({ entity, id, expectedVersion }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error || "No se pudo eliminar el registro.");
@@ -1139,12 +1204,16 @@ export default function Home() {
   async function deleteSessions(request: SessionDeleteRequest, confirmation: string) {
     if (!authenticatedTeacher?.isAdmin) return false;
     if (!window.confirm(`${confirmation}\n\nEsta acción no se puede deshacer.`)) return false;
+    const expectedVersions = "ids" in request
+      ? Object.fromEntries(data.sessions.filter((session) => request.ids.includes(session.id))
+        .map((session) => [session.id, session.editVersion]))
+      : undefined;
     setNotice(null);
     try {
       const response = await fetch(apiUrl("/api/data"), {
         method: "DELETE",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entity: "sessions", ...request }),
+        body: JSON.stringify({ entity: "sessions", ...request, expectedVersions }),
       });
       const payload = (await response.json()) as { deletedCount?: number; error?: string };
       if (!response.ok) throw new Error(payload.error || "No se pudieron borrar las sesiones.");
@@ -1169,7 +1238,10 @@ export default function Home() {
       const response = await fetch(apiUrl("/api/data"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entity: "sessions", ids, practiceId }),
+        body: JSON.stringify({
+          entity: "sessions", ids, practiceId,
+          expectedVersions: Object.fromEntries(selectedSessions.map((session) => [session.id, session.editVersion])),
+        }),
       });
       const payload = await response.json() as { error?: string; updatedCount?: number; linkedSubjectCount?: number };
       if (!response.ok) throw new Error(payload.error || "No se pudo cambiar la práctica.");
@@ -1199,7 +1271,10 @@ export default function Home() {
       const response = await fetch(apiUrl("/api/data"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entity: "sessions", action: "assign-teacher", ids, teacherId }),
+        body: JSON.stringify({
+          entity: "sessions", action: "assign-teacher", ids, teacherId,
+          expectedVersions: Object.fromEntries(selectedSessions.map((session) => [session.id, session.editVersion])),
+        }),
       });
       const payload = await response.json() as { error?: string; updatedCount?: number };
       if (!response.ok) throw new Error(payload.error || "No se pudo cambiar el profesor.");
@@ -1230,7 +1305,7 @@ export default function Home() {
       const response = await fetch(apiUrl("/api/data"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entity: "sessions", action: "move", id, sessionDate, startTime }),
+        body: JSON.stringify({ entity: "sessions", action: "move", id, sessionDate, startTime, expectedVersion: session.editVersion }),
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "No se pudo mover la sesión.");
@@ -1443,9 +1518,7 @@ export default function Home() {
         </div>
       </main>
 
-      {drawer && (editingId === null
-        ? canCreateEntity(drawer)
-        : authenticatedTeacher.isAdmin || (drawer === "sessions" && editingSession && canEditSession(editingSession))) && (
+      {drawer && (editingId !== null || canCreateEntity(drawer)) && (
         <div className="drawer-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDrawer(null)}>
           <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
             <div className="drawer-head">
@@ -1456,6 +1529,10 @@ export default function Home() {
               </div>
               <button className="icon-button" type="button" onClick={() => setDrawer(null)} aria-label="Cerrar formulario">×</button>
             </div>
+
+            {editingStale && <div className="drawer-stale-warning" role="alert">
+              Otro usuario ha modificado este registro. El formulario no se ha reemplazado; ciérralo y vuelve a abrirlo para revisar la versión actual antes de guardar.
+            </div>}
 
             <form className="entity-form" onSubmit={submitEntity} onChangeCapture={() => drawerError && setDrawerError("")}>
               {drawer !== "sessions" && (
@@ -1817,7 +1894,7 @@ export default function Home() {
               </div>
               <div className="form-actions">
                 <button className="secondary-button" type="button" onClick={() => setDrawer(null)}>Cancelar</button>
-                <button className="primary-button" type="submit" disabled={saving || sessionDateBlocked}>{saving ? "Guardando…" : `${editingId === null ? "Crear" : "Guardar"} ${entityCopy[drawer].singular}`}</button>
+                <button className="primary-button" type="submit" disabled={saving || sessionDateBlocked || editingStale}>{saving ? "Guardando…" : `${editingId === null ? "Crear" : "Guardar"} ${entityCopy[drawer].singular}`}</button>
               </div>
             </form>
           </section>

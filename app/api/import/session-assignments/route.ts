@@ -1,5 +1,6 @@
 import { getAuthenticatedTeacher, readOnlyResponse, unauthorizedResponse } from "../../../../lib/auth";
 import { getDatabase } from "../../../../lib/database";
+import { publishDataChange } from "../../../../lib/dataEvents";
 import {
   importSessionAssignments,
   previewSessionAssignments,
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Elige qué hacer con las sesiones que ya tienen profesor asignado." }, { status: 400 });
     }
     const result = importSessionAssignments(database, content, conflictMode as SessionAssignmentConflictMode);
+    if (result.updatedCount) publishDataChange();
     return Response.json(result);
   } catch (error) {
     return Response.json({ error: importErrorMessage(error) }, { status: 400 });
