@@ -26,6 +26,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .auth-loading { min-height: 100vh; display: grid; place-items: center; align-content: center; gap: 14px; color: var(--muted); font-size: 12px; }
 .auth-loading span { width: 34px; height: 34px; border: 3px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin .8s linear infinite; }
+.version-update-notice, .version-update-reminder { position: fixed; top: 92px; right: 20px; z-index: 20; box-shadow: 0 16px 40px rgba(23,32,29,.18); }
+.version-update-notice { width: min(360px, calc(100vw - 24px)); padding: 18px; border: 1px solid #b6cd78; border-radius: 13px; background: #fffef9; }
+.version-update-tag { display: inline-block; margin-bottom: 8px; color: #5a761b; font: 750 9px var(--font-geist-mono); letter-spacing: .1em; }
+.version-update-notice strong { display: block; font-size: 17px; letter-spacing: -.025em; }
+.version-update-notice p { margin: 8px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.version-update-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.version-update-actions button, .version-update-reminder { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); font-size: 11px; font-weight: 700; cursor: pointer; }
+.version-update-actions button:last-child { border-color: var(--ink); background: var(--ink); color: white; }
+.version-update-actions button:hover, .version-update-reminder:hover { border-color: #6a8e19; }
+.version-update-reminder { border-color: #b6cd78; background: #f4fadf; }
 .login-page { min-height: 100vh; padding: clamp(18px, 4vw, 58px); display: grid; grid-template-columns: minmax(360px, .8fr) minmax(420px, 1.2fr); gap: clamp(18px, 3vw, 42px); }
 .login-panel { max-width: 520px; width: 100%; margin: auto; padding: clamp(28px, 5vw, 62px); border: 1px solid var(--line); border-radius: 18px; background: var(--white); box-shadow: 0 25px 70px rgba(23,32,29,.08); }
 .login-panel.recovery { min-height: 660px; }

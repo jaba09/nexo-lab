@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { appVersion } from "../lib/app-version";
+import VersionUpdateNotice from "./version-update-notice";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>{children}<VersionUpdateNotice initialVersion={appVersion()} /></body>
     </html>
   );
 }

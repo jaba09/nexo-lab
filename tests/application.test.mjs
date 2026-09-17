@@ -57,6 +57,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       NEXO_LAB_DB_PATH: databasePath,
       NEXO_LAB_BOOTSTRAP_EMAIL: bootstrapEmail,
       NEXO_LAB_BOOTSTRAP_PASSWORD: bootstrapPassword,
+      NEXO_LAB_APP_VERSION: "test-deployment-2026",
       NODE_ENV: "production",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -67,6 +68,12 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const html = await pageResponse.text();
   assert.match(html, /Nexo Lab — Gestión de laboratorios docentes/);
   assert.match(html, /Comprobando el acceso/);
+  assert.match(html, /test-deployment-2026/);
+
+  const versionResponse = await fetch(`${origin}/api/version`);
+  assert.equal(versionResponse.status, 200);
+  assert.match(versionResponse.headers.get("cache-control") ?? "", /no-store/);
+  assert.deepEqual(await versionResponse.json(), { version: "test-deployment-2026" });
 
   const unauthorizedDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(unauthorizedDataResponse.status, 401);
