@@ -126,6 +126,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(initialData.installations.length, 4);
   assert.ok(initialData.installations.every((installation) => installation.materialsDescription === ""));
   assert.equal(initialData.practices.length, 5);
+  assert.ok(initialData.practices.every((practice) => !Object.hasOwn(practice, "riskLevel")));
   assert.deepEqual(
     initialData.practices.map((practice) => practice.name),
     [...initialData.practices.map((practice) => practice.name)].sort((left, right) => (
@@ -305,7 +306,6 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       name: "Ensayo avanzado de tracción",
       installationIds: [3, 4],
       duration: 150,
-      riskLevel: "Alto",
     },
     {
       entity: "degrees",
@@ -389,7 +389,10 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(editedInstallation.materialsDescription, "Probetas normalizadas, mordazas y gafas de protección.");
   assert.deepEqual(editedPractice.installationIds, [3, 4]);
   assert.equal(editedPractice.installationCount, 2);
-  assert.equal(editedPractice.riskLevel, "Alto");
+  assert.equal(Object.hasOwn(editedPractice, "riskLevel"), false);
+  const legacyPracticeDatabase = new DatabaseSync(databasePath);
+  assert.equal(legacyPracticeDatabase.prepare("SELECT risk_level FROM practices WHERE id = 1").get().risk_level, "Medio");
+  legacyPracticeDatabase.close();
   assert.equal(editedDegree.level, "Máster");
   assert.equal(editedDegree.icsCode, "101");
   assert.equal(editedSubject.degreeCode, "GRA-01A");
@@ -707,7 +710,6 @@ END:VCALENDAR\r
       subjectId: initialData.subjects[0].id,
       installationIds: [initialData.installations[0].id],
       duration: 120,
-      riskLevel: "Bajo",
     }),
   });
   assert.equal(createAdministratorPracticeResponse.status, 201);
@@ -715,6 +717,10 @@ END:VCALENDAR\r
   const administratorPractice = dataWithAdministratorPractice.practices.find((practice) => practice.code === "PRA-ADMIN");
   assert.ok(administratorPractice);
   assert.equal(administratorPractice.subjectCount, 0);
+  assert.equal(Object.hasOwn(administratorPractice, "riskLevel"), false);
+  const newPracticeDatabase = new DatabaseSync(databasePath);
+  assert.equal(newPracticeDatabase.prepare("SELECT risk_level FROM practices WHERE id = ?").get(administratorPractice.id).risk_level, "");
+  newPracticeDatabase.close();
   assert.ok(dataWithAdministratorPractice.subjects.every((subject) => !subject.practiceIds.includes(administratorPractice.id)));
   const deleteAdministratorPracticeResponse = await fetch(`${origin}/api/data`, {
     method: "DELETE",
@@ -825,7 +831,6 @@ END:VCALENDAR\r
       subjectId: subjectForEditor.id,
       installationIds: [editorInstallation.id],
       duration: 120,
-      riskLevel: "Bajo",
     }),
   });
   assert.equal(editorPracticeResponse.status, 201);

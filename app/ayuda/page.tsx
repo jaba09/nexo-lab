@@ -253,7 +253,7 @@ export default async function HelpPage() {
               <div className="help-entity-grid">
                 <div><span>L/I</span><strong>Lab/instalaciones</strong><p>Laboratorios desplegables con sus espacios, equipos y datos de gestión.</p></div>
                 <div><span>G/A</span><strong>Grados/asignaturas</strong><p>Grados desplegables con sus materias, prácticas ordenadas y profesores editores.</p></div>
-                <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración, riesgo e instalaciones necesarias.</p></div>
+                <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración e instalaciones necesarias.</p></div>
                 <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña y permiso de administrador.</p></div>
                 <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
               </div>

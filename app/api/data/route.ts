@@ -22,7 +22,7 @@ function currentRecordVersion(database: ReturnType<typeof getDatabase>, entity: 
     laboratories: "SELECT code, name, location FROM laboratories WHERE id = ?",
     installations: `SELECT code, name, laboratory_id AS laboratoryId, category, capacity, status,
       materials_description AS materialsDescription FROM installations WHERE id = ?`,
-    practices: "SELECT code, name, duration, risk_level AS riskLevel FROM practices WHERE id = ?",
+    practices: "SELECT code, name, duration FROM practices WHERE id = ?",
     degrees: "SELECT code, ics_code AS icsCode, name, level FROM degrees WHERE id = ?",
     subjects: "SELECT code, abbreviation, name, degree_id AS degreeId FROM subjects WHERE id = ?",
     teachers: "SELECT code, name, email, is_admin AS isAdmin FROM teachers WHERE id = ?",
@@ -329,7 +329,7 @@ export async function GET() {
       GROUP BY i.id
       ORDER BY i.code`).all();
     const practices = database.prepare(`SELECT
-      p.id, p.code, p.name, p.duration, p.risk_level AS riskLevel,
+      p.id, p.code, p.name, p.duration,
       COALESCE(loc.installationCount, 0) AS installationCount,
       COALESCE(loc.installationIds, '') AS installationIds,
       COALESCE(loc.installationNames, '') AS installationNames,
@@ -559,14 +559,14 @@ export async function POST(request: Request) {
       const installationIds = positiveIntegerList(payload.installationIds);
       const editorSubjectId = authenticatedTeacher.isAdmin ? null : positiveInteger(payload.subjectId);
       const duration = positiveInteger(payload.duration);
-      const riskLevel = cleanString(payload.riskLevel);
-      if (!installationIds.length || !duration || !riskLevel) return Response.json({ error: "Selecciona al menos una instalación y completa los datos de la práctica." }, { status: 400 });
+      if (!installationIds.length || !duration) return Response.json({ error: "Selecciona al menos una instalación y completa los datos de la práctica." }, { status: 400 });
       if (!authenticatedTeacher.isAdmin && (!editorSubjectId || !editorSubjects.includes(editorSubjectId))) {
         return editorPermissionResponse("Selecciona una asignatura de la que seas editor para vincular la nueva práctica.");
       }
       database.exec("BEGIN IMMEDIATE");
       try {
-        const result = database.prepare("INSERT INTO practices (code, name, duration, risk_level) VALUES (?, ?, ?, ?)").run(code, name, duration, riskLevel);
+        // Keep the legacy NOT NULL column for existing SQLite databases without exposing risk in the app.
+        const result = database.prepare("INSERT INTO practices (code, name, duration, risk_level) VALUES (?, ?, ?, '')").run(code, name, duration);
         const practiceId = Number(result.lastInsertRowid);
         const relation = database.prepare("INSERT INTO practice_installations (practice_id, installation_id) VALUES (?, ?)");
         for (const installationId of installationIds) relation.run(practiceId, installationId);
@@ -714,11 +714,10 @@ export async function PUT(request: Request) {
     } else if (entity === "practices") {
       const installationIds = positiveIntegerList(payload.installationIds);
       const duration = positiveInteger(payload.duration);
-      const riskLevel = cleanString(payload.riskLevel);
-      if (!installationIds.length || !duration || !riskLevel) return Response.json({ error: "Selecciona al menos una instalación y completa los datos de la práctica." }, { status: 400 });
+      if (!installationIds.length || !duration) return Response.json({ error: "Selecciona al menos una instalación y completa los datos de la práctica." }, { status: 400 });
       database.exec("BEGIN IMMEDIATE");
       try {
-        database.prepare("UPDATE practices SET code = ?, name = ?, duration = ?, risk_level = ? WHERE id = ?").run(code, name, duration, riskLevel, id);
+        database.prepare("UPDATE practices SET code = ?, name = ?, duration = ? WHERE id = ?").run(code, name, duration, id);
         const relation = database.prepare("INSERT OR IGNORE INTO practice_installations (practice_id, installation_id) VALUES (?, ?)");
         for (const installationId of installationIds) relation.run(id, installationId);
         const placeholders = installationIds.map(() => "?").join(", ");

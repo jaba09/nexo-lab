@@ -46,7 +46,6 @@ type Practice = EditableRecord & {
   laboratoryNames: string;
   installationCount: number;
   duration: number;
-  riskLevel: string;
   subjectCount: number;
 };
 
@@ -565,7 +564,6 @@ const initialForm = {
   materialsDescription: "",
   installationIds: [] as number[],
   duration: "120",
-  riskLevel: "Bajo",
   level: "Grado",
   icsCode: "",
   practiceIds: [] as number[],
@@ -1070,7 +1068,6 @@ export default function Home() {
         name: practice.name,
         installationIds: practice.installationIds,
         duration: String(practice.duration),
-        riskLevel: practice.riskLevel,
       });
     } else if (entity === "degrees") {
       const degree = item as Degree;
@@ -1671,18 +1668,10 @@ export default function Home() {
                       </label>
                     ))}
                   </fieldset>
-                  <div className="field-row">
-                    <label>
-                      <span>Duración (min)</span>
-                      <input required min="15" step="15" type="number" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
-                    </label>
-                    <label>
-                      <span>Nivel de riesgo</span>
-                      <select value={form.riskLevel} onChange={(event) => setForm({ ...form, riskLevel: event.target.value })}>
-                        <option>Bajo</option><option>Medio</option><option>Alto</option>
-                      </select>
-                    </label>
-                  </div>
+                  <label>
+                    <span>Duración (min)</span>
+                    <input required min="15" step="15" type="number" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
+                  </label>
                 </>
               )}
 
@@ -4052,7 +4041,7 @@ function EntityView({
               <th>Código / Nombre</th>
               <th>{entity === "installations" ? "Laboratorio" : "Instalaciones"}</th>
               <th>{entity === "installations" ? "Tipo / Capacidad" : "Laboratorios"}</th>
-              <th>{entity === "installations" ? "Estado" : "Duración / Riesgo"}</th>
+              <th>{entity === "installations" ? "Estado" : "Duración"}</th>
               <th><span className="sr-only">Acciones</span></th>
             </tr></thead>
             <tbody>
@@ -4061,7 +4050,7 @@ function EntityView({
                   <td><span className="table-code blue">{item.code}</span><strong>{item.name}</strong><small>{item.subjectCount} {item.subjectCount === 1 ? "asignatura" : "asignaturas"}</small></td>
                   <td>{item.installationNames}<small>{item.installationCount} instalaciones</small></td>
                   <td>{item.laboratoryNames}</td>
-                  <td>{item.duration} min<small>Riesgo {item.riskLevel.toLowerCase()}</small></td>
+                  <td>{item.duration} min</td>
                   <td>{canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, item.id, item.name); }} aria-label={`Eliminar ${item.name}`}>×</button></div>}</td>
                 </tr>
               ))}

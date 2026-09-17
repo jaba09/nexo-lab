@@ -17,7 +17,7 @@ export function recordVersion(entity: EditableEntity, record: Record<string, unk
       values = [record.code, record.name, record.laboratoryId, record.category, record.capacity, record.status, record.materialsDescription];
       break;
     case "practices":
-      values = [record.code, record.name, record.duration, record.riskLevel, numericIds(record.installationIds, true)];
+      values = [record.code, record.name, record.duration, numericIds(record.installationIds, true)];
       break;
     case "degrees":
       values = [record.code, record.icsCode, record.name, record.level];
