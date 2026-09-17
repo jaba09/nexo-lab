@@ -178,8 +178,9 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /if \(calendarView !== "list" && calendarView !== "installations"\) return;/);
   assert.match(page, /Esc limpia la selección/);
   assert.match(page, /const subjectSessions = sessionsBySubject\.get\(session\.subjectId\) \?\? \[\]/);
-  assert.match(page, /subjectSessions\.slice\(first, last \+ 1\)/);
   assert.match(page, /const subjectSessions = filteredSemesterSessions\.filter\(\(item\) => item\.subjectId === session\.subjectId\)/);
+  assert.match(page, /calendarView === "list" \? filteredSemesterSessions : subjectSessions/);
+  assert.match(page, /sessionSelectionRangeIds\(rangeSessions, anchorId, session\.id\)/);
   assert.match(page, /overview-selection-bar active/);
   assert.match(page, /selectedIds\.has\(session\.id\)/);
   assert.match(styles, /\.overview-degree-item\[open\]/);

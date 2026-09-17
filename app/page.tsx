@@ -4450,12 +4450,10 @@ function CalendarView({
   function selectSession(session: Session, event: ReactMouseEvent<HTMLButtonElement>) {
     const subjectSessions = filteredSemesterSessions.filter((item) => item.subjectId === session.subjectId);
     if (event.shiftKey && anchorId !== null) {
-      const anchorIndex = subjectSessions.findIndex((item) => item.id === anchorId);
-      const sessionIndex = subjectSessions.findIndex((item) => item.id === session.id);
-      if (anchorIndex >= 0 && sessionIndex >= 0) {
-        const first = Math.min(anchorIndex, sessionIndex);
-        const last = Math.max(anchorIndex, sessionIndex);
-        setSelectedIds(new Set(subjectSessions.slice(first, last + 1).map((item) => item.id)));
+      const rangeSessions = calendarView === "list" ? filteredSemesterSessions : subjectSessions;
+      const rangeIds = sessionSelectionRangeIds(rangeSessions, anchorId, session.id);
+      if (rangeIds) {
+        setSelectedIds(new Set(rangeIds));
         return;
       }
     }
