@@ -2,7 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { buildPizarraData } from "../lib/pizarraImport.mjs";
-import { layoutPizarraClasses, pizarraAddDays, pizarraVisibleInterval, pizarraWeek } from "../lib/pizarra.ts";
+import { layoutPizarraClasses, pizarraAddDays, pizarraLabClasses, pizarraVisibleInterval, pizarraWeek } from "../lib/pizarra.ts";
+
+test("lab overlay preserves stored sessions, matches teacher names and separates overlaps", () => {
+  const session = { id: 12, sessionDate: "2026-09-22", startTime: "09:00", duration: 120, subjectCode: "30013", subjectName: "Fluidos", groupCode: "11", teacherName: "J.Blasco", practiceName: "Viscosidad", installationName: "Reología" };
+  const original = structuredClone(session);
+  const [lab, unassigned] = pizarraLabClasses([session, { ...session, id: 13, teacherName: null, practiceName: null, groupCode: null, installationName: null }], ["J. Blasco"]);
+  assert.equal(lab.id, "lab-12");
+  assert.equal(lab.teachingType, "LAB");
+  assert.equal(lab.date, session.sessionDate);
+  assert.deepEqual(lab.teachers, ["J. Blasco"]);
+  assert.equal(lab.practiceName, "Viscosidad");
+  assert.equal(lab.location, "Reología");
+  assert.deepEqual(unassigned.teachers, []);
+  assert.equal(unassigned.practiceName, "Sin práctica");
+  assert.deepEqual(session, original);
+  const layout = layoutPizarraClasses([lab, { ...lab, id: "ics-12", teachingType: "CM" }]);
+  assert.deepEqual(layout.map(({ lane, lanes }) => [lane, lanes]), [[0, 2], [1, 2]]);
+});
 
 test("Pizarra respects Admin hours without changing class times or durations", () => {
   const item = { startTime: "08:00", duration: 180 };

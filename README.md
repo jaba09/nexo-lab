@@ -168,6 +168,10 @@ El menú Pizarra muestra un calendario semanal independiente, disponible para to
 los usuarios autenticados. Permite filtrar por profesor, asignatura, semestre y
 tipo de clase. Se muestran el nombre del profesor y el código de la asignatura;
 al pulsar una clase se ven el grupo, el horario y el aula.
+Por defecto se muestran todos los profesores. El checkbox «Mostrar sesiones de
+laboratorio», desmarcado inicialmente, superpone las sesiones guardadas en morado
+sin modificarlas. Comparten filtros, horario configurado en Admin y distribución
+de solapamientos con las clases de pizarra.
 
 La fuente inicial es el par `horarios_asignaturas_2026-2027.ics` y
 `horas_profe.csv`. Solo se incluyen Clase Magistral y Resolución de problemas

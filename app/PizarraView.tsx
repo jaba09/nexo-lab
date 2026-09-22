@@ -3,16 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./pizarra.css";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
-import { layoutPizarraClasses, pizarraAddDays, pizarraDate, pizarraMinutes, pizarraTime, pizarraVisibleInterval, pizarraWeek, type PizarraClass, type PizarraData } from "../lib/pizarra";
+import { layoutPizarraClasses, pizarraAddDays, pizarraDate, pizarraLabClasses, pizarraMinutes, pizarraTime, pizarraVisibleInterval, pizarraWeek, type PizarraClass, type PizarraData, type PizarraLabSession } from "../lib/pizarra";
 
 const dayFormatter = new Intl.DateTimeFormat("es", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es", { day: "numeric", month: "long", year: "numeric" });
-const normalizedName = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}]/gu, "");
-const typeLabel = (item: PizarraClass) => item.teachingType === "CM" ? "Clase magistral" : "Problemas";
+const typeLabel = (item: PizarraClass) => item.teachingType === "LAB" ? "Laboratorio" : item.teachingType === "CM" ? "Clase magistral" : "Problemas";
 const endTime = (item: PizarraClass) => pizarraTime(pizarraMinutes(item.startTime) + item.duration);
 const inSemester = (item: PizarraClass, semester: string) => semesterFromDate(item.date) === semester;
 
-export default function PizarraView({ teacherName, startHour, endHour }: { teacherName: string; startHour: number; endHour: number }) {
+export default function PizarraView({ sessions, startHour, endHour }: { sessions: PizarraLabSession[]; startHour: number; endHour: number }) {
   const [data, setData] = useState<PizarraData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -21,6 +20,7 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
   const [teacher, setTeacher] = useState("");
   const [subject, setSubject] = useState("");
   const [teachingType, setTeachingType] = useState("");
+  const [showLabs, setShowLabs] = useState(false);
   const [date, setDate] = useState(() => pizarraDate(new Date()));
   const [detail, setDetail] = useState<PizarraClass | null>(null);
 
@@ -36,11 +36,10 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
       const today = pizarraDate(new Date());
       const currentSemester = semesterFromDate(today);
       const selectedSemester = result.classes.some((item) => inSemester(item, currentSemester)) ? currentSemester : semesterFromDate(result.classes[0].date);
-      const selectedTeacher = result.teachers.find((name) => normalizedName(name) === normalizedName(teacherName)) ?? "";
-      const firstClass = result.classes.find((item) => inSemester(item, selectedSemester) && (!selectedTeacher || item.teachers.includes(selectedTeacher)));
+      const firstClass = result.classes.find((item) => inSemester(item, selectedSemester));
       setData(result);
       setSemester(selectedSemester);
-      setTeacher(selectedTeacher);
+      setTeacher("");
       setDate(selectedSemester === currentSemester ? today : firstClass?.date ?? semesterDefinition(selectedSemester).startDate);
     } catch (cause) {
       if (!signal?.aborted) setError(cause instanceof Error ? cause.message : "No se pudo cargar Pizarra.");
@@ -50,9 +49,11 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
     }
     void load();
     return () => controller.abort();
-  }, [teacherName, retry]);
+  }, [retry]);
 
-  const semesterClasses = useMemo(() => data?.classes.filter((item) => inSemester(item, semester)) ?? [], [data, semester]);
+  const allClasses = useMemo(() => data ? [...data.classes, ...(showLabs ? pizarraLabClasses(sessions, data.teachers) : [])].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)) : [], [data, sessions, showLabs]);
+  const teachers = useMemo(() => [...new Set(allClasses.flatMap((item) => item.teachers))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })), [allClasses]);
+  const semesterClasses = useMemo(() => allClasses.filter((item) => inSemester(item, semester)), [allClasses, semester]);
   const filtered = useMemo(() => semesterClasses.filter((item) => (
     (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher)))
     && (!subject || item.subjectCode === subject)
@@ -66,7 +67,7 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
   if (error || !data) return <div className="pizarra-error" role="alert"><p>{error}</p><button type="button" className="secondary-button" onClick={() => { setError(""); setLoading(true); setRetry((value) => value + 1); }}>Reintentar</button></div>;
 
   const definition = semesterDefinition(semester);
-  const semesters = semesterOptions(data.classes.map((item) => item.date), data.classes[0].date).filter((option) => data.classes.some((item) => inSemester(item, option.id)));
+  const semesters = semesterOptions(allClasses.map((item) => item.date), data.classes[0].date).filter((option) => allClasses.some((item) => inSemester(item, option.id)));
   const subjects = [...new Map(semesterClasses.filter((item) => !teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher))).map((item) => [item.subjectCode, item.subjectName])).entries()].sort(([a], [b]) => a.localeCompare(b));
   const hasWeekend = weekClasses.some((item) => [0, 6].includes(new Date(`${item.date}T12:00:00`).getDay()));
   const days = Array.from({ length: hasWeekend ? 7 : 5 }, (_, index) => pizarraAddDays(week, index));
@@ -85,7 +86,7 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
   function changeSemester(value: string) {
     setSemester(value);
     setSubject("");
-    const first = data!.classes.find((item) => inSemester(item, value) && (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher))));
+    const first = allClasses.filter((item) => inSemester(item, value) && (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher)))).sort((a, b) => a.date.localeCompare(b.date))[0];
     setDate(first?.date ?? semesterDefinition(value).startDate);
   }
 
@@ -104,12 +105,22 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
       <div className="pizarra-filters">
         <label><span>Profesor</span><select value={teacher} onChange={(event) => { setTeacher(event.target.value); setSubject(""); }}>
           <option value="">Todos los profesores</option>
-          {data.teachers.map((name) => <option key={name} value={name}>{name}</option>)}
-          <option value="__unmatched">Sin correspondencia en el reparto</option>
+          {teachers.map((name) => <option key={name} value={name}>{name}</option>)}
+          <option value="__unmatched">Sin profesor identificado o asignado</option>
         </select></label>
         <label><span>Asignatura</span><select value={subject} onChange={(event) => setSubject(event.target.value)}><option value="">Todas las asignaturas</option>{subjects.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}</select></label>
-        <label><span>Tipo de clase</span><select value={teachingType} onChange={(event) => setTeachingType(event.target.value)}><option value="">Todos los tipos</option><option value="CM">Clase magistral</option><option value="Prob_casos">Resolución de problemas</option></select></label>
+        <label><span>Tipo de clase</span><select value={teachingType} onChange={(event) => setTeachingType(event.target.value)}><option value="">Todos los tipos</option><option value="CM">Clase magistral</option><option value="Prob_casos">Resolución de problemas</option>{showLabs && <option value="LAB">Laboratorio</option>}</select></label>
       </div>
+      <label className="pizarra-lab-toggle"><input type="checkbox" checked={showLabs} onChange={(event) => {
+        const checked = event.target.checked;
+        setShowLabs(checked);
+        if (!checked) {
+          if (teachingType === "LAB") setTeachingType("");
+          if (teacher && teacher !== "__unmatched" && !data.teachers.includes(teacher)) { setTeacher(""); setSubject(""); }
+          if (subject && !data.classes.some((item) => inSemester(item, semester) && item.subjectCode === subject && (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher))))) setSubject("");
+          if (!data.classes.some((item) => inSemester(item, semester))) changeSemester(semesterFromDate(data.classes[0].date));
+        }
+      }} />Mostrar sesiones de laboratorio</label>
 
       <div className="pizarra-week-toolbar">
         <div><h2>{dateFormatter.format(new Date(`${week}T12:00:00`))} – {dateFormatter.format(new Date(`${days.at(-1)}T12:00:00`))}</h2><p>{weekClasses.length} clases esta semana · {filtered.length} en el semestre{shared > 0 ? ` · ${shared} con reparto compartido` : ""}</p></div>
@@ -120,7 +131,7 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
           <button type="button" aria-label="Semana siguiente" disabled={week >= pizarraWeek(definition.endDate)} onClick={() => moveWeek(1)}>›</button>
         </div>
       </div>
-      <div className="pizarra-legend"><span className="pizarra-legend-cm">Clase magistral</span><span className="pizarra-legend-problems">Problemas</span><span>Calendario independiente de las sesiones de laboratorio</span></div>
+      <div className="pizarra-legend"><span className="pizarra-legend-cm">Clase magistral</span><span className="pizarra-legend-problems">Problemas</span>{showLabs && <span className="pizarra-legend-lab">Laboratorio</span>}<span>Visualización independiente · no modifica las sesiones</span></div>
       {hiddenCount > 0 && <p className="pizarra-shared-note" role="status">{hiddenCount} clases fuera del horario configurado en Admin ({pizarraTime(startHour * 60)}–{pizarraTime(endHour * 60)}).</p>}
       {shared > 0 && <p className="pizarra-shared-note">Borde discontinuo: reparto compartido. Se muestran los profesores asociados al grupo; el CSV no indica cuál imparte cada fecha.</p>}
       {!weekClasses.length && <div className="pizarra-empty" role="status"><span>No hay clases con estos filtros esta semana.</span>{filtered[0] && <button type="button" onClick={() => setDate(filtered[0].date)}>Ir a la primera clase</button>}</div>}
@@ -135,13 +146,14 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
             {items.map(({ item, lane, lanes }) => {
               const interval = pizarraVisibleInterval(item, startHour, endHour)!;
               return (
-              <button type="button" key={item.id} className={`pizarra-class ${item.teachingType === "CM" ? "lecture" : "problems"}${!item.teachers.length ? " unmatched" : ""}${item.teachers.length > 1 ? " shared" : ""}`}
+              <button type="button" key={item.id} className={`pizarra-class ${item.teachingType === "LAB" ? "laboratory" : item.teachingType === "CM" ? "lecture" : "problems"}${!item.teachers.length ? " unmatched" : ""}${item.teachers.length > 1 ? " shared" : ""}`}
                 style={{ top: interval.offset / 60 * hourHeight + 2, height: Math.max(0, interval.duration / 60 * hourHeight - 4), left: `calc(${lane / lanes * 100}% + 3px)`, width: `calc(${100 / lanes}% - 6px)` }}
-                title={`${item.startTime}–${endTime(item)} · ${typeLabel(item)}\n${item.teachers.join(" / ") || "Sin correspondencia en el reparto"}\n${item.subjectCode} · ${item.subjectName}\nGrupo ${item.groupCode}${item.location ? `\n${item.location}` : ""}${item.teachers.length > 1 ? "\nReparto compartido: fechas individuales no determinadas." : ""}`}
+                title={`${item.startTime}–${endTime(item)} · ${typeLabel(item)}\n${item.teachers.join(" / ") || (item.teachingType === "LAB" ? "Sin profesor asignado" : "Sin correspondencia en el reparto")}\n${item.subjectCode} · ${item.subjectName}\nGrupo ${item.groupCode}${item.practiceName ? `\n${item.practiceName}` : ""}${item.location ? `\n${item.location}` : ""}${item.teachers.length > 1 ? "\nReparto compartido: fechas individuales no determinadas." : ""}`}
                 onClick={() => setDetail(item)}>
-                <small>{item.startTime}–{endTime(item)} · {item.teachingType === "CM" ? "CM" : "Prob."}</small>
+                <small>{item.startTime}–{endTime(item)} · {item.teachingType === "LAB" ? "LAB" : item.teachingType === "CM" ? "CM" : "Prob."}</small>
                 <strong>{item.subjectCode} <span>G{item.groupCode}</span></strong>
-                <span className="pizarra-teacher-names">{item.teachers.join(" / ") || "Sin profesor identificado"}</span>
+                {item.practiceName && <span>{item.practiceName}</span>}
+                <span className="pizarra-teacher-names">{item.teachers.join(" / ") || (item.teachingType === "LAB" ? "Sin profesor asignado" : "Sin profesor identificado")}</span>
               </button>
               );
             })}
@@ -175,9 +187,10 @@ function PizarraDetails({ detail, onClose }: { detail: PizarraClass; onClose: ()
         <button type="button" className="pizarra-close" aria-label="Cerrar detalle de clase" onClick={onClose}>×</button>
         <span className="section-kicker">{typeLabel(detail)} · G{detail.groupCode}</span><h2 id="pizarra-detail-title">{detail.subjectCode} · {detail.subjectName}</h2>
         <p>{dateFormatter.format(new Date(`${detail.date}T12:00:00`))} · {detail.startTime}–{endTime(detail)}</p>
-        <h3>{detail.teachers.length > 1 ? "Profesores del reparto" : "Profesor"}</h3><p>{detail.teachers.join(" / ") || "No se ha encontrado un reparto para este grupo, tipo y semestre."}</p>
+        {detail.practiceName && <><h3>Práctica</h3><p>{detail.practiceName}</p></>}
+        <h3>{detail.teachers.length > 1 ? "Profesores del reparto" : "Profesor"}</h3><p>{detail.teachers.join(" / ") || (detail.teachingType === "LAB" ? "Sin profesor asignado" : "No se ha encontrado un reparto para este grupo, tipo y semestre.")}</p>
         {detail.teachers.length > 1 && <p className="pizarra-shared-note">El reparto no especifica qué profesor imparte esta fecha.</p>}
-        {detail.location && <><h3>Aula</h3><p>{detail.location}</p></>}
+        {detail.location && <><h3>{detail.teachingType === "LAB" ? "Instalaciones" : "Aula"}</h3><p>{detail.location}</p></>}
       </dialog>
   );
 }

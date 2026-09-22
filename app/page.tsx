@@ -1455,7 +1455,7 @@ export default function Home() {
               onEditSession={(session) => openEdit("sessions", session)}
             />
           ) : active === "pizarra" ? (
-            <PizarraView teacherName={authenticatedTeacher.name} startHour={data.preferences.calendarStartHour} endHour={data.preferences.calendarEndHour} />
+            <PizarraView sessions={data.sessions} startHour={data.preferences.calendarStartHour} endHour={data.preferences.calendarEndHour} />
           ) : active === "messages" ? (
             <MessagesView
               data={data}

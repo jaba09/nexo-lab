@@ -3,13 +3,45 @@ export type PizarraClass = {
   subjectCode: string;
   subjectName: string;
   groupCode: string;
-  teachingType: "CM" | "Prob_casos";
+  teachingType: "CM" | "Prob_casos" | "LAB";
   date: string;
   startTime: string;
   duration: number;
   location: string;
   teachers: string[];
+  practiceName?: string;
 };
+
+export type PizarraLabSession = {
+  id: number;
+  subjectCode: string;
+  subjectName: string;
+  sessionDate: string;
+  startTime: string;
+  duration: number;
+  groupCode: string | null;
+  teacherName: string | null;
+  installationName: string | null;
+  practiceName: string | null;
+};
+
+const normalizedTeacher = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}]/gu, "");
+
+export function pizarraLabClasses(sessions: PizarraLabSession[], teachers: string[]): PizarraClass[] {
+  return sessions.map((session) => ({
+    id: `lab-${session.id}`,
+    subjectCode: session.subjectCode,
+    subjectName: session.subjectName,
+    date: session.sessionDate,
+    startTime: session.startTime,
+    duration: session.duration,
+    groupCode: session.groupCode ?? "—",
+    teachingType: "LAB",
+    teachers: session.teacherName ? [teachers.find((name) => normalizedTeacher(name) === normalizedTeacher(session.teacherName!)) ?? session.teacherName] : [],
+    location: session.installationName ?? "",
+    practiceName: session.practiceName ?? "Sin práctica",
+  }));
+}
 
 export type PizarraData = {
   sources: { calendar: string; assignments: string };

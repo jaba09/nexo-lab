@@ -15,7 +15,7 @@
 .pizarra-week-controls button:disabled { opacity: .35; cursor: default; }
 .pizarra-week-controls input { width: 148px; }
 .pizarra-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; margin: 16px 0; font-size: 12px; color: #667168; }
-.pizarra-legend-cm::before, .pizarra-legend-problems::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: #438575; }
+.pizarra-legend-cm::before, .pizarra-legend-problems::before, .pizarra-legend-lab::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: #438575; }
 .pizarra-legend-problems::before { background: #517aa8; }
 .pizarra-shared-note { color: #655427; background: #fbf4de; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 12px; line-height: 1.5; }
 .pizarra-empty { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px; background: #f6f5ed; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
@@ -34,6 +34,10 @@
 .pizarra-day-column { position: relative; border-right: 1px solid #dfe4da; background-image: linear-gradient(to bottom, transparent calc(100% - 1px), #e4e7df calc(100% - 1px)); }
 .pizarra-class { position: absolute; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 3px; padding: 7px 8px; border: 1px solid #a5c6b6; border-left: 3px solid #438575; border-radius: 7px; background: #e9f3ed; color: #1e4137; text-align: left; overflow: hidden; cursor: pointer; box-shadow: 0 2px 4px #17201d08; }
 .pizarra-class.problems { background: #edf3fc; border-color: #b6c9e3; border-left-color: #517aa8; color: #2b4869; }
+.pizarra-class.laboratory { background: #f3eafa; border-color: #c9acde; border-left-color: #8351a6; color: #56376c; }
+.pizarra-legend .pizarra-legend-lab::before { background: #8351a6; }
+.pizarra-lab-toggle { display: flex; align-items: center; gap: 10px; margin: 16px 0; cursor: pointer; font-weight: 600; }
+.pizarra-lab-toggle input { width: 18px; height: 18px; accent-color: #8351a6; }
 .pizarra-class.unmatched { background: #fff1e1; border-color: #dbab73; border-left-color: #b5762e; color: #6e4316; }
 .pizarra-class.shared { border-style: dashed; border-left-style: solid; }
 .pizarra-class:hover, .pizarra-class:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; filter: brightness(.97); z-index: 1; }
