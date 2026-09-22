@@ -5,17 +5,21 @@ import { buildPizarraData } from "../lib/pizarraImport.mjs";
 import { layoutPizarraClasses, pizarraAddDays, pizarraLabClasses, pizarraVisibleInterval, pizarraWeek } from "../lib/pizarra.ts";
 
 test("lab overlay preserves stored sessions, matches teacher names and separates overlaps", () => {
-  const session = { id: 12, sessionDate: "2026-09-22", startTime: "09:00", duration: 120, subjectCode: "30013", subjectName: "Fluidos", groupCode: "11", teacherName: "J.Blasco", practiceName: "Viscosidad", installationName: "Reología" };
+  const session = { id: 12, sessionDate: "2026-09-22", startTime: "09:00", duration: 120, subjectCode: "30013", subjectName: "Fluidos", groupCode: "11", teacherId: 1, teacherName: "J.Blasco", practiceName: "Viscosidad", installationName: "Reología" };
   const original = structuredClone(session);
-  const [lab, unassigned] = pizarraLabClasses([session, { ...session, id: 13, teacherName: null, practiceName: null, groupCode: null, installationName: null }], ["J. Blasco"]);
+  const unassigned = { ...session, id: 13, teacherId: null, teacherName: null, practiceName: null, groupCode: null, installationName: null };
+  const results = pizarraLabClasses([session, unassigned], ["J. Blasco"]);
+  assert.equal(results.length, 1);
+  const [lab] = results;
   assert.equal(lab.id, "lab-12");
   assert.equal(lab.teachingType, "LAB");
   assert.equal(lab.date, session.sessionDate);
   assert.deepEqual(lab.teachers, ["J. Blasco"]);
   assert.equal(lab.practiceName, "Viscosidad");
   assert.equal(lab.location, "Reología");
-  assert.deepEqual(unassigned.teachers, []);
-  assert.equal(unassigned.practiceName, "Sin práctica");
+  assert.deepEqual(pizarraLabClasses([unassigned], []), []);
+  assert.equal(unassigned.teacherId, null);
+  assert.equal(pizarraLabClasses([{ ...session, practiceName: null }], [])[0].practiceName, "Sin práctica");
   assert.deepEqual(session, original);
   const layout = layoutPizarraClasses([lab, { ...lab, id: "ics-12", teachingType: "CM" }]);
   assert.deepEqual(layout.map(({ lane, lanes }) => [lane, lanes]), [[0, 2], [1, 2]]);

@@ -20,6 +20,7 @@ export type PizarraLabSession = {
   startTime: string;
   duration: number;
   groupCode: string | null;
+  teacherId: number | null;
   teacherName: string | null;
   installationName: string | null;
   practiceName: string | null;
@@ -28,7 +29,7 @@ export type PizarraLabSession = {
 const normalizedTeacher = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}]/gu, "");
 
 export function pizarraLabClasses(sessions: PizarraLabSession[], teachers: string[]): PizarraClass[] {
-  return sessions.map((session) => ({
+  return sessions.filter((session) => session.teacherId != null).map((session) => ({
     id: `lab-${session.id}`,
     subjectCode: session.subjectCode,
     subjectName: session.subjectName,
