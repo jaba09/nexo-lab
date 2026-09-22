@@ -10,9 +10,10 @@ import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 import { findSessionConflicts, installationIncludedInConflictChecks, type SessionConflict } from "../lib/sessionConflicts";
 import { downloadInterferenceReportPdf, type InterferenceReportItem } from "../lib/interferenceReport";
+import PizarraView from "./PizarraView";
 
-type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences";
-type Entity = Exclude<Section, "overview" | "messages" | "preferences">;
+type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "messages" | "preferences" | "pizarra";
+type Entity = Exclude<Section, "overview" | "messages" | "preferences" | "pizarra">;
 type MessageAudience = "subject" | "semester";
 type EditableRecord = { editVersion?: string };
 
@@ -377,6 +378,7 @@ const emptyCalendarFilters: CalendarFilters = {
 const navigation: { key: Section; label: string; short: string }[] = [
   { key: "overview", label: "Inicio", short: "00" },
   { key: "sessions", label: "Calendario", short: "SES" },
+  { key: "pizarra", label: "Pizarra", short: "PIZ" },
   { key: "installations", label: "Lab/instalaciones", short: "L/I" },
   { key: "subjects", label: "Grados/asignaturas", short: "G/A" },
   { key: "practices", label: "Prácticas", short: "PRA" },
@@ -1355,7 +1357,7 @@ export default function Home() {
     ? "Inicio"
     : active === "messages"
       ? "Mensajes"
-      : active === "preferences" ? "Admin" : entityCopy[active].plural;
+      : active === "preferences" ? "Admin" : active === "pizarra" ? "Pizarra" : entityCopy[active].plural;
 
   if (!authenticationChecked) {
     return <div className="auth-loading" role="status"><span />Comprobando el acceso…</div>;
@@ -1384,7 +1386,7 @@ export default function Home() {
             >
               <span className="nav-code">{item.short}</span>
               <span>{item.label}</span>
-              {item.key !== "overview" && item.key !== "messages" && item.key !== "preferences" && <b>{item.key === "installations"
+              {item.key !== "overview" && item.key !== "messages" && item.key !== "preferences" && item.key !== "pizarra" && <b>{item.key === "installations"
                 ? `${counts.laboratories}/${counts.installations}`
                 : item.key === "subjects" ? `${counts.degrees}/${counts.subjects}` : counts[item.key]}</b>}
             </button>
@@ -1412,7 +1414,7 @@ export default function Home() {
             <strong>{activeTitle}</strong>
           </div>
           <div className="topbar-actions">
-            {!(["overview", "messages", "preferences"] as Section[]).includes(active) && (
+            {!(["overview", "messages", "preferences", "pizarra"] as Section[]).includes(active) && (
               <label className="search-field">
                 <span aria-hidden="true">⌕</span>
                 <span className="sr-only">Buscar en {activeTitle}</span>
@@ -1452,6 +1454,8 @@ export default function Home() {
               onImportAssignments={() => setAssignmentImportOpen(true)}
               onEditSession={(session) => openEdit("sessions", session)}
             />
+          ) : active === "pizarra" ? (
+            <PizarraView teacherName={authenticatedTeacher.name} startHour={data.preferences.calendarStartHour} endHour={data.preferences.calendarEndHour} />
           ) : active === "messages" ? (
             <MessagesView
               data={data}

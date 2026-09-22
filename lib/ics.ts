@@ -46,7 +46,7 @@ const madridFormatter = new Intl.DateTimeFormat("en-CA", {
   hourCycle: "h23",
 });
 
-function unfoldLines(content: string) {
+export function unfoldLines(content: string) {
   const lines = content.replace(/\r\n?/g, "\n").split("\n");
   const unfolded: string[] = [];
   for (const line of lines) {
@@ -59,7 +59,7 @@ function unfoldLines(content: string) {
   return unfolded;
 }
 
-function decodeText(value: string) {
+export function decodeText(value: string) {
   return value
     .replace(/\\[nN]/g, "\n")
     .replace(/\\,/g, ",")
@@ -67,7 +67,7 @@ function decodeText(value: string) {
     .replace(/\\\\/g, "\\");
 }
 
-function readProperty(line: string): { name: string; property: IcsProperty } | null {
+export function readProperty(line: string): { name: string; property: IcsProperty } | null {
   const separator = line.indexOf(":");
   if (separator < 1) return null;
   const declaration = line.slice(0, separator).split(";");
@@ -118,7 +118,7 @@ function zonedTimeToTimestamp(parts: ReturnType<typeof datePartsInZone>, timeZon
   return timestamp;
 }
 
-function parseDateTime(property: IcsProperty) {
+export function parseDateTime(property: IcsProperty) {
   const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/.exec(property.value.trim());
   if (!match) return null;
   const parts = {

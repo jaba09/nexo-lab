@@ -255,6 +255,7 @@ export default async function HelpPage() {
                 <div><span>G/A</span><strong>Grados/asignaturas</strong><p>Grados desplegables con sus materias, prácticas ordenadas y profesores editores.</p></div>
                 <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración e instalaciones necesarias.</p></div>
                 <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña y permiso de administrador.</p></div>
+                <div><span>PIZ</span><strong>Pizarra</strong><p>Calendario semanal independiente de clases magistrales y problemas. Filtra por profesor, asignatura y semestre; pulsa una clase para consultar su grupo, aula y reparto docente.</p></div>
                 <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
               </div>
               <h3>Crear, editar o eliminar</h3>

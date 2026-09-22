@@ -162,6 +162,37 @@ el flujo automático de recuperación de contraseña.
 
 ## Comprobaciones
 
+### Calendario Pizarra
+
+El menú Pizarra muestra un calendario semanal independiente, disponible para todos
+los usuarios autenticados. Permite filtrar por profesor, asignatura, semestre y
+tipo de clase. Se muestran el nombre del profesor y el código de la asignatura;
+al pulsar una clase se ven el grupo, el horario y el aula.
+
+La fuente inicial es el par `horarios_asignaturas_2026-2027.ics` y
+`horas_profe.csv`. Solo se incluyen Clase Magistral y Resolución de problemas
+del ICS y las filas CM/Prob_casos del CSV. El cruce considera asignatura, grupo,
+semestre y tipo; los subgrupos de problemas heredan el reparto de su grupo
+principal. Los grupos vacíos del CSV abarcan todos los grupos correspondientes.
+Cuando varios profesores comparten el mismo reparto se muestran todos, sin
+atribuirles fechas concretas a partir de sus horas totales. Las clases y repartos
+sin correspondencia se detallan al pie de la vista.
+
+Los datos se distribuyen como una instantánea de solo lectura en
+`data/pizarra.json`, servida por `/api/pizarra` únicamente tras autenticarse.
+No se escriben clases de pizarra en SQLite ni se alteran sesiones, profesores o
+asignaturas. Para actualizar la instantánea con otro par de archivos:
+
+```bash
+node scripts/generate-pizarra.mjs /ruta/calendario.ics /ruta/horas_profe.csv
+```
+
+El generador valida los archivos antes de reemplazar la instantánea. Los cambios
+de fuentes necesitan una nueva compilación/despliegue; no hay importación desde
+el navegador en esta vista.
+
+### Pruebas
+
 ```bash
 npm test
 npm run lint

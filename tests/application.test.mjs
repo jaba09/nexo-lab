@@ -77,6 +77,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
 
   const unauthorizedDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(unauthorizedDataResponse.status, 401);
+  assert.equal((await fetch(`${origin}/api/pizarra`)).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
 
@@ -114,6 +115,13 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.match(helpHtml, /Administrador/);
 
   const initialData = await (await fetch(`${origin}/api/data`)).json();
+  const pizarraResponse = await fetch(`${origin}/api/pizarra`);
+  assert.equal(pizarraResponse.status, 200);
+  assert.match(pizarraResponse.headers.get("cache-control"), /private, no-store/);
+  const pizarraData = await pizarraResponse.json();
+  assert.ok(pizarraData.classes.length > 0);
+  assert.ok(pizarraData.classes.every((item) => ["CM", "Prob_casos"].includes(item.teachingType)));
+  assert.deepEqual((await (await fetch(`${origin}/api/data`)).json()).sessions, initialData.sessions);
   assert.ok(initialData.laboratories[0].editVersion);
   assert.ok(initialData.sessions[0].editVersion);
   const eventAbort = new AbortController();
@@ -794,6 +802,7 @@ END:VCALENDAR\r
   assert.match((await nonAdminMessageResponse.json()).error, /grupo de destinatarios válido/);
   const readOnlyDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(readOnlyDataResponse.status, 200);
+  assert.equal((await fetch(`${origin}/api/pizarra`)).status, 200);
   const editorData = await readOnlyDataResponse.json();
   assert.deepEqual(editorData.editableSubjectIds, [subjectForEditor.id]);
   const editorPreferencesResponse = await fetch(`${origin}/api/preferences`, {

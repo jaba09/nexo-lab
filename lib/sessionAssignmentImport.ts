@@ -89,7 +89,7 @@ function sessionKey(subjectCode: string, sessionDate: string, startTime: string)
   return `${normalizedCode(subjectCode)}\u0000${sessionDate}\u0000${startTime}`;
 }
 
-function parseCsvRecords(content: string) {
+export function parseCsvRecords(content: string) {
   const records: ParsedCsvRecord[] = [];
   let values: string[] = [];
   let value = "";
