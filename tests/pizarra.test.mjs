@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { buildPizarraData } from "../lib/pizarraImport.mjs";
-import { layoutPizarraClasses, pizarraAddDays, pizarraWeek } from "../lib/pizarra.ts";
+import { layoutPizarraClasses, pizarraAddDays, pizarraVisibleInterval, pizarraWeek } from "../lib/pizarra.ts";
+
+test("Pizarra respects Admin hours without changing class times or durations", () => {
+  const item = { startTime: "08:00", duration: 180 };
+  assert.deepEqual(pizarraVisibleInterval(item, 9, 10), { offset: 0, duration: 60 });
+  assert.deepEqual(pizarraVisibleInterval(item, 7, 10), { offset: 60, duration: 120 });
+  assert.equal(pizarraVisibleInterval(item, 11, 19), null);
+  assert.equal(pizarraVisibleInterval(item, 6, 8), null);
+  assert.deepEqual(pizarraVisibleInterval(item, 8, 19), { offset: 0, duration: 180 });
+  assert.deepEqual(item, { startTime: "08:00", duration: 180 });
+});
 
 const header = "\uFEFFcódigo,grupo,semestre,tipo_docen,profesor,horas\r\n";
 const event = (summary, start = "20260922T080000Z", end = "20260922T090000Z", extra = "") => `BEGIN:VEVENT\r\nSUMMARY:${summary}\r\nDTSTART:${start}\r\nDTEND:${end}\r\n${extra}END:VEVENT\r\n`;

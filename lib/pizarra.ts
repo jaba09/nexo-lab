@@ -36,6 +36,12 @@ export function pizarraTime(minutes: number) {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+export function pizarraVisibleInterval(item: Pick<PizarraClass, "startTime" | "duration">, startHour: number, endHour: number) {
+  const start = Math.max(pizarraMinutes(item.startTime), startHour * 60);
+  const end = Math.min(pizarraMinutes(item.startTime) + item.duration, endHour * 60);
+  return end > start ? { offset: start - startHour * 60, duration: end - start } : null;
+}
+
 export function pizarraDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

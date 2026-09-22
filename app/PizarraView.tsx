@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./pizarra.css";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
-import { layoutPizarraClasses, pizarraAddDays, pizarraDate, pizarraMinutes, pizarraTime, pizarraWeek, type PizarraClass, type PizarraData } from "../lib/pizarra";
+import { layoutPizarraClasses, pizarraAddDays, pizarraDate, pizarraMinutes, pizarraTime, pizarraVisibleInterval, pizarraWeek, type PizarraClass, type PizarraData } from "../lib/pizarra";
 
 const dayFormatter = new Intl.DateTimeFormat("es", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es", { day: "numeric", month: "long", year: "numeric" });
@@ -70,9 +70,11 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
   const subjects = [...new Map(semesterClasses.filter((item) => !teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher))).map((item) => [item.subjectCode, item.subjectName])).entries()].sort(([a], [b]) => a.localeCompare(b));
   const hasWeekend = weekClasses.some((item) => [0, 6].includes(new Date(`${item.date}T12:00:00`).getDay()));
   const days = Array.from({ length: hasWeekend ? 7 : 5 }, (_, index) => pizarraAddDays(week, index));
-  const positions = days.map((day) => layoutPizarraClasses(weekClasses.filter((item) => item.date === day)));
-  const firstHour = Math.min(startHour, ...weekClasses.map((item) => Math.floor(pizarraMinutes(item.startTime) / 60)));
-  const finalHour = Math.max(endHour, ...weekClasses.map((item) => Math.ceil((pizarraMinutes(item.startTime) + item.duration) / 60)));
+  const visibleClasses = weekClasses.filter((item) => pizarraVisibleInterval(item, startHour, endHour));
+  const hiddenCount = weekClasses.length - visibleClasses.length;
+  const positions = days.map((day) => layoutPizarraClasses(visibleClasses.filter((item) => item.date === day)));
+  const firstHour = startHour;
+  const finalHour = endHour;
   const hours = Array.from({ length: finalHour - firstHour + 1 }, (_, index) => firstHour + index);
   const hourHeight = 88;
   const gridHeight = (finalHour - firstHour) * hourHeight;
@@ -119,6 +121,7 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
         </div>
       </div>
       <div className="pizarra-legend"><span className="pizarra-legend-cm">Clase magistral</span><span className="pizarra-legend-problems">Problemas</span><span>Calendario independiente de las sesiones de laboratorio</span></div>
+      {hiddenCount > 0 && <p className="pizarra-shared-note" role="status">{hiddenCount} clases fuera del horario configurado en Admin ({pizarraTime(startHour * 60)}–{pizarraTime(endHour * 60)}).</p>}
       {shared > 0 && <p className="pizarra-shared-note">Borde discontinuo: reparto compartido. Se muestran los profesores asociados al grupo; el CSV no indica cuál imparte cada fecha.</p>}
       {!weekClasses.length && <div className="pizarra-empty" role="status"><span>No hay clases con estos filtros esta semana.</span>{filtered[0] && <button type="button" onClick={() => setDate(filtered[0].date)}>Ir a la primera clase</button>}</div>}
 
@@ -129,16 +132,19 @@ export default function PizarraView({ teacherName, startHour, endHour }: { teach
           {days.map((day) => <div key={day} className={`pizarra-day-heading${day === pizarraDate(new Date()) ? " today" : ""}`}><span>{dayFormatter.format(new Date(`${day}T12:00:00`))}</span><strong>{Number(day.slice(-2))}</strong></div>)}
           <div className="pizarra-hours" style={{ height: gridHeight }}>{hours.map((hour) => <span key={hour} style={{ top: (hour - firstHour) * hourHeight }}>{pizarraTime(hour * 60)}</span>)}</div>
           {positions.map((items, index) => <div key={days[index]} className="pizarra-day-column" style={{ height: gridHeight, backgroundSize: `100% ${hourHeight}px` }}>
-            {items.map(({ item, lane, lanes }) => (
+            {items.map(({ item, lane, lanes }) => {
+              const interval = pizarraVisibleInterval(item, startHour, endHour)!;
+              return (
               <button type="button" key={item.id} className={`pizarra-class ${item.teachingType === "CM" ? "lecture" : "problems"}${!item.teachers.length ? " unmatched" : ""}${item.teachers.length > 1 ? " shared" : ""}`}
-                style={{ top: (pizarraMinutes(item.startTime) - firstHour * 60) / 60 * hourHeight + 2, height: Math.max(24, item.duration / 60 * hourHeight - 4), left: `calc(${lane / lanes * 100}% + 3px)`, width: `calc(${100 / lanes}% - 6px)` }}
+                style={{ top: interval.offset / 60 * hourHeight + 2, height: Math.max(0, interval.duration / 60 * hourHeight - 4), left: `calc(${lane / lanes * 100}% + 3px)`, width: `calc(${100 / lanes}% - 6px)` }}
                 title={`${item.startTime}–${endTime(item)} · ${typeLabel(item)}\n${item.teachers.join(" / ") || "Sin correspondencia en el reparto"}\n${item.subjectCode} · ${item.subjectName}\nGrupo ${item.groupCode}${item.location ? `\n${item.location}` : ""}${item.teachers.length > 1 ? "\nReparto compartido: fechas individuales no determinadas." : ""}`}
                 onClick={() => setDetail(item)}>
                 <small>{item.startTime}–{endTime(item)} · {item.teachingType === "CM" ? "CM" : "Prob."}</small>
                 <strong>{item.subjectCode} <span>G{item.groupCode}</span></strong>
                 <span className="pizarra-teacher-names">{item.teachers.join(" / ") || "Sin profesor identificado"}</span>
               </button>
-            ))}
+              );
+            })}
           </div>)}
         </div>
       </div>
