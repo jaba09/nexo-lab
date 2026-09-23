@@ -165,8 +165,10 @@ el flujo automático de recuperación de contraseña.
 ### Calendario Pizarra
 
 El menú Pizarra muestra un calendario semanal independiente, disponible para todos
-los usuarios autenticados. Permite filtrar por profesor, asignatura, semestre y
-tipo de clase. Se muestran el nombre del profesor y el código de la asignatura;
+los usuarios autenticados. Permite filtrar por varios profesores mediante
+checkboxes, asignatura, semestre y tipo de clase. Todos los profesores aparecen
+marcados inicialmente y hay acciones para marcarlos o desmarcarlos en bloque.
+Se muestran el nombre del profesor y el código de la asignatura;
 las tarjetas compactas permiten ver simultáneamente de lunes a viernes. El
 tooltip y el detalle al pulsar una clase muestran el grupo, el tipo, el horario,
 el aula o instalación y, cuando corresponde, la práctica.

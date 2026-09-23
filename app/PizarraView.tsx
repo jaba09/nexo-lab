@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./pizarra.css";
 import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/semesters";
-import { layoutPizarraClasses, pizarraAddDays, pizarraDate, pizarraLabClasses, pizarraMinutes, pizarraTime, pizarraVisibleInterval, pizarraWeek, type PizarraClass, type PizarraData, type PizarraLabSession } from "../lib/pizarra";
+import { layoutPizarraClasses, pizarraAddDays, pizarraDate, pizarraLabClasses, pizarraMatchesTeachers, pizarraMinutes, pizarraTime, pizarraVisibleInterval, pizarraWeek, type PizarraClass, type PizarraData, type PizarraLabSession } from "../lib/pizarra";
 
 const dayFormatter = new Intl.DateTimeFormat("es", { weekday: "long" });
 const dateFormatter = new Intl.DateTimeFormat("es", { day: "numeric", month: "long", year: "numeric" });
@@ -17,7 +17,7 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
   const [semester, setSemester] = useState("");
-  const [teacher, setTeacher] = useState("");
+  const [selectedTeachers, setSelectedTeachers] = useState<string[] | null>(null);
   const [subject, setSubject] = useState("");
   const [teachingType, setTeachingType] = useState("");
   const [showLabs, setShowLabs] = useState(false);
@@ -39,7 +39,7 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
       const firstClass = result.classes.find((item) => inSemester(item, selectedSemester));
       setData(result);
       setSemester(selectedSemester);
-      setTeacher("");
+      setSelectedTeachers(null);
       setDate(selectedSemester === currentSemester ? today : firstClass?.date ?? semesterDefinition(selectedSemester).startDate);
     } catch (cause) {
       if (!signal?.aborted) setError(cause instanceof Error ? cause.message : "No se pudo cargar Pizarra.");
@@ -51,14 +51,15 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
     return () => controller.abort();
   }, [retry]);
 
-  const allClasses = useMemo(() => data ? [...data.classes, ...(showLabs ? pizarraLabClasses(sessions, data.teachers) : [])].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)) : [], [data, sessions, showLabs]);
-  const teachers = useMemo(() => [...new Set(allClasses.flatMap((item) => item.teachers))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })), [allClasses]);
+  const labClasses = useMemo(() => data ? pizarraLabClasses(sessions, data.teachers) : [], [data, sessions]);
+  const allClasses = useMemo(() => data ? [...data.classes, ...(showLabs ? labClasses : [])].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)) : [], [data, labClasses, showLabs]);
+  const teachers = useMemo(() => [...new Set([...(data?.classes ?? []), ...labClasses].flatMap((item) => item.teachers))].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })), [data, labClasses]);
   const semesterClasses = useMemo(() => allClasses.filter((item) => inSemester(item, semester)), [allClasses, semester]);
   const filtered = useMemo(() => semesterClasses.filter((item) => (
-    (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher)))
+    pizarraMatchesTeachers(item, selectedTeachers)
     && (!subject || item.subjectCode === subject)
     && (!teachingType || item.teachingType === teachingType)
-  )), [semesterClasses, teacher, subject, teachingType]);
+  )), [semesterClasses, selectedTeachers, subject, teachingType]);
   const week = pizarraWeek(date);
   const lastDate = pizarraAddDays(week, 4);
   const weekClasses = filtered.filter((item) => item.date >= week && item.date <= lastDate);
@@ -68,7 +69,10 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
 
   const definition = semesterDefinition(semester);
   const semesters = semesterOptions(allClasses.map((item) => item.date), data.classes[0].date).filter((option) => allClasses.some((item) => inSemester(item, option.id)));
-  const subjects = [...new Map(semesterClasses.filter((item) => !teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher))).map((item) => [item.subjectCode, item.subjectName])).entries()].sort(([a], [b]) => a.localeCompare(b));
+  const teacherOptions = [...teachers, "__unmatched"];
+  const selectedTeacherCount = selectedTeachers === null ? teacherOptions.length : selectedTeachers.length;
+  const teacherSummary = selectedTeacherCount === teacherOptions.length ? "Todos los profesores" : selectedTeacherCount === 0 ? "Ningún profesor" : `${selectedTeacherCount} de ${teacherOptions.length} profesores`;
+  const subjects = [...new Map(semesterClasses.filter((item) => pizarraMatchesTeachers(item, selectedTeachers)).map((item) => [item.subjectCode, item.subjectName])).entries()].sort(([a], [b]) => a.localeCompare(b));
   const days = Array.from({ length: 5 }, (_, index) => pizarraAddDays(week, index));
   const visibleClasses = weekClasses.filter((item) => pizarraVisibleInterval(item, startHour, endHour));
   const hiddenCount = weekClasses.length - visibleClasses.length;
@@ -84,8 +88,15 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
   function changeSemester(value: string) {
     setSemester(value);
     setSubject("");
-    const first = allClasses.filter((item) => inSemester(item, value) && (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher)))).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const first = allClasses.filter((item) => inSemester(item, value) && pizarraMatchesTeachers(item, selectedTeachers)).sort((a, b) => a.date.localeCompare(b.date))[0];
     setDate(first?.date ?? semesterDefinition(value).startDate);
+  }
+
+  function toggleTeacher(value: string, checked: boolean) {
+    const current = selectedTeachers ?? teacherOptions;
+    const next = checked ? [...new Set([...current, value])] : current.filter((item) => item !== value);
+    setSelectedTeachers(next.length === teacherOptions.length ? null : next);
+    setSubject("");
   }
 
   function moveWeek(offset: number) {
@@ -101,11 +112,20 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
       </div>
 
       <div className="pizarra-filters">
-        <label><span>Profesor</span><select value={teacher} onChange={(event) => { setTeacher(event.target.value); setSubject(""); }}>
-          <option value="">Todos los profesores</option>
-          {teachers.map((name) => <option key={name} value={name}>{name}</option>)}
-          <option value="__unmatched">Sin profesor identificado o asignado</option>
-        </select></label>
+        <fieldset className="pizarra-teacher-filter">
+          <legend>Profesor</legend>
+          <details>
+            <summary>{teacherSummary}</summary>
+            <div className="pizarra-teacher-menu">
+              <div className="pizarra-teacher-actions">
+                <button type="button" disabled={selectedTeacherCount === teacherOptions.length} onClick={() => { setSelectedTeachers(null); setSubject(""); }}>Marcar todos</button>
+                <button type="button" disabled={selectedTeacherCount === 0} onClick={() => { setSelectedTeachers([]); setSubject(""); }}>Desmarcar todos</button>
+              </div>
+              {teachers.map((name) => <label key={name}><input type="checkbox" checked={selectedTeachers === null || selectedTeachers.includes(name)} onChange={(event) => toggleTeacher(name, event.target.checked)} /><span>{name}</span></label>)}
+              <label><input type="checkbox" checked={selectedTeachers === null || selectedTeachers.includes("__unmatched")} onChange={(event) => toggleTeacher("__unmatched", event.target.checked)} /><span>Sin profesor identificado</span></label>
+            </div>
+          </details>
+        </fieldset>
         <label><span>Asignatura</span><select value={subject} onChange={(event) => setSubject(event.target.value)}><option value="">Todas las asignaturas</option>{subjects.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}</select></label>
         <label><span>Tipo de clase</span><select value={teachingType} onChange={(event) => setTeachingType(event.target.value)}><option value="">Todos los tipos</option><option value="CM">Clase magistral</option><option value="Prob_casos">Resolución de problemas</option>{showLabs && <option value="LAB">Laboratorio</option>}</select></label>
       </div>
@@ -114,8 +134,7 @@ export default function PizarraView({ sessions, startHour, endHour }: { sessions
         setShowLabs(checked);
         if (!checked) {
           if (teachingType === "LAB") setTeachingType("");
-          if (teacher && teacher !== "__unmatched" && !data.teachers.includes(teacher)) { setTeacher(""); setSubject(""); }
-          if (subject && !data.classes.some((item) => inSemester(item, semester) && item.subjectCode === subject && (!teacher || (teacher === "__unmatched" ? !item.teachers.length : item.teachers.includes(teacher))))) setSubject("");
+          if (subject && !data.classes.some((item) => inSemester(item, semester) && item.subjectCode === subject && pizarraMatchesTeachers(item, selectedTeachers))) setSubject("");
           if (!data.classes.some((item) => inSemester(item, semester))) changeSemester(semesterFromDate(data.classes[0].date));
         }
       }} />Mostrar sesiones de laboratorio</label>

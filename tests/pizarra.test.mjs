@@ -2,7 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { buildPizarraData } from "../lib/pizarraImport.mjs";
-import { layoutPizarraClasses, pizarraAddDays, pizarraLabClasses, pizarraVisibleInterval, pizarraWeek } from "../lib/pizarra.ts";
+import { layoutPizarraClasses, pizarraAddDays, pizarraLabClasses, pizarraMatchesTeachers, pizarraVisibleInterval, pizarraWeek } from "../lib/pizarra.ts";
+
+test("teacher checkbox selection supports all, none, several and shared classes", () => {
+  const shared = { teachers: ["A. Uno", "B. Dos"] };
+  const unmatched = { teachers: [] };
+  assert.equal(pizarraMatchesTeachers(shared, null), true);
+  assert.equal(pizarraMatchesTeachers(shared, []), false);
+  assert.equal(pizarraMatchesTeachers(shared, ["A. Uno"]), true);
+  assert.equal(pizarraMatchesTeachers(shared, ["C. Tres"]), false);
+  assert.equal(pizarraMatchesTeachers(unmatched, ["__unmatched"]), true);
+  assert.equal(pizarraMatchesTeachers(unmatched, ["A. Uno"]), false);
+});
 
 test("lab overlay preserves stored sessions, matches teacher names and separates overlaps", () => {
   const session = { id: 12, sessionDate: "2026-09-22", startTime: "09:00", duration: 120, subjectCode: "30013", subjectName: "Fluidos", groupCode: "11", teacherId: 1, teacherName: "J.Blasco", practiceName: "Viscosidad", installationName: "Reología" };

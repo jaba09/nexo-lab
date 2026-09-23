@@ -44,6 +44,12 @@ export function pizarraLabClasses(sessions: PizarraLabSession[], teachers: strin
   }));
 }
 
+export function pizarraMatchesTeachers(item: Pick<PizarraClass, "teachers">, selectedTeachers: string[] | null) {
+  if (selectedTeachers === null) return true;
+  if (!item.teachers.length) return selectedTeachers.includes("__unmatched");
+  return item.teachers.some((teacher) => selectedTeachers.includes(teacher));
+}
+
 export type PizarraData = {
   sources: { calendar: string; assignments: string };
   classes: PizarraClass[];
