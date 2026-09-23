@@ -167,7 +167,9 @@ el flujo automático de recuperación de contraseña.
 El menú Pizarra muestra un calendario semanal independiente, disponible para todos
 los usuarios autenticados. Permite filtrar por profesor, asignatura, semestre y
 tipo de clase. Se muestran el nombre del profesor y el código de la asignatura;
-al pulsar una clase se ven el grupo, el horario y el aula.
+las tarjetas compactas permiten ver simultáneamente de lunes a viernes. El
+tooltip y el detalle al pulsar una clase muestran el grupo, el tipo, el horario,
+el aula o instalación y, cuando corresponde, la práctica.
 Por defecto se muestran todos los profesores. El checkbox «Mostrar sesiones de
 laboratorio», desmarcado inicialmente, superpone las sesiones guardadas en morado
 sin modificarlas. Se ocultan las sesiones de laboratorio sin profesor asignado.
