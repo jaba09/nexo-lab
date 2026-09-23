@@ -26,7 +26,7 @@ export function recordVersion(entity: EditableEntity, record: Record<string, unk
       values = [record.code, record.abbreviation, record.name, record.degreeId, numericIds(record.practiceIds), numericIds(record.editorIds, true)];
       break;
     case "teachers":
-      values = [record.code, record.name, record.email, Boolean(record.isAdmin)];
+      values = [record.code, record.name, record.email, Boolean(record.isAdmin), Boolean(record.isLabStaff)];
       break;
     case "sessions":
       values = [record.sessionDate, record.startTime, record.duration, record.subjectId, record.teacherId ?? null, record.practiceId ?? null, record.groupCode ?? null];

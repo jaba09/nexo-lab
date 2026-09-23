@@ -254,10 +254,12 @@ export default async function HelpPage() {
                 <div><span>L/I</span><strong>Lab/instalaciones</strong><p>Laboratorios desplegables con sus espacios, equipos y datos de gestión.</p></div>
                 <div><span>G/A</span><strong>Grados/asignaturas</strong><p>Grados desplegables con sus materias, prácticas ordenadas y profesores editores.</p></div>
                 <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración e instalaciones necesarias.</p></div>
-                <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña y permiso de administrador.</p></div>
+                <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña, permisos y pertenencia al personal de laboratorio.</p></div>
                 <div><span>PIZ</span><strong>Pizarra</strong><p>Calendario semanal independiente de clases magistrales y problemas. Filtra por profesor, asignatura y semestre; pulsa una clase para consultar su grupo, aula y reparto docente.</p></div>
                 <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
               </div>
+              <h3>Notificaciones al personal de laboratorio</h3>
+              <p>Los profesores marcados como «Personal de laboratorio» reciben un aviso interno cada vez que se crea o modifica una sesión. La campana de la barra superior muestra los avisos sin leer; al abrirla puedes marcar uno o todos como leídos. Los avisos quedan guardados aunque cierres la sesión.</p>
               <h3>Crear, editar o eliminar</h3>
               <p>Cuando tu cuenta tenga permiso, verás el botón de creación en la cabecera. Selecciona una fila o tarjeta editable para abrir su ficha. La eliminación aparece dentro de los controles del registro y puede impedirse si existen datos relacionados que deban conservarse.</p>
               <div className="help-callout neutral">

@@ -2,6 +2,7 @@ import { getDatabase } from "../../../../lib/database";
 import { IcsLabSession, parseIcsLabSessions } from "../../../../lib/ics";
 import { getAuthenticatedTeacher, readOnlyResponse, unauthorizedResponse } from "../../../../lib/auth";
 import { publishDataChange } from "../../../../lib/dataEvents";
+import { createSessionNotifications } from "../../../../lib/sessionNotifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,6 +214,7 @@ export async function POST(request: Request) {
     let existingHolidayCount = 0;
     let createdSubjectCount = 0;
     let createdDegreeCount = 0;
+    const importedSessionIds: number[] = [];
     database.exec("BEGIN IMMEDIATE");
     try {
       const subjectIds = new Map<string, number>();
@@ -234,7 +236,10 @@ export async function POST(request: Request) {
           session.subjectCode,
           session.groupCode,
         );
-        if (Number(result.changes)) importedCount += 1;
+        if (Number(result.changes)) {
+          importedCount += 1;
+          importedSessionIds.push(Number(result.lastInsertRowid));
+        }
         else existingCount += 1;
       }
       for (const holiday of parsed.holidays) {
@@ -242,6 +247,12 @@ export async function POST(request: Request) {
         if (Number(result.changes)) importedHolidayCount += 1;
         else existingHolidayCount += 1;
       }
+      if (importedSessionIds.length) createSessionNotifications(database, {
+        eventType: "session-created",
+        sessionIds: importedSessionIds,
+        actorTeacherId: authenticatedTeacher.id,
+        actorName: authenticatedTeacher.name,
+      });
       database.exec("COMMIT");
     } catch (error) {
       database.exec("ROLLBACK");

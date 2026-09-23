@@ -94,6 +94,29 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .topbar > div:first-child { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
 .eyebrow { color: #8a918e; font: 600 10px var(--font-geist-mono); text-transform: uppercase; letter-spacing: .09em; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
+.notification-center { position: relative; }
+.notification-button { position: relative; width: 38px; height: 38px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--white); color: #5f6965; display: grid; place-items: center; cursor: pointer; }
+.notification-button:hover, .notification-button.active { border-color: #8ca153; background: #f5fadf; color: #486214; }
+.notification-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.notification-button > span { position: absolute; top: -5px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border: 2px solid #f4f2eb; border-radius: 9px; background: #b33e30; color: #fff; display: grid; place-items: center; font: 750 7px var(--font-geist-mono); }
+.notification-panel { position: absolute; top: calc(100% + 12px); right: 0; width: min(390px, calc(100vw - 32px)); max-height: min(620px, calc(100vh - 100px)); border: 1px solid #cfd4c4; border-radius: 12px; background: #fffef9; box-shadow: 0 18px 55px rgba(24, 34, 30, .2); overflow: hidden; z-index: 25; }
+.notification-panel > header { min-height: 68px; padding: 14px 15px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.notification-panel > header > div { display: grid; gap: 3px; }
+.notification-panel > header strong { font-size: 12px; }
+.notification-panel > header small { color: var(--muted); font-size: 8px; }
+.notification-panel > header button { padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: #58751d; font-size: 8px; font-weight: 750; cursor: pointer; }
+.notification-panel > header button:hover { background: #eff6d8; }
+.notification-list { max-height: min(510px, calc(100vh - 170px)); overflow-y: auto; }
+.notification-item { width: 100%; padding: 14px 15px; border: 0; border-bottom: 1px solid #e9e9e2; background: #fffef9; color: inherit; display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 10px; text-align: left; cursor: pointer; }
+.notification-item:hover { background: #f7f8ef; }
+.notification-item.unread { background: #f4fadf; }
+.notification-status { width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: transparent; }
+.notification-item.unread .notification-status { background: #668b12; box-shadow: 0 0 0 3px rgba(102,139,18,.11); }
+.notification-item > span:last-child { min-width: 0; display: grid; gap: 5px; }
+.notification-item strong { font-size: 10px; }
+.notification-item small { color: #5e6763; font-size: 9px; line-height: 1.45; }
+.notification-item time { color: #8a918e; font: 650 7px var(--font-geist-mono); text-transform: uppercase; }
+.notification-empty { margin: 0; padding: 35px 20px; color: var(--muted); font-size: 10px; text-align: center; }
 .profile-button { min-width: 36px; height: 36px; padding: 0 8px; border: 0; border-radius: 18px; background: var(--ink); color: #fff; display: grid; place-items: center; font: 650 9px var(--font-geist-mono); }
 .account-summary { display: flex; align-items: center; gap: 9px; }
 .account-summary > span:nth-child(2) { display: grid; gap: 2px; }
@@ -600,6 +623,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .tag-list .permission-tag { border-color: #d3d5cf; background: #f0f0eb; color: #68716d; }
 .tag-list .permission-tag.admin { border-color: #96ab65; background: #eff8d7; color: #40551b; }
 .tag-list .permission-tag.editor { border-color: #ef9b86; background: #fff0eb; color: #8d3529; }
+.tag-list .permission-tag.lab-staff { border-color: #8ab4c1; background: #eaf7fa; color: #215b69; }
 .tag-list .subject-editor-tag { border-color: #ef9b86; background: #fff0eb; color: #8d3529; }
 .delete-button { width: 31px; height: 31px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: #9aa19d; font-size: 18px; cursor: pointer; }
 .delete-button:hover { color: var(--danger); border-color: #e1aba6; background: #fff1ef; }

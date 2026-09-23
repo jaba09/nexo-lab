@@ -77,6 +77,11 @@ test("serves the web app and persists CRUD operations through its own API", asyn
 
   const unauthorizedDataResponse = await fetch(`${origin}/api/data`);
   assert.equal(unauthorizedDataResponse.status, 401);
+  assert.equal((await fetch(`${origin}/api/notifications`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "read-all" }),
+  })).status, 401);
   assert.equal((await fetch(`${origin}/api/pizarra`)).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
@@ -154,6 +159,8 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.ok(initialData.teachers.every((teacher) => !("passwordHash" in teacher) && !("password_hash" in teacher)));
   assert.equal(initialData.teachers.find((teacher) => teacher.email === bootstrapEmail).isAdmin, true);
   assert.ok(initialData.teachers.filter((teacher) => teacher.email !== bootstrapEmail).every((teacher) => teacher.isAdmin === false));
+  assert.ok(initialData.teachers.every((teacher) => teacher.isLabStaff === false));
+  assert.deepEqual(initialData.notifications, []);
   assert.deepEqual(
     initialData.teachers.map((teacher) => teacher.name),
     [...initialData.teachers.map((teacher) => teacher.name)].sort((left, right) => (
@@ -339,6 +346,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
       name: "Dra. Elena Martín actualizada",
       email: "Elena.Martin@Universidad.es",
       isAdmin: true,
+      isLabStaff: true,
     },
   ];
 
@@ -412,6 +420,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(editedTeacher.name, "Dra. Elena Martín actualizada");
   assert.equal(editedTeacher.email, "elena.martin@universidad.es");
   assert.equal(editedTeacher.isAdmin, true);
+  assert.equal(editedTeacher.isLabStaff, true);
 
   const removeLastAdministratorResponse = await fetch(`${origin}/api/data`, {
     method: "PUT",
@@ -467,6 +476,24 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(createdSession.teacherCode, "PRO-01A");
   assert.equal(createdSession.practiceCode, "PRA-04");
   assert.deepEqual(createdSession.degreePracticeIds.sort((left, right) => left - right), [1, 2, 4]);
+  assert.equal(dataWithSession.notifications.length, 1);
+  assert.equal(dataWithSession.notifications[0].eventType, "session-created");
+  assert.equal(dataWithSession.notifications[0].sessionId, createdSession.id);
+  assert.equal(dataWithSession.notifications[0].readAt, null);
+  assert.match(dataWithSession.notifications[0].message, /ASI-01A/);
+  const notificationDatabase = new DatabaseSync(databasePath);
+  assert.equal(notificationDatabase.prepare("SELECT COUNT(*) AS total FROM notifications").get().total, 1);
+  assert.equal(notificationDatabase.prepare("SELECT recipient_teacher_id AS recipientTeacherId FROM notifications").get().recipientTeacherId, editedTeacher.id);
+  notificationDatabase.close();
+  const createdNotificationId = dataWithSession.notifications[0].id;
+  const readNotificationResponse = await fetch(`${origin}/api/notifications`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "read", id: createdNotificationId }),
+  });
+  assert.equal(readNotificationResponse.status, 200);
+  assert.equal((await readNotificationResponse.json()).updatedCount, 1);
+  assert.ok((await (await fetch(`${origin}/api/data`)).json()).notifications.find((notification) => notification.id === createdNotificationId).readAt);
 
   const createOverlapCandidateResponse = await fetch(`${origin}/api/data`, {
     method: "POST",
@@ -572,6 +599,9 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(editedSession.subjectCode, "ASI-03");
   assert.equal(editedSession.teacherCode, "PRO-02");
   assert.equal(editedSession.practiceCode, "PRA-03");
+  assert.equal(editedSessionData.notifications[0].eventType, "session-updated");
+  assert.equal(editedSessionData.notifications[0].sessionId, editedSession.id);
+  assert.equal(editedSessionData.notifications[0].readAt, null);
 
   const moveSessionResponse = await fetch(`${origin}/api/data`, {
     method: "PATCH",
@@ -763,6 +793,7 @@ END:VCALENDAR\r
   assert.ok(temporaryTeacher);
   assert.equal(temporaryTeacher.email, "temporal@universidad.es");
   assert.equal(temporaryTeacher.isAdmin, false);
+  assert.equal(temporaryTeacher.isLabStaff, false);
   const subjectForEditor = dataWithTemporaryTeacher.subjects.find((subject) => subject.id === 1);
   const grantSubjectEditorResponse = await fetch(`${origin}/api/data`, {
     method: "PUT",
@@ -805,6 +836,14 @@ END:VCALENDAR\r
   assert.equal((await fetch(`${origin}/api/pizarra`)).status, 200);
   const editorData = await readOnlyDataResponse.json();
   assert.deepEqual(editorData.editableSubjectIds, [subjectForEditor.id]);
+  assert.deepEqual(editorData.notifications, []);
+  const cannotReadOtherNotificationResponse = await fetch(`${origin}/api/notifications`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "read", id: createdNotificationId }),
+  });
+  assert.equal(cannotReadOtherNotificationResponse.status, 200);
+  assert.equal((await cannotReadOtherNotificationResponse.json()).updatedCount, 0);
   const editorPreferencesResponse = await fetch(`${origin}/api/preferences`, {
     method: "PUT",
     headers: { "content-type": "application/json" },

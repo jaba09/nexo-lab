@@ -258,6 +258,7 @@ export function importSessionAssignments(
   database: DatabaseSync,
   content: string,
   conflictMode: SessionAssignmentConflictMode,
+  onUpdated?: (sessionIds: number[]) => void,
 ): SessionAssignmentImportResult {
   database.exec("BEGIN IMMEDIATE");
   try {
@@ -272,6 +273,7 @@ export function importSessionAssignments(
     let clearedCount = 0;
     let preservedCount = 0;
     let unchangedCount = 0;
+    const updatedSessionIds: number[] = [];
     for (const match of matches) {
       if (conflictMode === "keep-existing" && match.session.teacherId !== null) {
         preservedCount += 1;
@@ -283,9 +285,11 @@ export function importSessionAssignments(
         continue;
       }
       updateTeacher.run(targetTeacherId, match.session.id);
+      updatedSessionIds.push(match.session.id);
       if (targetTeacherId === null) clearedCount += 1;
       else assignedCount += 1;
     }
+    onUpdated?.(updatedSessionIds);
     database.exec("COMMIT");
     return {
       matchedCount: preview.matchedCount,

@@ -5,6 +5,7 @@ import { readAppPreferences } from "../../../lib/preferences";
 import { findNewSessionConflict, installationIncludedInConflictChecks, type ScheduledSession } from "../../../lib/sessionConflicts";
 import { publishDataChange } from "../../../lib/dataEvents";
 import { recordVersion, type EditableEntity } from "../../../lib/recordVersion";
+import { createSessionNotifications } from "../../../lib/sessionNotifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ function currentRecordVersion(database: ReturnType<typeof getDatabase>, entity: 
     practices: "SELECT code, name, duration FROM practices WHERE id = ?",
     degrees: "SELECT code, ics_code AS icsCode, name, level FROM degrees WHERE id = ?",
     subjects: "SELECT code, abbreviation, name, degree_id AS degreeId FROM subjects WHERE id = ?",
-    teachers: "SELECT code, name, email, is_admin AS isAdmin FROM teachers WHERE id = ?",
+    teachers: "SELECT code, name, email, is_admin AS isAdmin, is_lab_staff AS isLabStaff FROM teachers WHERE id = ?",
     sessions: `SELECT session_date AS sessionDate, start_time AS startTime, duration,
       subject_id AS subjectId, teacher_id AS teacherId, practice_id AS practiceId,
       group_code AS groupCode FROM sessions WHERE id = ?`,
@@ -393,7 +394,8 @@ export async function GET() {
       JOIN degrees d ON d.id = s.degree_id
       ORDER BY s.code`).all() as Record<string, unknown>[];
     const teachers = database.prepare(`SELECT
-      t.id, t.code, t.name, t.email, t.is_admin AS isAdmin, COUNT(se.id) AS sessionCount
+      t.id, t.code, t.name, t.email, t.is_admin AS isAdmin,
+      t.is_lab_staff AS isLabStaff, COUNT(se.id) AS sessionCount
       FROM teachers t
       LEFT JOIN sessions se ON se.teacher_id = t.id
       GROUP BY t.id
@@ -439,6 +441,13 @@ export async function GET() {
       day_date AS date, day_type AS dayType
       FROM academic_day_types
       ORDER BY day_date`).all();
+    const notifications = database.prepare(`SELECT
+      id, session_id AS sessionId, event_type AS eventType, title, message,
+      created_at AS createdAt, read_at AS readAt
+      FROM notifications
+      WHERE recipient_teacher_id = ?
+      ORDER BY created_at DESC, id DESC
+      LIMIT 100`).all(authenticatedTeacher.id);
 
     return Response.json({
       laboratories: laboratories.map((laboratory) => ({ ...laboratory, editVersion: recordVersion("laboratories", laboratory) })),
@@ -472,6 +481,7 @@ export async function GET() {
       teachers: teachers.map((teacher) => ({
         ...teacher,
         isAdmin: Boolean(teacher.isAdmin),
+        isLabStaff: Boolean(teacher.isLabStaff),
         editVersion: recordVersion("teachers", teacher),
       })),
       sessions: sessions.map((session) => ({
@@ -481,6 +491,7 @@ export async function GET() {
       })),
       holidays,
       academicDayTypes,
+      notifications,
       preferences: readAppPreferences(database),
       viewer: authenticatedTeacher,
       editableSubjectIds: authenticatedTeacher.isAdmin
@@ -534,7 +545,21 @@ export async function POST(request: Request) {
         practiceId,
       }]);
       if (overlap) return overlap;
-      database.prepare("INSERT INTO sessions (session_date, start_time, duration, subject_id, teacher_id, practice_id) VALUES (?, ?, ?, ?, ?, ?)").run(sessionDate, startTime, duration, subjectId, teacherId, practiceId);
+      database.exec("BEGIN IMMEDIATE");
+      try {
+        const result = database.prepare("INSERT INTO sessions (session_date, start_time, duration, subject_id, teacher_id, practice_id) VALUES (?, ?, ?, ?, ?, ?)")
+          .run(sessionDate, startTime, duration, subjectId, teacherId, practiceId);
+        createSessionNotifications(database, {
+          eventType: "session-created",
+          sessionIds: [Number(result.lastInsertRowid)],
+          actorTeacherId: authenticatedTeacher.id,
+          actorName: authenticatedTeacher.name,
+        });
+        database.exec("COMMIT");
+      } catch (error) {
+        database.exec("ROLLBACK");
+        throw error;
+      }
       return changedResponse({ ok: true }, { status: 201 });
     }
 
@@ -589,8 +614,9 @@ export async function POST(request: Request) {
       const passwordError = passwordValidationError(payload.password);
       if (passwordError) return Response.json({ error: passwordError }, { status: 400 });
       const isAdmin = payload.isAdmin === true ? 1 : 0;
-      database.prepare("INSERT INTO teachers (code, name, email, password_hash, is_admin) VALUES (?, ?, ?, ?, ?)")
-        .run(code, name, email, hashPassword(String(payload.password)), isAdmin);
+      const isLabStaff = payload.isLabStaff === true ? 1 : 0;
+      database.prepare("INSERT INTO teachers (code, name, email, password_hash, is_admin, is_lab_staff) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(code, name, email, hashPassword(String(payload.password)), isAdmin, isLabStaff);
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
       const practiceIds = positiveIntegerList(payload.practiceIds);
@@ -650,8 +676,10 @@ export async function PUT(request: Request) {
 
     if (entity === "sessions") {
       const { sessionDate, startTime, duration, subjectId, teacherId, practiceId } = sessionFields(payload);
-      const currentSession = database.prepare("SELECT session_date AS sessionDate, subject_id AS subjectId, practice_id AS practiceId FROM sessions WHERE id = ?")
-        .get(id) as { sessionDate: string; subjectId: number; practiceId: number | null };
+      const currentSession = database.prepare(`SELECT session_date AS sessionDate, start_time AS startTime,
+        duration, subject_id AS subjectId, teacher_id AS teacherId, practice_id AS practiceId
+        FROM sessions WHERE id = ?`)
+        .get(id) as { sessionDate: string; startTime: string; duration: number; subjectId: number; teacherId: number | null; practiceId: number | null };
       if (!sessionDate || !startTime || !duration || !subjectId) {
         return Response.json({ error: "Completa el día, la hora, la duración y la asignatura." }, { status: 400 });
       }
@@ -691,7 +719,27 @@ export async function PUT(request: Request) {
         practiceId,
       }]);
       if (overlap) return overlap;
-      database.prepare("UPDATE sessions SET session_date = ?, start_time = ?, duration = ?, subject_id = ?, teacher_id = ?, practice_id = ? WHERE id = ?").run(sessionDate, startTime, resolvedDuration, subjectId, teacherId, practiceId, id);
+      const sessionChanged = currentSession.sessionDate !== sessionDate
+        || currentSession.startTime !== startTime
+        || Number(currentSession.duration) !== resolvedDuration
+        || Number(currentSession.subjectId) !== subjectId
+        || currentSession.teacherId !== teacherId
+        || currentSession.practiceId !== practiceId;
+      database.exec("BEGIN IMMEDIATE");
+      try {
+        database.prepare("UPDATE sessions SET session_date = ?, start_time = ?, duration = ?, subject_id = ?, teacher_id = ?, practice_id = ? WHERE id = ?")
+          .run(sessionDate, startTime, resolvedDuration, subjectId, teacherId, practiceId, id);
+        if (sessionChanged) createSessionNotifications(database, {
+          eventType: "session-updated",
+          sessionIds: [id],
+          actorTeacherId: authenticatedTeacher.id,
+          actorName: authenticatedTeacher.name,
+        });
+        database.exec("COMMIT");
+      } catch (error) {
+        database.exec("ROLLBACK");
+        throw error;
+      }
       return changedResponse({ ok: true });
     }
 
@@ -735,9 +783,10 @@ export async function PUT(request: Request) {
     } else if (entity === "teachers") {
       const email = validEmail(payload.email);
       if (!email) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
-      const existingTeacher = database.prepare("SELECT is_admin AS isAdmin FROM teachers WHERE id = ?")
-        .get(id) as { isAdmin: number };
+      const existingTeacher = database.prepare("SELECT is_admin AS isAdmin, is_lab_staff AS isLabStaff FROM teachers WHERE id = ?")
+        .get(id) as { isAdmin: number; isLabStaff: number };
       const isAdmin = typeof payload.isAdmin === "boolean" ? payload.isAdmin : Boolean(existingTeacher.isAdmin);
+      const isLabStaff = typeof payload.isLabStaff === "boolean" ? payload.isLabStaff : Boolean(existingTeacher.isLabStaff);
       if (existingTeacher.isAdmin && !isAdmin) {
         const adminCount = database.prepare("SELECT COUNT(*) AS total FROM teachers WHERE is_admin = 1").get() as { total: number };
         if (Number(adminCount.total) <= 1) {
@@ -748,11 +797,11 @@ export async function PUT(request: Request) {
       if (password) {
         const passwordError = passwordValidationError(password);
         if (passwordError) return Response.json({ error: passwordError }, { status: 400 });
-        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, password_hash = ?, is_admin = ? WHERE id = ?")
-          .run(code, name, email, hashPassword(password), isAdmin ? 1 : 0, id);
+        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, password_hash = ?, is_admin = ?, is_lab_staff = ? WHERE id = ?")
+          .run(code, name, email, hashPassword(password), isAdmin ? 1 : 0, isLabStaff ? 1 : 0, id);
       } else {
-        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, is_admin = ? WHERE id = ?")
-          .run(code, name, email, isAdmin ? 1 : 0, id);
+        database.prepare("UPDATE teachers SET code = ?, name = ?, email = ?, is_admin = ?, is_lab_staff = ? WHERE id = ?")
+          .run(code, name, email, isAdmin ? 1 : 0, isLabStaff ? 1 : 0, id);
       }
     } else if (entity === "subjects") {
       const degreeId = positiveInteger(payload.degreeId);
@@ -827,8 +876,9 @@ export async function PATCH(request: Request) {
         return Response.json({ error: "El destino de la sesión no es válido." }, { status: 400 });
       }
       const database = getDatabase();
-      const session = database.prepare("SELECT subject_id AS subjectId FROM sessions WHERE id = ?")
-        .get(id) as { subjectId: number } | undefined;
+      const session = database.prepare(`SELECT subject_id AS subjectId, session_date AS sessionDate,
+        start_time AS startTime FROM sessions WHERE id = ?`)
+        .get(id) as { subjectId: number; sessionDate: string; startTime: string } | undefined;
       if (!session) {
         return Response.json({ error: "La sesión que intentas mover ya no existe." }, { status: 404 });
       }
@@ -844,9 +894,24 @@ export async function PATCH(request: Request) {
       }
       const overlap = conflictResponse(database, [{ id, sessionDate, startTime }]);
       if (overlap) return overlap;
-      database.prepare(
-        "UPDATE sessions SET session_date = ?, start_time = ? WHERE id = ?",
-      ).run(sessionDate, startTime, id);
+      database.exec("BEGIN IMMEDIATE");
+      try {
+        database.prepare(
+          "UPDATE sessions SET session_date = ?, start_time = ? WHERE id = ?",
+        ).run(sessionDate, startTime, id);
+        if (session.sessionDate !== sessionDate || session.startTime !== startTime) {
+          createSessionNotifications(database, {
+            eventType: "session-updated",
+            sessionIds: [id],
+            actorTeacherId: authenticatedTeacher.id,
+            actorName: authenticatedTeacher.name,
+          });
+        }
+        database.exec("COMMIT");
+      } catch (error) {
+        database.exec("ROLLBACK");
+        throw error;
+      }
       return changedResponse({ ok: true });
     }
 
@@ -857,11 +922,12 @@ export async function PATCH(request: Request) {
     const database = getDatabase();
     const placeholders = ids.map(() => "?").join(", ");
     const selectedSessions = database.prepare(
-      `SELECT se.id, se.subject_id AS subjectId, s.degree_id AS degreeId
+      `SELECT se.id, se.subject_id AS subjectId, s.degree_id AS degreeId,
+        se.teacher_id AS teacherId, se.practice_id AS practiceId, se.duration
       FROM sessions se
       JOIN subjects s ON s.id = se.subject_id
       WHERE se.id IN (${placeholders})`,
-    ).all(...ids) as { id: number; subjectId: number; degreeId: number }[];
+    ).all(...ids) as { id: number; subjectId: number; degreeId: number; teacherId: number | null; practiceId: number | null; duration: number }[];
     if (selectedSessions.length !== ids.length) {
       return Response.json({ error: "Alguna de las sesiones seleccionadas ya no existe." }, { status: 404 });
     }
@@ -887,6 +953,13 @@ export async function PATCH(request: Request) {
       try {
         const update = database.prepare("UPDATE sessions SET teacher_id = ? WHERE id = ?");
         for (const selectedId of ids) update.run(teacherId, selectedId);
+        const changedIds = selectedSessions.filter((session) => session.teacherId !== teacherId).map((session) => session.id);
+        if (changedIds.length) createSessionNotifications(database, {
+          eventType: "session-updated",
+          sessionIds: changedIds,
+          actorTeacherId: authenticatedTeacher.id,
+          actorName: authenticatedTeacher.name,
+        });
         database.exec("COMMIT");
       } catch (error) {
         database.exec("ROLLBACK");
@@ -938,6 +1011,16 @@ export async function PATCH(request: Request) {
         if (practiceId === null) update.run(selectedId);
         else update.run(practiceId, practiceDuration, selectedId);
       }
+      const changedIds = selectedSessions.filter((session) => (
+        session.practiceId !== practiceId
+        || (practiceDuration !== null && Number(session.duration) !== Number(practiceDuration))
+      )).map((session) => session.id);
+      if (changedIds.length) createSessionNotifications(database, {
+        eventType: "session-updated",
+        sessionIds: changedIds,
+        actorTeacherId: authenticatedTeacher.id,
+        actorName: authenticatedTeacher.name,
+      });
       database.exec("COMMIT");
     } catch (error) {
       database.exec("ROLLBACK");

@@ -66,6 +66,7 @@ const schemaStatements = [
     email TEXT NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL DEFAULT '',
     is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+    is_lab_staff INTEGER NOT NULL DEFAULT 0 CHECK (is_lab_staff IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS subject_editors (
@@ -107,6 +108,17 @@ const schemaStatements = [
       REFERENCES subject_practices(subject_id, practice_id)
       ON DELETE RESTRICT
   )`,
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipient_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    actor_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+    session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('session-created', 'session-updated')),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at TEXT
+  )`,
   `CREATE TABLE IF NOT EXISTS holidays (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     holiday_date TEXT NOT NULL UNIQUE,
@@ -128,6 +140,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_subjects_degree_id ON subjects(degree_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_practices_practice_id ON subject_practices(practice_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)",
+  "CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_teacher_id, created_at DESC, id DESC)",
 ];
 
 const seedStatements = [
@@ -489,6 +502,9 @@ function initializeDatabase(database: DatabaseSync) {
   if (!teacherColumnInfo.some((column) => column.name === "is_admin")) {
     database.exec("ALTER TABLE teachers ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1))");
   }
+  if (!teacherColumnInfo.some((column) => column.name === "is_lab_staff")) {
+    database.exec("ALTER TABLE teachers ADD COLUMN is_lab_staff INTEGER NOT NULL DEFAULT 0 CHECK (is_lab_staff IN (0, 1))");
+  }
 
   migratePracticeInstallations(database);
   migrateDegreePractices(database);
@@ -504,6 +520,8 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_teacher_id ON password_reset_tokens(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_teacher_id, created_at DESC, id DESC)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread ON notifications(recipient_teacher_id, read_at)");
   database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email COLLATE NOCASE) WHERE email <> ''");
   database.exec("CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date)");
   const insertAcademicDayType = database.prepare(`INSERT OR IGNORE INTO academic_day_types

@@ -75,7 +75,10 @@ test("previews and imports teacher assignments in subgroup order", () => {
     ],
   );
 
-  assert.deepEqual(importSessionAssignments(database, csv, "overwrite-existing"), {
+  let notifiedSessionIds = [];
+  assert.deepEqual(importSessionAssignments(database, csv, "overwrite-existing", (sessionIds) => {
+    notifiedSessionIds = sessionIds;
+  }), {
     matchedCount: 3,
     updatedCount: 2,
     assignedCount: 1,
@@ -84,6 +87,7 @@ test("previews and imports teacher assignments in subgroup order", () => {
     unchangedCount: 1,
     durationMismatchCount: 1,
   });
+  assert.deepEqual(notifiedSessionIds, [10, 20]);
   assert.deepEqual(
     database.prepare("SELECT id, teacher_id AS teacherId, duration FROM sessions ORDER BY id").all().map((row) => ({ ...row })),
     [

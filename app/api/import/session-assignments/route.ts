@@ -1,6 +1,7 @@
 import { getAuthenticatedTeacher, readOnlyResponse, unauthorizedResponse } from "../../../../lib/auth";
 import { getDatabase } from "../../../../lib/database";
 import { publishDataChange } from "../../../../lib/dataEvents";
+import { createSessionNotifications } from "../../../../lib/sessionNotifications";
 import {
   importSessionAssignments,
   previewSessionAssignments,
@@ -61,7 +62,14 @@ export async function POST(request: Request) {
     if (conflictMode !== "keep-existing" && conflictMode !== "overwrite-existing") {
       return Response.json({ error: "Elige qué hacer con las sesiones que ya tienen profesor asignado." }, { status: 400 });
     }
-    const result = importSessionAssignments(database, content, conflictMode as SessionAssignmentConflictMode);
+    const result = importSessionAssignments(database, content, conflictMode as SessionAssignmentConflictMode, (sessionIds) => {
+      if (sessionIds.length) createSessionNotifications(database, {
+        eventType: "session-updated",
+        sessionIds,
+        actorTeacherId: authenticatedTeacher.id,
+        actorName: authenticatedTeacher.name,
+      });
+    });
     if (result.updatedCount) publishDataChange();
     return Response.json(result);
   } catch (error) {

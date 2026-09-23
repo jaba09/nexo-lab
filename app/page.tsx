@@ -82,6 +82,7 @@ type Teacher = EditableRecord & {
   name: string;
   email: string;
   isAdmin: boolean;
+  isLabStaff: boolean;
   sessionCount: number;
 };
 
@@ -293,9 +294,20 @@ type AppData = {
   sessions: Session[];
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
+  notifications: AppNotification[];
   preferences: AppPreferences;
   viewer?: AuthenticatedTeacher;
   editableSubjectIds: number[];
+};
+
+type AppNotification = {
+  id: number;
+  sessionId: number | null;
+  eventType: "session-created" | "session-updated";
+  title: string;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
 };
 
 type CalendarFilters = {
@@ -347,6 +359,18 @@ const calendarListDateFormatter = new Intl.DateTimeFormat("es-ES", {
   year: "numeric",
 });
 
+function notificationTimestamp(value: string) {
+  const normalized = value.includes("T") ? value : `${value.replace(" ", "T")}Z`;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function semesterDisplayTitle(semesterId: string) {
   const semester = semesterDefinition(semesterId);
   const [startYear, endYear] = semester.academicYear.split("-");
@@ -363,6 +387,7 @@ const emptyData: AppData = {
   sessions: [],
   holidays: [],
   academicDayTypes: [],
+  notifications: [],
   preferences: { calendarStartHour: 8, calendarEndHour: 19 },
   editableSubjectIds: [],
 };
@@ -556,6 +581,7 @@ const initialForm = {
   abbreviation: "",
   email: "",
   isAdmin: false,
+  isLabStaff: false,
   password: "",
   name: "",
   location: "",
@@ -787,6 +813,7 @@ export default function Home() {
   const [drawerError, setDrawerError] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [assignmentImportOpen, setAssignmentImportOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
   const [smtpPassword, setSmtpPassword] = useState("");
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -907,14 +934,33 @@ export default function Home() {
       setActive("overview");
       setSmtpPassword("");
       setDrawer(null);
+      setNotificationsOpen(false);
       setEditingVersion(null);
       setNotice(null);
     }
   }
 
+  async function markNotificationsRead(id?: number) {
+    try {
+      const response = await fetch(apiUrl("/api/notifications"), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(id ? { action: "read", id } : { action: "read-all" }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "No se pudo actualizar la notificación.");
+      await loadData(true);
+    } catch (error) {
+      setNotice({ kind: "error", message: clientErrorMessage(error, "No se pudo actualizar la notificación.") });
+    }
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setDrawer(null);
+      if (event.key === "Escape") {
+        setDrawer(null);
+        setNotificationsOpen(false);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -934,7 +980,9 @@ export default function Home() {
       sessions: data.sessions.filter(matches),
       holidays: data.holidays,
       academicDayTypes: data.academicDayTypes,
+      notifications: data.notifications,
       preferences: data.preferences,
+      viewer: data.viewer,
       editableSubjectIds: data.editableSubjectIds,
     };
   }, [data, search]);
@@ -968,6 +1016,7 @@ export default function Home() {
     teachers: data.teachers.length,
     sessions: data.sessions.filter((session) => semesterFromDate(session.sessionDate) === selectedSemester).length,
   };
+  const unreadNotificationCount = data.notifications.filter((notification) => !notification.readAt).length;
 
   const sessionSubjectOptions = data.subjects.filter((subject) => (
     (authenticatedTeacher?.isAdmin || editableSubjectIdSet.has(subject.id))
@@ -1099,6 +1148,7 @@ export default function Home() {
         name: teacher.name,
         email: teacher.email,
         isAdmin: teacher.isAdmin,
+        isLabStaff: teacher.isLabStaff,
       });
     } else {
       const session = item as Session;
@@ -1421,6 +1471,41 @@ export default function Home() {
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar…" />
               </label>
             )}
+            <div className="notification-center">
+              <button
+                className={notificationsOpen ? "notification-button active" : "notification-button"}
+                type="button"
+                aria-label={unreadNotificationCount
+                  ? `${unreadNotificationCount} ${unreadNotificationCount === 1 ? "notificación sin leer" : "notificaciones sin leer"}`
+                  : "Notificaciones"}
+                aria-expanded={notificationsOpen}
+                onClick={() => setNotificationsOpen((current) => !current)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+                {unreadNotificationCount > 0 && <span>{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>}
+              </button>
+              {notificationsOpen && (
+                <section className="notification-panel" aria-label="Notificaciones">
+                  <header>
+                    <div><strong>Notificaciones</strong><small>{unreadNotificationCount ? `${unreadNotificationCount} sin leer` : "Todo al día"}</small></div>
+                    {unreadNotificationCount > 0 && <button type="button" onClick={() => void markNotificationsRead()}>Marcar todas como leídas</button>}
+                  </header>
+                  <div className="notification-list">
+                    {data.notifications.length ? data.notifications.map((notification) => (
+                      <button
+                        className={notification.readAt ? "notification-item" : "notification-item unread"}
+                        type="button"
+                        key={notification.id}
+                        onClick={() => { if (!notification.readAt) void markNotificationsRead(notification.id); }}
+                      >
+                        <span className="notification-status" aria-hidden="true" />
+                        <span><strong>{notification.title}</strong><small>{notification.message}</small><time>{notificationTimestamp(notification.createdAt)}</time></span>
+                      </button>
+                    )) : <p className="notification-empty">Todavía no tienes notificaciones.</p>}
+                  </div>
+                </section>
+              )}
+            </div>
             <div className="account-summary">
               <span className="profile-button" aria-hidden="true">{authenticatedTeacher.code}</span>
               <span><strong>{authenticatedTeacher.name}</strong><small>{authenticatedTeacher.isAdmin ? "Administrador" : hasSubjectEditorRole ? `Editor · ${editableSubjectIdSet.size} ${editableSubjectIdSet.size === 1 ? "asignatura" : "asignaturas"}` : "Solo lectura"} · {authenticatedTeacher.email}</small></span>
@@ -1573,6 +1658,18 @@ export default function Home() {
                     <span>
                       Administrador
                       <small>Puede crear, editar, borrar e importar datos.</small>
+                    </span>
+                  </label>
+                  <label className="permission-checkbox" htmlFor="teacher-is-lab-staff">
+                    <input
+                      id="teacher-is-lab-staff"
+                      type="checkbox"
+                      checked={form.isLabStaff}
+                      onChange={(event) => setForm({ ...form, isLabStaff: event.target.checked })}
+                    />
+                    <span>
+                      Personal de laboratorio
+                      <small>Recibe avisos internos cuando se crea o modifica una sesión.</small>
                     </span>
                   </label>
                   <label>
@@ -4031,7 +4128,7 @@ function EntityView({
                 <div className={canEditItem(teacher) ? "degree-card editable-record" : "degree-card"} key={teacher.id} role={canEditItem(teacher) ? "button" : undefined} tabIndex={canEditItem(teacher) ? 0 : undefined} aria-label={canEditItem(teacher) ? `Editar ${teacher.name}` : undefined} onClick={canEditItem(teacher) ? () => onEdit(entity, teacher) : undefined} onKeyDown={canEditItem(teacher) ? (event) => editRecordWithKeyboard(event, teacher) : undefined}>
                   <div className="degree-code teacher"><span>{teacher.code}</span><small>PRO</small></div>
                   <div className="degree-main"><h2>{teacher.name}</h2><p>{teacher.email || "Sin correo electrónico"}</p></div>
-                  <div className="tag-list"><span className={teacher.isAdmin ? "permission-tag admin" : editorSubjectCount ? "permission-tag editor" : "permission-tag"}>{teacher.isAdmin ? "Administrador" : editorSubjectCount ? `Editor · ${editorSubjectCount} ${editorSubjectCount === 1 ? "asignatura" : "asignaturas"}` : "Solo lectura"}</span><span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
+                  <div className="tag-list"><span className={teacher.isAdmin ? "permission-tag admin" : editorSubjectCount ? "permission-tag editor" : "permission-tag"}>{teacher.isAdmin ? "Administrador" : editorSubjectCount ? `Editor · ${editorSubjectCount} ${editorSubjectCount === 1 ? "asignatura" : "asignaturas"}` : "Solo lectura"}</span>{teacher.isLabStaff && <span className="permission-tag lab-staff">Personal de laboratorio</span>}<span>{semesterSessionCount} {semesterSessionCount === 1 ? "sesión" : "sesiones"}</span></div>
                   {canDelete && <div className="record-actions"><button className="delete-button" type="button" onClick={(event) => { event.stopPropagation(); onDelete(entity, teacher.id, teacher.name); }} aria-label={`Eliminar ${teacher.name}`}>×</button></div>}
                 </div>
               );
