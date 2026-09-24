@@ -36,29 +36,41 @@ function rosterDatabase() {
 const csv = `\uFEFFNombre,Apellido(s),"Dirección de correo",Grupos
 Lorena,"Abad Sanz",924740@unizar.es,"G32 - Lunes-B 11:00-13:00"
 Clara,"Agustín Sanz",868411@unizar.es,
-Alumno,"Dos grupos",999999@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A 15:00-17:00"
+Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
 `;
 
-test("previews and imports a semester student roster with zero, one or several subgroups", () => {
+test("previews and imports a semester student roster with zero or one subgroup per student", () => {
   const database = rosterDatabase();
   const preview = previewStudentRoster(database, 1, "2026-27 S1", csv);
   assert.equal(preview.totalRows, 3);
   assert.equal(preview.studentCount, 3);
   assert.equal(preview.assignedStudentCount, 2);
   assert.equal(preview.unassignedStudentCount, 1);
-  assert.equal(preview.subgroupCount, 3);
+  assert.equal(preview.subgroupCount, 2);
   assert.equal(preview.existingStudentCount, 1);
   assert.deepEqual(preview.subgroups.map(({ code, studentCount }) => ({ code, studentCount })), [
     { code: "22", studentCount: 1 },
-    { code: "23", studentCount: 1 },
     { code: "32", studentCount: 1 },
   ]);
 
   const result = importStudentRoster(database, 1, "2026-27 S1", csv);
   assert.equal(result.replacedStudentCount, 1);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE subject_id = 1 AND semester_id = '2026-27 S1'").get().total, 3);
-  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM student_subgroups").get().total, 3);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM student_subgroups").get().total, 2);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE semester_id = '2026-27 S2'").get().total, 1);
+});
+
+test("rejects a student assigned to more than one subgroup without replacing the roster", () => {
+  const database = rosterDatabase();
+  const invalidCsv = `Nombre,Apellido(s),Dirección de correo,Grupos
+Ángel,Luesma Larrosa,948909@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A 15:00-17:00"
+`;
+  const preview = previewStudentRoster(database, 1, "2026-27 S1", invalidCsv);
+  assert.equal(preview.studentCount, 0);
+  assert.equal(preview.invalidCount, 1);
+  assert.match(preview.invalidRows[0].message, /solo puede pertenecer a un subgrupo/i);
+  assert.throws(() => importStudentRoster(database, 1, "2026-27 S1", invalidCsv), /filas no válidas/);
+  assert.equal(database.prepare("SELECT first_name AS firstName FROM subject_students WHERE semester_id = '2026-27 S1'").get().firstName, "Anterior");
 });
 
 test("rejects malformed rows without replacing an existing roster", () => {

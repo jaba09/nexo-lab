@@ -106,6 +106,12 @@ function validEmail(value: string) {
 function parseSubgroups(value: string) {
   if (!value.trim()) return { subgroups: [] as StudentSubgroup[] };
   const parts = value.trim().split(/\s*,\s*(?=G\d+\s*-)/i);
+  if (parts.length > 1) {
+    return {
+      subgroups: [] as StudentSubgroup[],
+      error: "cada alumno solo puede pertenecer a un subgrupo",
+    };
+  }
   const subgroups: StudentSubgroup[] = [];
   for (const part of parts) {
     const match = /^G(\d{1,6})\s*-\s*(.+)$/i.exec(part.trim());

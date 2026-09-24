@@ -545,6 +545,25 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)");
+  database.exec(`CREATE TRIGGER IF NOT EXISTS prevent_multiple_student_subgroups_insert
+    BEFORE INSERT ON student_subgroups
+    WHEN EXISTS (
+      SELECT 1 FROM student_subgroups WHERE student_id = NEW.student_id
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Cada alumno solo puede pertenecer a un subgrupo.');
+    END`);
+  database.exec(`CREATE TRIGGER IF NOT EXISTS prevent_multiple_student_subgroups_update
+    BEFORE UPDATE OF student_id, group_code ON student_subgroups
+    WHEN EXISTS (
+      SELECT 1
+      FROM student_subgroups
+      WHERE student_id = NEW.student_id
+        AND NOT (student_id = OLD.student_id AND group_code = OLD.group_code)
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'Cada alumno solo puede pertenecer a un subgrupo.');
+    END`);
   database.exec("CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_teacher_id ON auth_sessions(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)");

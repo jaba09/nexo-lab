@@ -222,7 +222,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const studentRosterCsv = `\uFEFFNombre,Apellido(s),"Dirección de correo",Grupos
 Lorena,"Abad Sanz",924740@unizar.es,"G32 - Lunes-B 11:00-13:00"
 Clara,"Agustín Sanz",868411@unizar.es,
-Alumno,"Dos grupos",999999@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A 15:00-17:00"
+Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
 `;
   function studentRosterFormData(subjectId, action = "preview") {
     const formData = new FormData();
@@ -239,7 +239,7 @@ Alumno,"Dos grupos",999999@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   assert.equal(studentRosterPreviewResponse.status, 200);
   const studentRosterPreview = await studentRosterPreviewResponse.json();
   assert.equal(studentRosterPreview.studentCount, 3);
-  assert.equal(studentRosterPreview.subgroupCount, 3);
+  assert.equal(studentRosterPreview.subgroupCount, 2);
   assert.equal(studentRosterPreview.unassignedStudentCount, 1);
   const studentRosterImportResponse = await fetch(`${origin}/api/import/student-roster`, {
     method: "POST",
@@ -254,7 +254,7 @@ Alumno,"Dos grupos",999999@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
     subjectId: 1,
     semesterId: "2026-27 S1",
     studentCount: 3,
-    subgroupCount: 3,
+    subgroupCount: 2,
   }]);
 
   const attendanceDatabase = new DatabaseSync(databasePath);

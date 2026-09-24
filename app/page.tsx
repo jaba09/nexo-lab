@@ -5486,7 +5486,7 @@ function StudentRosterImportDialog({
 
               <div className="form-summary">
                 <span aria-hidden="true">i</span>
-                <p>El CSV debe incluir las columnas Nombre, Apellido(s), Dirección de correo y Grupos. Se admiten alumnos sin subgrupo y alumnos incluidos en varios subgrupos.</p>
+                <p>El CSV debe incluir las columnas Nombre, Apellido(s), Dirección de correo y Grupos. Se admiten alumnos sin subgrupo, pero cada alumno puede pertenecer como máximo a uno.</p>
               </div>
             </>
           )}

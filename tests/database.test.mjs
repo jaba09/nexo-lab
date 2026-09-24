@@ -40,6 +40,21 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.ok(subjectStudentColumns.some((column) => column.name === "email"));
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students").get().total, 0);
   assert.ok(database.prepare("PRAGMA table_info(student_subgroups)").all().some((column) => column.name === "group_code"));
+  const studentSubgroupTriggers = database.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'prevent_multiple_student_subgroups_%'").all();
+  assert.equal(studentSubgroupTriggers.length, 2);
+  const rosterStudent = database.prepare(`INSERT INTO subject_students
+    (subject_id, semester_id, first_name, last_name, email)
+    VALUES (?, ?, ?, ?, ?)`
+  ).run(1, "2026-27 S1", "Alumno", "Prueba", "alumno.prueba@example.test");
+  database.prepare("INSERT INTO student_subgroups (student_id, group_code, group_label) VALUES (?, ?, ?)")
+    .run(rosterStudent.lastInsertRowid, "11", "G11 - Lunes-A 09:00-11:00");
+  assert.throws(
+    () => database.prepare("INSERT INTO student_subgroups (student_id, group_code, group_label) VALUES (?, ?, ?)")
+      .run(rosterStudent.lastInsertRowid, "12", "G12 - Martes-B 11:00-13:00"),
+    /Cada alumno solo puede pertenecer a un subgrupo/,
+  );
+  database.prepare("DELETE FROM subject_students WHERE id = ?").run(rosterStudent.lastInsertRowid);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students").get().total, 0);
   const attendanceColumns = database.prepare("PRAGMA table_info(session_attendance)").all();
   assert.ok(attendanceColumns.some((column) => column.name === "session_id"));
   assert.ok(attendanceColumns.some((column) => column.name === "student_id"));

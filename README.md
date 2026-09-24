@@ -31,7 +31,7 @@ y correo electrónico, y se muestran ordenados por apellido.
 
 En Inicio, cada asignatura editable permite cargar un CSV de alumnado para el
 semestre seleccionado. El archivo relaciona nombre, apellidos y correo con
-cero, uno o varios subgrupos. Una nueva importación sustituye únicamente el
+cero o un subgrupo. Una nueva importación sustituye únicamente el
 listado de esa asignatura y semestre; los listados de otros semestres se
 conservan.
 
