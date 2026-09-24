@@ -234,6 +234,35 @@ type SessionAssignmentImportResult = {
   durationMismatchCount: number;
 };
 
+type StudentRosterSubgroup = {
+  code: string;
+  label: string;
+  studentCount: number;
+};
+
+type StudentRosterPreview = {
+  totalRows: number;
+  studentCount: number;
+  assignedStudentCount: number;
+  unassignedStudentCount: number;
+  subgroupCount: number;
+  subgroups: StudentRosterSubgroup[];
+  invalidCount: number;
+  invalidRows: { rowNumber: number; message: string }[];
+  existingStudentCount: number;
+};
+
+type StudentRosterImportResult = StudentRosterPreview & {
+  replacedStudentCount: number;
+};
+
+type StudentRosterSummary = {
+  subjectId: number;
+  semesterId: string;
+  studentCount: number;
+  subgroupCount: number;
+};
+
 function sessionAssignmentImportMessage(result: SessionAssignmentImportResult) {
   const details = [
     result.updatedCount === 0
@@ -290,6 +319,7 @@ type AppData = {
   practices: Practice[];
   degrees: Degree[];
   subjects: Subject[];
+  studentRosters: StudentRosterSummary[];
   teachers: Teacher[];
   sessions: Session[];
   holidays: Holiday[];
@@ -383,6 +413,7 @@ const emptyData: AppData = {
   practices: [],
   degrees: [],
   subjects: [],
+  studentRosters: [],
   teachers: [],
   sessions: [],
   holidays: [],
@@ -813,6 +844,7 @@ export default function Home() {
   const [drawerError, setDrawerError] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [assignmentImportOpen, setAssignmentImportOpen] = useState(false);
+  const [studentRosterImportSubject, setStudentRosterImportSubject] = useState<Subject | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
   const [smtpPassword, setSmtpPassword] = useState("");
@@ -934,6 +966,7 @@ export default function Home() {
       setActive("overview");
       setSmtpPassword("");
       setDrawer(null);
+      setStudentRosterImportSubject(null);
       setNotificationsOpen(false);
       setEditingVersion(null);
       setNotice(null);
@@ -976,6 +1009,7 @@ export default function Home() {
       practices: data.practices.filter(matches),
       degrees: data.degrees.filter(matches),
       subjects: data.subjects.filter(matches),
+      studentRosters: data.studentRosters,
       teachers: data.teachers.filter(matches),
       sessions: data.sessions.filter(matches),
       holidays: data.holidays,
@@ -1403,6 +1437,19 @@ export default function Home() {
     setNotice({ kind: "success", message: sessionAssignmentImportMessage(result) });
   }
 
+  async function finishStudentRosterImport(result: StudentRosterImportResult) {
+    setStudentRosterImportSubject(null);
+    await loadData();
+    setActive("overview");
+    const unassigned = result.unassignedStudentCount
+      ? ` ${result.unassignedStudentCount} ${result.unassignedStudentCount === 1 ? "alumno queda" : "alumnos quedan"} sin subgrupo.`
+      : "";
+    setNotice({
+      kind: "success",
+      message: `Se han cargado ${result.studentCount} alumnos en ${result.subgroupCount} subgrupos.${unassigned}`,
+    });
+  }
+
   const activeTitle = active === "overview"
     ? "Inicio"
     : active === "messages"
@@ -1537,6 +1584,7 @@ export default function Home() {
               onAssignTeacher={assignTeacherToSessions}
               onDeleteSessions={deleteSessions}
               onImportAssignments={() => setAssignmentImportOpen(true)}
+              onImportStudentRoster={setStudentRosterImportSubject}
               onEditSession={(session) => openEdit("sessions", session)}
             />
           ) : active === "pizarra" ? (
@@ -2003,6 +2051,15 @@ export default function Home() {
         <SessionAssignmentImportDialog
           onClose={() => setAssignmentImportOpen(false)}
           onImported={finishSessionAssignmentImport}
+        />
+      )}
+
+      {studentRosterImportSubject && data.editableSubjectIds.includes(studentRosterImportSubject.id) && (
+        <StudentRosterImportDialog
+          subject={studentRosterImportSubject}
+          semesterId={selectedSemester}
+          onClose={() => setStudentRosterImportSubject(null)}
+          onImported={finishStudentRosterImport}
         />
       )}
     </div>
@@ -2536,6 +2593,7 @@ function Overview({
   onAssignTeacher,
   onDeleteSessions,
   onImportAssignments,
+  onImportStudentRoster,
   onEditSession,
 }: {
   data: AppData;
@@ -2548,6 +2606,7 @@ function Overview({
   onAssignTeacher: (ids: number[], teacherId: number | null) => Promise<boolean>;
   onDeleteSessions: (request: SessionDeleteRequest, confirmation: string) => Promise<boolean>;
   onImportAssignments: () => void;
+  onImportStudentRoster: (subject: Subject) => void;
   onEditSession: (session: Session) => void;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
@@ -2855,6 +2914,9 @@ function Overview({
                         const subjectSessionCount = subjectSessionCounts.get(subject.id) ?? 0;
                         const subjectUnassignedTeacherSessionCount = subjectUnassignedTeacherSessionCounts.get(subject.id) ?? 0;
                         const subjectSessions = sessionsBySubject.get(subject.id) ?? [];
+                        const studentRoster = data.studentRosters.find((roster) => (
+                          roster.subjectId === subject.id && roster.semesterId === selectedSemester
+                        ));
                         const firstUnassignedSubgroupSessions = firstUnassignedSessionPerSubgroup(subjectSessions);
                         const firstUnassignedSubgroupIds = firstUnassignedSubgroupSessions.map((session) => session.id);
                         const firstUnassignedSubgroupsSelected = firstUnassignedSubgroupIds.length > 0
@@ -2867,9 +2929,25 @@ function Overview({
                               <span className="overview-subject-code">{subject.abbreviation || subject.code}</span>
                               <span>
                                 <strong>{subject.name}</strong>
-                                <small>{subject.code}</small>
+                                <small>{subject.code}{studentRoster ? ` · ${studentRoster.studentCount} alumnos · ${studentRoster.subgroupCount} subgrupos` : ""}</small>
                               </span>
                               <span className="overview-subject-toggles">
+                                {editableSubjectIdSet.has(subject.id) && (
+                                  <button
+                                    className="overview-subject-roster-button"
+                                    type="button"
+                                    aria-label={`Cargar alumnado de ${subject.name}`}
+                                    title={`Cargar CSV de alumnado de ${subject.name}`}
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      onImportStudentRoster(subject);
+                                    }}
+                                  >
+                                    <span aria-hidden="true">CSV</span>
+                                    <span className="overview-subject-toggle-label">Cargar alumnado</span>
+                                  </button>
+                                )}
                                 <button
                                   className="overview-subject-group-toggle"
                                   type="button"
@@ -5264,6 +5342,158 @@ function CalendarView({
         </div>
       )}
     </section>
+  );
+}
+
+function StudentRosterImportDialog({
+  subject,
+  semesterId,
+  onClose,
+  onImported,
+}: {
+  subject: Subject;
+  semesterId: string;
+  onClose: () => void;
+  onImported: (result: StudentRosterImportResult) => void | Promise<void>;
+}) {
+  const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<StudentRosterPreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function rosterResponse<T>(response: Response, fallbackMessage: string) {
+    const body = await response.text();
+    if (!body) throw new Error(fallbackMessage);
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      throw new Error(fallbackMessage);
+    }
+  }
+
+  function rosterFormData(file: File, action: "preview" | "import") {
+    const formData = new FormData();
+    formData.append("action", action);
+    formData.append("subjectId", String(subject.id));
+    formData.append("semesterId", semesterId);
+    formData.append("file", file, file.name);
+    return formData;
+  }
+
+  async function selectRosterFile(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    setPreview(null);
+    try {
+      if (!file.name.toLowerCase().endsWith(".csv")) throw new Error("El archivo debe tener extensión .csv.");
+      setFileName(file.name);
+      setSelectedFile(file);
+      const response = await fetch(apiUrl("/api/import/student-roster"), {
+        method: "POST",
+        body: rosterFormData(file, "preview"),
+      });
+      const result = await rosterResponse<StudentRosterPreview & { error?: string }>(response, "El servidor no pudo analizar el CSV de alumnado.");
+      if (!response.ok) throw new Error(result.error || "No se pudo analizar el CSV de alumnado.");
+      setPreview(result);
+    } catch (problem) {
+      setError(clientErrorMessage(problem, "No se pudo analizar el CSV de alumnado."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importRoster(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!preview || !selectedFile || preview.invalidCount || !preview.studentCount) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(apiUrl("/api/import/student-roster"), {
+        method: "POST",
+        body: rosterFormData(selectedFile, "import"),
+      });
+      const result = await rosterResponse<StudentRosterImportResult & { error?: string }>(response, "El servidor no pudo importar el alumnado.");
+      if (!response.ok) throw new Error(result.error || "No se pudo importar el alumnado.");
+      await onImported(result);
+    } catch (problem) {
+      setError(clientErrorMessage(problem, "No se pudo importar el alumnado."));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="import-dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
+      <section className="import-dialog student-roster-import-dialog" role="dialog" aria-modal="true" aria-labelledby="student-roster-import-title">
+        <div className="drawer-head">
+          <div>
+            <span className="entity-pill">CSV</span>
+            <h2 id="student-roster-import-title">Cargar alumnado</h2>
+            <p>{subject.code} · {subject.name}<br />{semesterDisplayTitle(semesterId)}</p>
+          </div>
+          <button className="icon-button" type="button" disabled={busy} onClick={onClose} aria-label="Cerrar importación">×</button>
+        </div>
+
+        <form className="ics-import-form" onSubmit={importRoster}>
+          <label className="ics-file-picker">
+            <input type="file" accept=".csv,text/csv" disabled={busy} onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => void selectRosterFile(event.target.files?.[0])} />
+            <span>{busy && !preview ? "Analizando…" : fileName || "Seleccionar archivo CSV"}</span>
+            <strong>Examinar</strong>
+          </label>
+
+          {error && <div className="ics-error" role="alert">{error}</div>}
+
+          {preview && (
+            <>
+              <div className="ics-summary student-roster-summary">
+                <div><strong>{preview.studentCount}</strong><span>alumnos</span></div>
+                <div><strong>{preview.subgroupCount}</strong><span>subgrupos</span></div>
+                <div><strong>{preview.assignedStudentCount}</strong><span>con subgrupo</span></div>
+                <div><strong>{preview.unassignedStudentCount}</strong><span>sin subgrupo</span></div>
+              </div>
+
+              {preview.invalidCount > 0 && (
+                <div className="ics-error" role="alert">
+                  <strong>{preview.invalidCount} {preview.invalidCount === 1 ? "fila no es válida" : "filas no son válidas"}.</strong>
+                  {preview.invalidRows.map((issue) => <span key={`${issue.rowNumber}-${issue.message}`}>Fila {issue.rowNumber}: {issue.message}</span>)}
+                </div>
+              )}
+
+              {preview.existingStudentCount > 0 && !preview.invalidCount && (
+                <div className="dependency-message student-roster-replace-warning">
+                  <strong>Esta asignatura ya tiene {preview.existingStudentCount} alumnos cargados para este semestre.</strong>
+                  <span>Al continuar se sustituirá ese listado completo por el contenido de este CSV.</span>
+                </div>
+              )}
+
+              {preview.subgroups.length > 0 && (
+                <div className="student-roster-groups" aria-label="Resumen de alumnos por subgrupo">
+                  {preview.subgroups.map((subgroup) => (
+                    <span key={subgroup.code} title={subgroup.label}>
+                      <strong>G{subgroup.code}</strong>
+                      <small>{subgroup.studentCount} {subgroup.studentCount === 1 ? "alumno" : "alumnos"}</small>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="form-summary">
+                <span aria-hidden="true">i</span>
+                <p>El CSV debe incluir las columnas Nombre, Apellido(s), Dirección de correo y Grupos. Se admiten alumnos sin subgrupo y alumnos incluidos en varios subgrupos.</p>
+              </div>
+            </>
+          )}
+
+          <div className="form-actions">
+            <button className="secondary-button" type="button" disabled={busy} onClick={onClose}>Cancelar</button>
+            <button className="primary-button" type="submit" disabled={busy || !preview || !preview.studentCount || Boolean(preview.invalidCount)}>
+              {busy && preview ? "Importando…" : preview?.existingStudentCount ? "Sustituir alumnado" : "Importar alumnado"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 

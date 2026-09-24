@@ -83,6 +83,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     body: JSON.stringify({ action: "read-all" }),
   })).status, 401);
   assert.equal((await fetch(`${origin}/api/pizarra`)).status, 401);
+  assert.equal((await fetch(`${origin}/api/import/student-roster`, { method: "POST" })).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
 
@@ -150,6 +151,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.ok(initialData.degrees.every((degree) => degree.icsCode === ""));
   assert.equal(initialData.subjects.length, 4);
   assert.ok(initialData.subjects.every((subject) => subject.abbreviation === ""));
+  assert.deepEqual(initialData.studentRosters, []);
   assert.equal(initialData.teachers.length, 3);
   assert.deepEqual(initialData.teachers.map((teacher) => teacher.email).sort(), [
     "ana.beltran@example.test",
@@ -210,6 +212,44 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     initialData.academicDayTypes.find((item) => item.date === "2027-03-08"),
     { date: "2027-03-08", dayType: "A" },
   );
+
+  const studentRosterCsv = `\uFEFFNombre,Apellido(s),"Dirección de correo",Grupos
+Lorena,"Abad Sanz",924740@unizar.es,"G32 - Lunes-B 11:00-13:00"
+Clara,"Agustín Sanz",868411@unizar.es,
+Alumno,"Dos grupos",999999@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A 15:00-17:00"
+`;
+  function studentRosterFormData(subjectId, action = "preview") {
+    const formData = new FormData();
+    formData.append("action", action);
+    formData.append("subjectId", String(subjectId));
+    formData.append("semesterId", "2026-27 S1");
+    formData.append("file", new Blob([studentRosterCsv], { type: "text/csv" }), "alumnado.csv");
+    return formData;
+  }
+  const studentRosterPreviewResponse = await fetch(`${origin}/api/import/student-roster`, {
+    method: "POST",
+    body: studentRosterFormData(1),
+  });
+  assert.equal(studentRosterPreviewResponse.status, 200);
+  const studentRosterPreview = await studentRosterPreviewResponse.json();
+  assert.equal(studentRosterPreview.studentCount, 3);
+  assert.equal(studentRosterPreview.subgroupCount, 3);
+  assert.equal(studentRosterPreview.unassignedStudentCount, 1);
+  const studentRosterImportResponse = await fetch(`${origin}/api/import/student-roster`, {
+    method: "POST",
+    body: studentRosterFormData(1, "import"),
+  });
+  assert.equal(studentRosterImportResponse.status, 200);
+  const studentRosterImport = await studentRosterImportResponse.json();
+  assert.equal(studentRosterImport.studentCount, 3);
+  assert.equal(studentRosterImport.replacedStudentCount, 0);
+  const dataWithStudentRoster = await (await fetch(`${origin}/api/data`)).json();
+  assert.deepEqual(dataWithStudentRoster.studentRosters, [{
+    subjectId: 1,
+    semesterId: "2026-27 S1",
+    studentCount: 3,
+    subgroupCount: 3,
+  }]);
 
   const assignmentSession = initialData.sessions[0];
   const originalAssignmentTeacher = initialData.teachers.find((teacher) => teacher.id === assignmentSession.teacherId);
@@ -837,6 +877,15 @@ END:VCALENDAR\r
   const editorData = await readOnlyDataResponse.json();
   assert.deepEqual(editorData.editableSubjectIds, [subjectForEditor.id]);
   assert.deepEqual(editorData.notifications, []);
+  assert.equal((await fetch(`${origin}/api/import/student-roster`, {
+    method: "POST",
+    body: studentRosterFormData(subjectForEditor.id),
+  })).status, 200);
+  const forbiddenRosterImportResponse = await fetch(`${origin}/api/import/student-roster`, {
+    method: "POST",
+    body: studentRosterFormData(3),
+  });
+  assert.equal(forbiddenRosterImportResponse.status, 403);
   const cannotReadOtherNotificationResponse = await fetch(`${origin}/api/notifications`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },

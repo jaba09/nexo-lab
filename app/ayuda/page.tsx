@@ -260,6 +260,8 @@ export default async function HelpPage() {
               </div>
               <h3>Notificaciones al personal de laboratorio</h3>
               <p>Los profesores marcados como «Personal de laboratorio» reciben un aviso interno cada vez que se crea o modifica una sesión. La campana de la barra superior muestra los avisos sin leer; al abrirla puedes marcar uno o todos como leídos. Los avisos quedan guardados aunque cierres la sesión.</p>
+              <h3>Cargar alumnado por asignatura</h3>
+              <p>En Inicio, abre «Sesiones por grado-asignatura» y utiliza «Cargar alumnado» en la asignatura correspondiente. El CSV debe contener Nombre, Apellido(s), Dirección de correo y Grupos. La carga pertenece al semestre seleccionado y admite alumnos sin grupo o incluidos en varios subgrupos.</p>
               <h3>Crear, editar o eliminar</h3>
               <p>Cuando tu cuenta tenga permiso, verás el botón de creación en la cabecera. Selecciona una fila o tarjeta editable para abrir su ficha. La eliminación aparece dentro de los controles del registro y puede impedirse si existen datos relacionados que deban conservarse.</p>
               <div className="help-callout neutral">

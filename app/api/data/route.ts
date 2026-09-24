@@ -393,6 +393,14 @@ export async function GET() {
       FROM subjects s
       JOIN degrees d ON d.id = s.degree_id
       ORDER BY s.code`).all() as Record<string, unknown>[];
+    const studentRosters = database.prepare(`SELECT
+      ss.subject_id AS subjectId, ss.semester_id AS semesterId,
+      COUNT(DISTINCT ss.id) AS studentCount,
+      COUNT(DISTINCT sg.group_code) AS subgroupCount
+      FROM subject_students ss
+      LEFT JOIN student_subgroups sg ON sg.student_id = ss.id
+      GROUP BY ss.subject_id, ss.semester_id
+      ORDER BY ss.subject_id, ss.semester_id`).all();
     const teachers = database.prepare(`SELECT
       t.id, t.code, t.name, t.email, t.is_admin AS isAdmin,
       t.is_lab_staff AS isLabStaff, COUNT(se.id) AS sessionCount
@@ -478,6 +486,7 @@ export async function GET() {
           editorIds: String(subject.editorIds || "").split(",").filter(Boolean).map(Number),
         }),
       })),
+      studentRosters,
       teachers: teachers.map((teacher) => ({
         ...teacher,
         isAdmin: Boolean(teacher.isAdmin),

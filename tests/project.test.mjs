@@ -116,6 +116,12 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /groupedSubjectIds/);
   assert.match(page, /Por subgrupos/);
   assert.match(page, /Selec\. subgrupos/);
+  assert.match(page, /Cargar alumnado/);
+  assert.match(page, /function StudentRosterImportDialog/);
+  assert.match(page, /api\/import\/student-roster/);
+  assert.match(page, /studentRoster\.studentCount/);
+  assert.match(styles, /\.overview-subject-roster-button/);
+  assert.match(styles, /\.student-roster-groups/);
   assert.match(page, /function firstUnassignedSessionPerSubgroup/);
   assert.match(page, /session\.practiceId !== null/);
   assert.match(page, /firstSessionBySubgroup\.has\(subgroup\)/);

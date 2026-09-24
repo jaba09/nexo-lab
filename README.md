@@ -29,6 +29,12 @@ una asignatura y pueden tener profesor y práctica; las que todavía no tienen
 práctica aparecen como incompletas. Los profesores incluyen abreviatura, nombre
 y correo electrónico, y se muestran ordenados por apellido.
 
+En Inicio, cada asignatura editable permite cargar un CSV de alumnado para el
+semestre seleccionado. El archivo relaciona nombre, apellidos y correo con
+cero, uno o varios subgrupos. Una nueva importación sustituye únicamente el
+listado de esa asignatura y semestre; los listados de otros semestres se
+conservan.
+
 La ficha de profesor permite marcar a una persona como **Personal de
 laboratorio**. Esos usuarios reciben notificaciones internas y persistentes
 cuando se crea o modifica una sesión. La campana de la barra superior muestra
