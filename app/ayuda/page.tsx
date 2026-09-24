@@ -14,13 +14,14 @@ const helpNavigation = [
   { href: "#primeros-pasos", code: "01", label: "Primeros pasos" },
   { href: "#vista-general", code: "02", label: "Inicio" },
   { href: "#calendario", code: "03", label: "Calendario" },
-  { href: "#seleccion", code: "04", label: "Seleccionar sesiones" },
-  { href: "#catalogos", code: "05", label: "Datos académicos" },
-  { href: "#importaciones", code: "06", label: "Importaciones" },
-  { href: "#exportaciones", code: "07", label: "Exportaciones" },
-  { href: "#permisos", code: "08", label: "Permisos" },
-  { href: "#acceso", code: "09", label: "Acceso y contraseña" },
-  { href: "#problemas", code: "10", label: "Problemas frecuentes" },
+  { href: "#asistencia", code: "04", label: "Asistencia" },
+  { href: "#seleccion", code: "05", label: "Seleccionar sesiones" },
+  { href: "#catalogos", code: "06", label: "Datos académicos" },
+  { href: "#importaciones", code: "07", label: "Importaciones" },
+  { href: "#exportaciones", code: "08", label: "Exportaciones" },
+  { href: "#permisos", code: "09", label: "Permisos" },
+  { href: "#acceso", code: "10", label: "Acceso y contraseña" },
+  { href: "#problemas", code: "11", label: "Problemas frecuentes" },
 ];
 
 function HelpSection({
@@ -222,8 +223,26 @@ export default async function HelpPage() {
             </HelpSection>
 
             <HelpSection
-              id="seleccion"
+              id="asistencia"
               number="04"
+              title="Asistencia"
+              intro="Pasa lista directamente sobre las próximas sesiones que tienes asignadas."
+            >
+              <ol className="help-compact-steps">
+                <li><strong>1.</strong> Abre «Asistencia» debajo de Calendario.</li>
+                <li><strong>2.</strong> Selecciona una de tus próximas sesiones.</li>
+                <li><strong>3.</strong> Marca los alumnos presentes y pulsa «Guardar asistencia».</li>
+              </ol>
+              <p>La lista se obtiene del alumnado cargado para la asignatura y el semestre. Si la sesión tiene subgrupo, solo aparecen los alumnos incluidos en ese código de grupo. Puedes buscar por nombre o correo y utilizar «Marcar todos» o «Desmarcar todos».</p>
+              <div className="help-callout lime">
+                <span aria-hidden="true">✓</span>
+                <p><strong>Acceso personal</strong> Cada profesor solo puede consultar y guardar la asistencia de las sesiones que tiene asignadas.</p>
+              </div>
+            </HelpSection>
+
+            <HelpSection
+              id="seleccion"
+              number="05"
               title="Seleccionar y completar sesiones"
               intro="Trabaja sobre una sesión o sobre un intervalo completo sin repetir la misma acción."
             >
@@ -246,7 +265,7 @@ export default async function HelpPage() {
 
             <HelpSection
               id="catalogos"
-              number="05"
+              number="06"
               title="Datos académicos"
               intro="La navegación lateral refleja la jerarquía de la información que utiliza el calendario."
             >
@@ -255,6 +274,7 @@ export default async function HelpPage() {
                 <div><span>G/A</span><strong>Grados/asignaturas</strong><p>Grados desplegables con sus materias, prácticas ordenadas y profesores editores.</p></div>
                 <div><span>PRA</span><strong>Prácticas</strong><p>Actividad, duración e instalaciones necesarias.</p></div>
                 <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña, permisos y pertenencia al personal de laboratorio.</p></div>
+                <div><span>ASI</span><strong>Asistencia</strong><p>Próximas sesiones del profesor conectado y control de los alumnos presentes.</p></div>
                 <div><span>PIZ</span><strong>Pizarra</strong><p>Calendario semanal independiente de clases magistrales y problemas. Filtra por profesor, asignatura y semestre; pulsa una clase para consultar su grupo, aula y reparto docente.</p></div>
                 <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
               </div>
@@ -272,7 +292,7 @@ export default async function HelpPage() {
 
             <HelpSection
               id="importaciones"
-              number="06"
+              number="07"
               title="Importaciones"
               intro="Los administradores pueden incorporar calendarios y asignaciones docentes con una vista previa antes de guardar."
             >
@@ -306,7 +326,7 @@ export default async function HelpPage() {
 
             <HelpSection
               id="exportaciones"
-              number="07"
+              number="08"
               title="Exportaciones"
               intro="Descarga el semestre o una selección concreta para compartirla o utilizarla en otras herramientas."
             >
@@ -320,7 +340,7 @@ export default async function HelpPage() {
 
             <HelpSection
               id="permisos"
-              number="08"
+              number="09"
               title="Permisos y responsabilidades"
               intro="La interfaz muestra únicamente las acciones compatibles con los permisos de la cuenta."
             >
@@ -348,7 +368,7 @@ export default async function HelpPage() {
 
             <HelpSection
               id="acceso"
-              number="09"
+              number="10"
               title="Acceso y contraseña"
               intro="La cuenta utiliza el correo electrónico del profesor como nombre de usuario."
             >
@@ -376,7 +396,7 @@ export default async function HelpPage() {
 
             <HelpSection
               id="problemas"
-              number="10"
+              number="11"
               title="Problemas frecuentes"
               intro="Comprobaciones rápidas antes de solicitar ayuda técnica."
             >

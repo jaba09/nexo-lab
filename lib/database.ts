@@ -124,6 +124,14 @@ const schemaStatements = [
       REFERENCES subject_practices(subject_id, practice_id)
       ON DELETE RESTRICT
   )`,
+  `CREATE TABLE IF NOT EXISTS session_attendance (
+    session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    student_id INTEGER NOT NULL REFERENCES subject_students(id) ON DELETE CASCADE,
+    attended INTEGER NOT NULL DEFAULT 0 CHECK (attended IN (0, 1)),
+    marked_by_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE RESTRICT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (session_id, student_id)
+  )`,
   `CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     recipient_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
@@ -157,6 +165,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_subject_practices_practice_id ON subject_practices(practice_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)",
   "CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)",
+  "CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)",
   "CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_teacher_id, created_at DESC, id DESC)",
 ];
@@ -536,6 +545,7 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_teacher_id ON auth_sessions(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_teacher_id ON password_reset_tokens(teacher_id)");

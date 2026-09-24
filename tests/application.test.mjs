@@ -83,6 +83,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
     body: JSON.stringify({ action: "read-all" }),
   })).status, 401);
   assert.equal((await fetch(`${origin}/api/pizarra`)).status, 401);
+  assert.equal((await fetch(`${origin}/api/attendance`)).status, 401);
   assert.equal((await fetch(`${origin}/api/import/student-roster`, { method: "POST" })).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
@@ -121,6 +122,11 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.match(helpHtml, /Administrador/);
 
   const initialData = await (await fetch(`${origin}/api/data`)).json();
+  const anotherTeachersSession = initialData.sessions.find((session) => session.teacherId && session.teacherId !== loginPayload.teacher.id);
+  assert.ok(anotherTeachersSession);
+  const forbiddenAttendanceResponse = await fetch(`${origin}/api/attendance?sessionId=${anotherTeachersSession.id}`);
+  assert.equal(forbiddenAttendanceResponse.status, 404);
+  assert.match((await forbiddenAttendanceResponse.json()).error, /no está asignada a tu usuario/i);
   const pizarraResponse = await fetch(`${origin}/api/pizarra`);
   assert.equal(pizarraResponse.status, 200);
   assert.match(pizarraResponse.headers.get("cache-control"), /private, no-store/);
@@ -250,6 +256,65 @@ Alumno,"Dos grupos",999999@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
     studentCount: 3,
     subgroupCount: 3,
   }]);
+
+  const attendanceDatabase = new DatabaseSync(databasePath);
+  const attendanceSessionResult = attendanceDatabase.prepare(`INSERT INTO sessions
+    (session_date, start_time, duration, subject_id, teacher_id, practice_id, source_uid, subject_code, group_code)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run("2026-12-15", "09:00", 120, 1, 1, 1, "attendance-test", "ASI-01", "32");
+  const attendanceSessionId = Number(attendanceSessionResult.lastInsertRowid);
+  attendanceDatabase.close();
+
+  const attendanceSessionsResponse = await fetch(`${origin}/api/attendance`);
+  assert.equal(attendanceSessionsResponse.status, 200);
+  assert.match(attendanceSessionsResponse.headers.get("cache-control"), /private, no-store/);
+  const attendanceSessions = await attendanceSessionsResponse.json();
+  const attendanceSummary = attendanceSessions.sessions.find((session) => session.id === attendanceSessionId);
+  assert.ok(attendanceSummary);
+  assert.equal(attendanceSummary.studentCount, 1);
+  assert.equal(attendanceSummary.attendedCount, 0);
+  assert.equal(attendanceSummary.attendanceTaken, false);
+
+  const attendanceDetailResponse = await fetch(`${origin}/api/attendance?sessionId=${attendanceSessionId}`);
+  assert.equal(attendanceDetailResponse.status, 200);
+  const attendanceDetail = await attendanceDetailResponse.json();
+  assert.equal(attendanceDetail.students.length, 1);
+  assert.equal(attendanceDetail.students[0].email, "924740@unizar.es");
+  assert.equal(attendanceDetail.students[0].attended, false);
+
+  const saveAttendanceResponse = await fetch(`${origin}/api/attendance`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: attendanceSessionId,
+      studentIds: attendanceDetail.students.map((student) => student.id),
+      attendedStudentIds: [attendanceDetail.students[0].id],
+    }),
+  });
+  assert.equal(saveAttendanceResponse.status, 200);
+  const savedAttendance = await saveAttendanceResponse.json();
+  assert.equal(savedAttendance.attendanceTaken, true);
+  assert.equal(savedAttendance.attendedCount, 1);
+  assert.equal(savedAttendance.students[0].attended, true);
+
+  const changedRosterResponse = await fetch(`${origin}/api/attendance`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: attendanceSessionId, studentIds: [], attendedStudentIds: [] }),
+  });
+  assert.equal(changedRosterResponse.status, 409);
+  assert.match((await changedRosterResponse.json()).error, /lista de alumnos ha cambiado/i);
+
+  const savedAttendanceDatabase = new DatabaseSync(databasePath);
+  assert.deepEqual(
+    savedAttendanceDatabase.prepare(`SELECT session_id AS sessionId, student_id AS studentId,
+      attended, marked_by_teacher_id AS markedByTeacherId
+      FROM session_attendance WHERE session_id = ?`).all(attendanceSessionId).map((row) => ({ ...row })),
+    [{ sessionId: attendanceSessionId, studentId: attendanceDetail.students[0].id, attended: 1, markedByTeacherId: 1 }],
+  );
+  savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(attendanceSessionId);
+  assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM session_attendance WHERE session_id = ?").get(attendanceSessionId).total, 0);
+  savedAttendanceDatabase.close();
 
   const assignmentSession = initialData.sessions[0];
   const originalAssignmentTeacher = initialData.teachers.find((teacher) => teacher.id === assignmentSession.teacherId);

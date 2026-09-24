@@ -35,6 +35,13 @@ cero, uno o varios subgrupos. Una nueva importación sustituye únicamente el
 listado de esa asignatura y semestre; los listados de otros semestres se
 conservan.
 
+El menú **Asistencia**, situado debajo de Calendario, muestra las próximas
+sesiones asignadas al profesor conectado. Al abrir una sesión se carga el
+alumnado de su asignatura y semestre; si la sesión tiene subgrupo, la lista se
+limita a ese subgrupo. El profesor puede marcar presentes, buscar alumnos y
+guardar la lista. Cada usuario solo puede consultar o modificar la asistencia
+de sus propias sesiones.
+
 La ficha de profesor permite marcar a una persona como **Personal de
 laboratorio**. Esos usuarios reciben notificaciones internas y persistentes
 cuando se crea o modifica una sesión. La campana de la barra superior muestra

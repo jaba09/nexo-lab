@@ -3,13 +3,16 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("has no Sites or Cloudflare runtime dependency", async () => {
-  const [packageJson, nextConfig, dockerfile, dockerCompose, page, styles] = await Promise.all([
+  const [packageJson, nextConfig, dockerfile, dockerCompose, page, styles, attendanceView, attendanceStyles, attendanceRoute] = await Promise.all([
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../Dockerfile", import.meta.url), "utf8"),
     readFile(new URL("../docker-compose.yml", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/AttendanceView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/attendance.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/attendance/route.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(packageJson, /"next": "16\.2\.6"/);
@@ -21,6 +24,21 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(dockerCompose, /NEXO_LAB_BOOTSTRAP_PASSWORD/);
   assert.match(dockerCompose, /nexo_lab_data:\/app\/data/);
   assert.doesNotMatch(page, /Todo el ecosistema docente/);
+  assert.match(page, /key: "sessions", label: "Calendario", short: "SES"/);
+  assert.match(page, /key: "attendance", label: "Asistencia", short: "ASI"/);
+  assert.ok(page.indexOf('key: "attendance"') > page.indexOf('key: "sessions"'));
+  assert.ok(page.indexOf('key: "attendance"') < page.indexOf('key: "pizarra"'));
+  assert.match(page, /<AttendanceView teacherName=\{authenticatedTeacher\.name\}/);
+  assert.match(attendanceView, /Próximas sesiones asignadas a \{teacherName\}/);
+  assert.match(attendanceView, /Guardar asistencia/);
+  assert.match(attendanceView, /Marcar todos/);
+  assert.match(attendanceView, /Desmarcar todos/);
+  assert.match(attendanceStyles, /\.attendance-layout/);
+  assert.match(attendanceStyles, /\.attendance-student\.attended/);
+  assert.match(attendanceRoute, /se\.teacher_id = \?/);
+  assert.match(attendanceRoute, /semesterFromDate\(session\.sessionDate\)/);
+  assert.match(attendanceRoute, /student_subgroups/);
+  assert.match(attendanceRoute, /INSERT INTO session_attendance/);
   assert.match(page, /semesterDisplayTitle/);
   assert.match(page, /Semestre \$\{semester\.number\}/);
   assert.match(page, /Curso \{shortAcademicYear\}/);

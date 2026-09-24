@@ -40,6 +40,12 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.ok(subjectStudentColumns.some((column) => column.name === "email"));
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students").get().total, 0);
   assert.ok(database.prepare("PRAGMA table_info(student_subgroups)").all().some((column) => column.name === "group_code"));
+  const attendanceColumns = database.prepare("PRAGMA table_info(session_attendance)").all();
+  assert.ok(attendanceColumns.some((column) => column.name === "session_id"));
+  assert.ok(attendanceColumns.some((column) => column.name === "student_id"));
+  assert.ok(attendanceColumns.some((column) => column.name === "attended"));
+  assert.ok(attendanceColumns.some((column) => column.name === "marked_by_teacher_id"));
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM session_attendance").get().total, 0);
   database.prepare("INSERT INTO subject_editors (subject_id, teacher_id) VALUES (?, ?)").run(1, 2);
   const subjectEditor = database.prepare("SELECT subject_id AS subjectId, teacher_id AS teacherId FROM subject_editors").get();
   assert.equal(subjectEditor.subjectId, 1);
