@@ -285,7 +285,16 @@ Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
   assert.equal(attendanceDetail.students[0].attended, false);
   assert.equal(attendanceDetail.students[0].rulesAccepted, false);
   assert.equal(attendanceDetail.rules.academicYear, "2026-27");
-  assert.match(attendanceDetail.rules.version, /^2026-27-v\d+$/);
+  assert.equal(attendanceDetail.rules.version, "2026-27-v2");
+  assert.match(attendanceDetail.rules.introduction, /La realización de prácticas de laboratorio o taller/);
+  assert.equal(attendanceDetail.rules.commitments.length, 5);
+  assert.match(attendanceDetail.rules.closing, /incumplimiento de las normas establecidas por la U\.Z\./);
+  assert.match(attendanceDetail.rules.workshopTitle, /NORMAS DE TRABAJO EN LABORATORIOS Y TALLERES/);
+  assert.deepEqual(attendanceDetail.rules.workshopRules.map((rule) => rule.link).filter(Boolean), [
+    "https://uprl.unizar.es/seguridad-laboral/seguridad-laboral",
+    "https://uprl.unizar.es/inicio/manual-de-procedimientos",
+    "https://uprl.unizar.es/sites/uprl.unizar.es/files/archivos/Procedimientos/manual_de_seguridad_en_los_laboratorios_de_la_universidad_de_zaragoza.pdf",
+  ]);
   assert.equal(attendanceDetail.rulesAcceptedCount, 0);
   assert.equal(attendanceDetail.rulesPendingCount, 1);
 

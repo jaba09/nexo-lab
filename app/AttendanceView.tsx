@@ -38,7 +38,11 @@ type LaboratoryRules = {
   academicYear: string;
   version: string;
   title: string;
-  content: string[];
+  introduction: string;
+  commitments: string[];
+  closing: string;
+  workshopTitle: string;
+  workshopRules: { text: string; link?: string; suffix?: string }[];
   hash: string;
 };
 
@@ -204,8 +208,13 @@ function SignatureDialog({
         <div className="attendance-signature-content">
           <div className="attendance-rules-document">
             <strong>{rules.title}</strong>
-            <ol>{rules.content.map((rule) => <li key={rule}>{rule}</li>)}</ol>
-            <small>Versión {rules.version} · La aceptación queda asociada a esta versión.</small>
+            <p>{rules.introduction}</p>
+            <ul>{rules.commitments.map((rule) => <li key={rule}>{rule}</li>)}</ul>
+            <p>{rules.closing}</p>
+            <h3>{rules.workshopTitle}</h3>
+            <ul>{rules.workshopRules.map((rule) => (
+              <li key={rule.text}>{rule.text}{rule.link && <> <a href={rule.link} target="_blank" rel="noreferrer">{rule.link}</a></>}{rule.suffix}</li>
+            ))}</ul>
           </div>
           <label className="attendance-acceptance-check">
             <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />

@@ -95,9 +95,11 @@
 .attendance-signature-content { min-height: 0; padding: 18px 22px; display: grid; gap: 14px; overflow-y: auto; }
 .attendance-rules-document { padding: 14px 16px; border: 1px solid #d8ddcb; border-radius: 9px; background: #fafcf4; }
 .attendance-rules-document > strong { font-size: 11px; }
-.attendance-rules-document ol { margin: 10px 0; padding-left: 21px; color: #4d5551; font-size: 9px; line-height: 1.5; }
+.attendance-rules-document p { margin: 10px 0; color: #4d5551; font-size: 9px; line-height: 1.55; }
+.attendance-rules-document h3 { margin: 15px 0 8px; font-size: 10px; line-height: 1.35; }
+.attendance-rules-document ul { margin: 10px 0; padding-left: 21px; color: #4d5551; font-size: 9px; line-height: 1.5; }
 .attendance-rules-document li + li { margin-top: 4px; }
-.attendance-rules-document small { color: #7b837f; font: 700 7px var(--font-geist-mono); }
+.attendance-rules-document a { color: #2f5c87; overflow-wrap: anywhere; text-decoration: underline; }
 .attendance-acceptance-check { min-height: 48px; padding: 10px 12px; border: 1px solid #d6d8d0; border-radius: 8px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 9px; cursor: pointer; }
 .attendance-acceptance-check.teacher { background: #f2f2ed; }
 .attendance-acceptance-check input { width: 20px; height: 20px; margin: 0; accent-color: #607f1e; }
