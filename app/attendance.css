@@ -86,20 +86,23 @@
 .attendance-empty p { max-width: 430px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .attendance-signature-overlay { position: fixed; inset: 0; z-index: 90; padding: 24px; background: rgba(17, 25, 22, .72); display: grid; place-items: center; }
 .attendance-signature-dialog { width: min(760px, 100%); max-height: calc(100dvh - 48px); border: 1px solid #aeb4aa; border-radius: 16px; background: #fffffb; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 80px rgba(0, 0, 0, .28); }
+.attendance-signature-dialog.capture { width: min(980px, 100%); }
 .attendance-signature-dialog > header { flex: 0 0 auto; padding: 20px 22px; border-bottom: 1px solid var(--line); background: #f4f6ea; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .attendance-signature-dialog > header > div { min-width: 0; }
 .attendance-signature-dialog > header span { color: #607f1e; font: 750 8px var(--font-geist-mono); text-transform: uppercase; }
 .attendance-signature-dialog > header h2 { margin: 6px 0 5px; font-size: 22px; }
 .attendance-signature-dialog > header p { margin: 0; color: var(--muted); font-size: 9px; }
 .attendance-signature-dialog > header button { flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid #bfc4bb; border-radius: 50%; background: var(--white); font-size: 24px; cursor: pointer; }
-.attendance-signature-content { min-height: 0; padding: 18px 22px; display: grid; gap: 14px; overflow-y: auto; }
-.attendance-rules-document { padding: 14px 16px; border: 1px solid #d8ddcb; border-radius: 9px; background: #fafcf4; }
+.attendance-signature-content { flex: 1 1 auto; min-height: 0; padding: 18px 22px; display: grid; gap: 14px; overflow-y: auto; }
+.attendance-signature-dialog.capture .attendance-signature-content { grid-template-columns: minmax(0, 1.15fr) minmax(330px, .85fr); overflow: hidden; }
+.attendance-rules-document { min-height: 0; padding: 14px 16px; border: 1px solid #d8ddcb; border-radius: 9px; background: #fafcf4; overflow-y: auto; overscroll-behavior: contain; }
 .attendance-rules-document > strong { font-size: 11px; }
 .attendance-rules-document p { margin: 10px 0; color: #4d5551; font-size: 9px; line-height: 1.55; }
 .attendance-rules-document h3 { margin: 15px 0 8px; font-size: 10px; line-height: 1.35; }
 .attendance-rules-document ul { margin: 10px 0; padding-left: 21px; color: #4d5551; font-size: 9px; line-height: 1.5; }
 .attendance-rules-document li + li { margin-top: 4px; }
 .attendance-rules-document a { color: #2f5c87; overflow-wrap: anywhere; text-decoration: underline; }
+.attendance-signature-actions { min-width: 0; min-height: 0; display: grid; align-content: start; gap: 14px; overflow-y: auto; overscroll-behavior: contain; }
 .attendance-acceptance-check { min-height: 48px; padding: 10px 12px; border: 1px solid #d6d8d0; border-radius: 8px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 9px; cursor: pointer; }
 .attendance-acceptance-check.teacher { background: #f2f2ed; }
 .attendance-acceptance-check input { width: 20px; height: 20px; margin: 0; accent-color: #607f1e; }
@@ -131,6 +134,9 @@
   .attendance-layout { grid-template-columns: 1fr; }
   .attendance-sessions > div { max-height: 360px; }
   .attendance-roster-head { align-items: flex-start; }
+  .attendance-signature-dialog.capture { width: min(760px, 100%); }
+  .attendance-signature-dialog.capture .attendance-signature-content { grid-template-columns: 1fr; grid-template-rows: minmax(160px, 34dvh) auto; overflow-y: auto; }
+  .attendance-signature-actions { overflow: visible; }
 }
 
 @media (max-width: 760px) {
@@ -167,7 +173,8 @@
   .attendance-signature-dialog > header { padding: 14px 14px 12px; }
   .attendance-signature-dialog > header h2 { font-size: 18px; }
   .attendance-signature-content { padding: 12px 14px; }
-  .attendance-rules-document { padding: 11px 12px; }
+  .attendance-signature-dialog.capture .attendance-signature-content { grid-template-rows: minmax(120px, 22dvh) auto; }
+  .attendance-rules-document { padding: 11px 12px; scroll-behavior: smooth; }
   .attendance-signature-pad canvas { height: 190px; }
   .attendance-signature-dialog > footer { padding-left: 14px; padding-right: 14px; }
   .attendance-signature-dialog > footer .primary-button, .attendance-signature-dialog > footer .secondary-button { min-width: 0; flex: 1; }

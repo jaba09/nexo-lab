@@ -48,6 +48,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceStyles, /\.attendance-signature-pad canvas/);
   assert.match(attendanceStyles, /touch-action: none/);
   assert.match(attendanceStyles, /\.attendance-signature-dialog/);
+  assert.match(attendanceView, /attendance-signature-actions/);
+  assert.match(attendanceStyles, /\.attendance-signature-dialog\.capture \.attendance-signature-content \{[^}]*grid-template-columns:/);
+  assert.match(attendanceStyles, /\.attendance-rules-document \{[^}]*overflow-y: auto/);
+  assert.match(attendanceStyles, /@media \(max-width: 850px\)[\s\S]*?\.attendance-signature-dialog\.capture \.attendance-signature-content \{[^}]*grid-template-columns: 1fr/);
   assert.match(attendanceRoute, /se\.teacher_id = \?/);
   assert.match(attendanceRoute, /semesterFromDate\(session\.sessionDate\)/);
   assert.match(attendanceRoute, /student_subgroups/);

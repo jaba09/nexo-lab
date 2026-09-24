@@ -200,7 +200,7 @@ function SignatureDialog({
 
   return (
     <div className="attendance-signature-overlay" role="dialog" aria-modal="true" aria-labelledby="signature-title">
-      <section className="attendance-signature-dialog">
+      <section className="attendance-signature-dialog capture">
         <header>
           <div><span>Normas de laboratorio · {rules.academicYear}</span><h2 id="signature-title">Firma de {student.firstName} {student.lastName}</h2><p>{student.email} · {pendingCount} {pendingCount === 1 ? "firma pendiente" : "firmas pendientes"}</p></div>
           <button type="button" onClick={onClose} disabled={busy} aria-label="Cerrar firma">×</button>
@@ -216,26 +216,28 @@ function SignatureDialog({
               <li key={rule.text}>{rule.text}{rule.link && <> <a href={rule.link} target="_blank" rel="noreferrer">{rule.link}</a></>}{rule.suffix}</li>
             ))}</ul>
           </div>
-          <label className="attendance-acceptance-check">
-            <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
-            <span>He leído y acepto las normas de laboratorio indicadas.</span>
-          </label>
-          <div className="attendance-signature-pad">
-            <div><strong>Firma del alumno</strong><button type="button" onClick={clearSignature} disabled={busy || !hasInk}>Borrar</button></div>
-            <canvas
-              ref={canvasRef}
-              aria-label="Zona para firmar con el dedo"
-              onPointerDown={startDrawing}
-              onPointerMove={draw}
-              onPointerUp={stopDrawing}
-              onPointerCancel={stopDrawing}
-            />
-            {!hasInk && <span>Firma aquí con el dedo</span>}
+          <div className="attendance-signature-actions">
+            <label className="attendance-acceptance-check">
+              <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
+              <span>He leído y acepto las normas de laboratorio indicadas.</span>
+            </label>
+            <div className="attendance-signature-pad">
+              <div><strong>Firma del alumno</strong><button type="button" onClick={clearSignature} disabled={busy || !hasInk}>Borrar</button></div>
+              <canvas
+                ref={canvasRef}
+                aria-label="Zona para firmar con el dedo"
+                onPointerDown={startDrawing}
+                onPointerMove={draw}
+                onPointerUp={stopDrawing}
+                onPointerCancel={stopDrawing}
+              />
+              {!hasInk && <span>Firma aquí con el dedo</span>}
+            </div>
+            <label className="attendance-acceptance-check teacher">
+              <input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
+              <span>Como profesor responsable, confirmo que esta firma se ha recogido presencialmente.</span>
+            </label>
           </div>
-          <label className="attendance-acceptance-check teacher">
-            <input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
-            <span>Como profesor responsable, confirmo que esta firma se ha recogido presencialmente.</span>
-          </label>
         </div>
         <footer>
           <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Cancelar</button>
