@@ -33,6 +33,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceView, /Guardar asistencia/);
   assert.match(attendanceView, /Marcar todos/);
   assert.match(attendanceView, /Desmarcar todos/);
+  assert.match(attendanceView, /Recoger firmas/);
+  assert.match(attendanceView, /Guardar firma y continuar/);
+  assert.match(attendanceView, /Solo pendientes/);
+  assert.match(attendanceView, /Descargar justificante PDF/);
+  assert.match(attendanceView, /confirmo que esta firma se ha recogido presencialmente/);
   assert.match(attendanceView, /attendance-mobile-close/);
   assert.match(attendanceView, /Hay cambios de asistencia sin guardar/);
   assert.match(attendanceStyles, /\.attendance-layout/);
@@ -40,10 +45,15 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceStyles, /@media \(max-width: 760px\)[\s\S]*?\.attendance-roster\.mobile-open[\s\S]*?position: fixed/);
   assert.match(attendanceStyles, /height: calc\(100dvh - 61px\)/);
   assert.match(attendanceStyles, /\.attendance-mobile-close/);
+  assert.match(attendanceStyles, /\.attendance-signature-pad canvas/);
+  assert.match(attendanceStyles, /touch-action: none/);
+  assert.match(attendanceStyles, /\.attendance-signature-dialog/);
   assert.match(attendanceRoute, /se\.teacher_id = \?/);
   assert.match(attendanceRoute, /semesterFromDate\(session\.sessionDate\)/);
   assert.match(attendanceRoute, /student_subgroups/);
   assert.match(attendanceRoute, /INSERT INTO session_attendance/);
+  assert.match(attendanceRoute, /INSERT OR IGNORE INTO student_lab_rule_acceptances/);
+  assert.match(attendanceRoute, /createLabRulesAcceptancePdf/);
   assert.match(page, /semesterDisplayTitle/);
   assert.match(page, /Semestre \$\{semester\.number\}/);
   assert.match(page, /Curso \{shortAcademicYear\}/);

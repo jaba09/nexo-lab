@@ -232,8 +232,10 @@ export default async function HelpPage() {
                 <li><strong>1.</strong> Abre «Asistencia» debajo de Calendario.</li>
                 <li><strong>2.</strong> Selecciona una de tus próximas sesiones.</li>
                 <li><strong>3.</strong> Marca los alumnos presentes y pulsa «Guardar asistencia».</li>
+                <li><strong>4.</strong> En la primera sesión, pulsa «Recoger firmas» para que los alumnos pendientes acepten las normas y firmen con el dedo.</li>
               </ol>
               <p>La lista se obtiene del alumnado cargado para la asignatura y el semestre. Si la sesión tiene subgrupo, solo aparecen los alumnos incluidos en ese código de grupo. Puedes buscar por nombre o correo y utilizar «Marcar todos» o «Desmarcar todos».</p>
+              <p>La aceptación de las normas es única para cada alumno, curso académico y versión del documento. Se identifica por el correo institucional, por lo que sigue siendo válida en otras asignaturas y después de volver a importar el alumnado. El profesor confirma que la firma se ha recogido presencialmente y puede consultar o descargar posteriormente el justificante PDF.</p>
               <div className="help-callout lime">
                 <span aria-hidden="true">✓</span>
                 <p><strong>Acceso personal</strong> Cada profesor solo puede consultar y guardar la asistencia de las sesiones que tiene asignadas.</p>

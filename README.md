@@ -39,7 +39,10 @@ El menú **Asistencia**, situado debajo de Calendario, muestra las próximas
 sesiones asignadas al profesor conectado. Al abrir una sesión se carga el
 alumnado de su asignatura y semestre; si la sesión tiene subgrupo, la lista se
 limita a ese subgrupo. El profesor puede marcar presentes, buscar alumnos y
-guardar la lista. Cada usuario solo puede consultar o modificar la asistencia
+guardar la lista. También puede recoger con el móvil la aceptación y firma de
+las normas de laboratorio. La firma se registra una sola vez por correo del
+alumno, curso académico y versión de las normas, con justificante PDF. Cada
+usuario solo puede consultar o modificar la asistencia
 de sus propias sesiones.
 
 La ficha de profesor permite marcar a una persona como **Personal de

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import "./attendance.css";
 
 type AttendanceSession = {
@@ -18,6 +19,8 @@ type AttendanceSession = {
   studentCount: number;
   attendedCount: number;
   attendanceTaken: boolean;
+  rulesAcceptedCount: number;
+  rulesPendingCount: number;
   updatedAt: string | null;
 };
 
@@ -27,14 +30,27 @@ type AttendanceStudent = {
   lastName: string;
   email: string;
   attended: boolean;
+  rulesAccepted: boolean;
+  rulesAcceptedAt: string | null;
+};
+
+type LaboratoryRules = {
+  academicYear: string;
+  version: string;
+  title: string;
+  content: string[];
+  hash: string;
 };
 
 type AttendanceDetail = {
   session: AttendanceSession;
   semesterId: string;
   students: AttendanceStudent[];
+  rules: LaboratoryRules;
   attendanceTaken: boolean;
   attendedCount: number;
+  rulesAcceptedCount: number;
+  rulesPendingCount: number;
   updatedAt: string | null;
 };
 
@@ -80,11 +96,180 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function acceptanceDate(value: string | null) {
+  if (!value) return "";
+  const parsed = new Date(`${value.replace(" ", "T")}Z`);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(parsed);
+}
+
 async function fetchAttendanceSessions(signal?: AbortSignal) {
   const response = await fetch("/api/attendance", { cache: "no-store", signal });
   const payload = await response.json() as Partial<AttendanceSessionsPayload> & { error?: string };
   if (!response.ok || !payload.sessions) throw new Error(payload.error || "No se pudieron cargar tus sesiones.");
   return { sessions: payload.sessions, today: payload.today ?? "" } satisfies AttendanceSessionsPayload;
+}
+
+function SignatureDialog({
+  student,
+  rules,
+  pendingCount,
+  busy,
+  onClose,
+  onSave,
+}: {
+  student: AttendanceStudent;
+  rules: LaboratoryRules;
+  pendingCount: number;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (signatureDataUrl: string) => Promise<void>;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef(false);
+  const [hasInk, setHasInk] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [attested, setAttested] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const bounds = canvas.getBoundingClientRect();
+    const width = Math.max(280, bounds.width);
+    const height = Math.max(180, bounds.height);
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.scale(ratio, ratio);
+    context.lineWidth = 3;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.strokeStyle = "#17201d";
+  }, [student.id]);
+
+  function point(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+  }
+
+  function startDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const context = event.currentTarget.getContext("2d");
+    if (!context) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const current = point(event);
+    context.beginPath();
+    context.moveTo(current.x, current.y);
+    drawingRef.current = true;
+  }
+
+  function draw(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current) return;
+    const context = event.currentTarget.getContext("2d");
+    if (!context) return;
+    const current = point(event);
+    context.lineTo(current.x, current.y);
+    context.stroke();
+    setHasInk(true);
+  }
+
+  function stopDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
+    drawingRef.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function clearSignature() {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    setHasInk(false);
+  }
+
+  function submit() {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasInk || !accepted || !attested || busy) return;
+    void onSave(canvas.toDataURL("image/png"));
+  }
+
+  return (
+    <div className="attendance-signature-overlay" role="dialog" aria-modal="true" aria-labelledby="signature-title">
+      <section className="attendance-signature-dialog">
+        <header>
+          <div><span>Normas de laboratorio · {rules.academicYear}</span><h2 id="signature-title">Firma de {student.firstName} {student.lastName}</h2><p>{student.email} · {pendingCount} {pendingCount === 1 ? "firma pendiente" : "firmas pendientes"}</p></div>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Cerrar firma">×</button>
+        </header>
+        <div className="attendance-signature-content">
+          <div className="attendance-rules-document">
+            <strong>{rules.title}</strong>
+            <ol>{rules.content.map((rule) => <li key={rule}>{rule}</li>)}</ol>
+            <small>Versión {rules.version} · La aceptación queda asociada a esta versión.</small>
+          </div>
+          <label className="attendance-acceptance-check">
+            <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
+            <span>He leído y acepto las normas de laboratorio indicadas.</span>
+          </label>
+          <div className="attendance-signature-pad">
+            <div><strong>Firma del alumno</strong><button type="button" onClick={clearSignature} disabled={busy || !hasInk}>Borrar</button></div>
+            <canvas
+              ref={canvasRef}
+              aria-label="Zona para firmar con el dedo"
+              onPointerDown={startDrawing}
+              onPointerMove={draw}
+              onPointerUp={stopDrawing}
+              onPointerCancel={stopDrawing}
+            />
+            {!hasInk && <span>Firma aquí con el dedo</span>}
+          </div>
+          <label className="attendance-acceptance-check teacher">
+            <input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
+            <span>Como profesor responsable, confirmo que esta firma se ha recogido presencialmente.</span>
+          </label>
+        </div>
+        <footer>
+          <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Cancelar</button>
+          <button className="primary-button" type="button" onClick={submit} disabled={busy || !hasInk || !accepted || !attested}>{busy ? "Guardando…" : "Guardar firma y continuar"}</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function SignatureViewer({
+  student,
+  sessionId,
+  rules,
+  onClose,
+}: {
+  student: AttendanceStudent;
+  sessionId: number;
+  rules: LaboratoryRules;
+  onClose: () => void;
+}) {
+  const imageUrl = `/api/attendance?sessionId=${sessionId}&studentId=${student.id}&signature=image`;
+  const pdfUrl = `/api/attendance?sessionId=${sessionId}&studentId=${student.id}&signature=pdf`;
+  return (
+    <div className="attendance-signature-overlay" role="dialog" aria-modal="true" aria-labelledby="signature-view-title">
+      <section className="attendance-signature-dialog viewer">
+        <header>
+          <div><span>Normas aceptadas · {rules.academicYear}</span><h2 id="signature-view-title">{student.firstName} {student.lastName}</h2><p>{student.email}</p></div>
+          <button type="button" onClick={onClose} aria-label="Cerrar firma">×</button>
+        </header>
+        <div className="attendance-signature-content">
+          <div className="attendance-signed-summary"><span>✓</span><div><strong>Aceptación registrada</strong><small>{acceptanceDate(student.rulesAcceptedAt)} · Versión {rules.version}</small></div></div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="attendance-saved-signature" src={imageUrl} alt={`Firma de ${student.firstName} ${student.lastName}`} />
+          <p className="attendance-signature-note">La firma se conserva de forma protegida y solo es accesible para el profesorado autorizado.</p>
+        </div>
+        <footer>
+          <button className="secondary-button" type="button" onClick={onClose}>Cerrar</button>
+          <a className="primary-button" href={pdfUrl}>Descargar justificante PDF</a>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 export default function AttendanceView({ teacherName }: { teacherName: string }) {
@@ -98,6 +283,10 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [signatureSaving, setSignatureSaving] = useState(false);
+  const [signatureStudent, setSignatureStudent] = useState<AttendanceStudent | null>(null);
+  const [signatureViewerStudent, setSignatureViewerStudent] = useState<AttendanceStudent | null>(null);
+  const [onlyRulesPending, setOnlyRulesPending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -127,6 +316,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
       setAttendedIds(selected);
       setInitialAttendedIds(new Set(selected));
       setFilter("");
+      setOnlyRulesPending(false);
     } catch (cause) {
       setDetail(null);
       setError(errorMessage(cause, "No se pudo cargar el alumnado."));
@@ -166,11 +356,11 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   const dirty = !detail?.attendanceTaken || modified;
   const visibleStudents = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase("es");
-    if (!query) return detail?.students ?? [];
     return (detail?.students ?? []).filter((student) => (
-      `${student.lastName} ${student.firstName} ${student.email}`.toLocaleLowerCase("es").includes(query)
+      (!onlyRulesPending || !student.rulesAccepted)
+      && (!query || `${student.lastName} ${student.firstName} ${student.email}`.toLocaleLowerCase("es").includes(query))
     ));
-  }, [detail, filter]);
+  }, [detail, filter, onlyRulesPending]);
 
   function toggleStudent(studentId: number, attended: boolean) {
     setSuccess("");
@@ -194,6 +384,9 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
     setAttendedIds(new Set());
     setInitialAttendedIds(new Set());
     setFilter("");
+    setOnlyRulesPending(false);
+    setSignatureStudent(null);
+    setSignatureViewerStudent(null);
     setError("");
     setSuccess("");
   }
@@ -225,6 +418,49 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
       setError(errorMessage(cause, "No se pudo guardar la asistencia."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function startCollectingSignatures(student?: AttendanceStudent) {
+    if (!detail) return;
+    const nextStudent = student ?? detail.students.find((item) => !item.rulesAccepted);
+    if (!nextStudent) return;
+    setSignatureViewerStudent(null);
+    setSignatureStudent(nextStudent);
+  }
+
+  async function saveSignature(student: AttendanceStudent, signatureDataUrl: string) {
+    if (!detail) return;
+    setSignatureSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sessionId: detail.session.id,
+          studentId: student.id,
+          signatureDataUrl,
+          acceptedRules: true,
+          teacherAttested: true,
+        }),
+      });
+      const payload = await response.json() as AttendanceDetail & { error?: string };
+      if (!response.ok || !payload.session) throw new Error(payload.error || "No se pudo guardar la firma.");
+      setDetail(payload);
+      setSessions((current) => current.map((session) => session.id === payload.session.id
+        ? { ...session, rulesAcceptedCount: payload.rulesAcceptedCount, rulesPendingCount: payload.rulesPendingCount }
+        : session));
+      const nextStudent = payload.students.find((item) => !item.rulesAccepted);
+      setSignatureStudent(nextStudent ?? null);
+      setSuccess(nextStudent
+        ? `Firma guardada. Continúa con ${nextStudent.firstName} ${nextStudent.lastName}.`
+        : "Todas las firmas pendientes de esta sesión se han recogido.");
+    } catch (cause) {
+      setError(errorMessage(cause, "No se pudo guardar la firma."));
+    } finally {
+      setSignatureSaving(false);
     }
   }
 
@@ -260,7 +496,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                   </time>
                   <span className="attendance-session-copy">
                     <strong>{sessionTitle(session)}</strong>
-                    <small>{session.subjectCode} · {session.subjectName}{session.groupCode ? ` · ${groupLabel(session.groupCode)}` : ""}</small>
+                    <small>{session.subjectCode} · {session.subjectName}{session.groupCode ? ` · ${groupLabel(session.groupCode)}` : ""}{session.studentCount ? session.rulesPendingCount ? ` · ${session.rulesPendingCount} normas pendientes` : " · Normas firmadas" : ""}</small>
                   </span>
                   <span className={`attendance-session-status${session.attendanceTaken ? " complete" : ""}${!session.studentCount ? " no-roster" : ""}`}>
                     {!session.studentCount ? "Sin alumnado" : session.attendanceTaken ? `${session.attendedCount}/${session.studentCount}` : `${session.studentCount} alumnos`}
@@ -290,6 +526,11 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                   <div className="attendance-no-students"><span>CSV</span><h3>No hay alumnado para esta sesión</h3><p>Carga el CSV de la asignatura y semestre desde Inicio. Si la sesión tiene grupo, los códigos de subgrupo deben coincidir.</p></div>
                 ) : (
                   <>
+                    <div className="attendance-rules-toolbar">
+                      <div><strong>{detail.rulesAcceptedCount} firmadas</strong><span>{detail.rulesPendingCount ? `${detail.rulesPendingCount} pendientes` : "Todos han aceptado las normas"}</span></div>
+                      <button type="button" className={onlyRulesPending ? "active" : ""} onClick={() => setOnlyRulesPending((current) => !current)}>{onlyRulesPending ? "Mostrar todos" : "Solo pendientes"}</button>
+                      <button type="button" className="collect" disabled={!detail.rulesPendingCount} onClick={() => startCollectingSignatures()}>{detail.rulesPendingCount ? "Recoger firmas" : "Firmas completas"}</button>
+                    </div>
                     <div className="attendance-roster-toolbar">
                       <label><span className="sr-only">Buscar alumno</span><input type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Buscar alumno…" /></label>
                       <button type="button" onClick={() => setAttendedIds(new Set(detail.students.map((student) => student.id)))}>Marcar todos</button>
@@ -297,11 +538,20 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                     </div>
                     <div className="attendance-student-list">
                       {visibleStudents.map((student) => (
-                        <label key={student.id} className={attendedIds.has(student.id) ? "attendance-student attended" : "attendance-student"}>
-                          <input type="checkbox" checked={attendedIds.has(student.id)} onChange={(event) => toggleStudent(student.id, event.target.checked)} />
-                          <span><strong>{student.lastName}, {student.firstName}</strong><small>{student.email}</small></span>
-                          <em>{attendedIds.has(student.id) ? "Presente" : "Ausente"}</em>
-                        </label>
+                        <div key={student.id} className={attendedIds.has(student.id) ? "attendance-student attended" : "attendance-student"}>
+                          <input id={`attendance-${student.id}`} type="checkbox" checked={attendedIds.has(student.id)} onChange={(event) => toggleStudent(student.id, event.target.checked)} />
+                          <label htmlFor={`attendance-${student.id}`}><strong>{student.lastName}, {student.firstName}</strong><small>{student.email}</small></label>
+                          <div className="attendance-student-actions">
+                            <em>{attendedIds.has(student.id) ? "Presente" : "Ausente"}</em>
+                            <button
+                              type="button"
+                              className={student.rulesAccepted ? "accepted" : "pending"}
+                              onClick={() => student.rulesAccepted ? setSignatureViewerStudent(student) : startCollectingSignatures(student)}
+                            >
+                              {student.rulesAccepted ? `Firmado ${acceptanceDate(student.rulesAcceptedAt)}` : "Normas pendientes"}
+                            </button>
+                          </div>
+                        </div>
                       ))}
                       {!visibleStudents.length && <p className="attendance-search-empty">No hay alumnos que coincidan con la búsqueda.</p>}
                     </div>
@@ -315,6 +565,25 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
             )}
           </div>
         </div>
+      )}
+      {detail && signatureStudent && (
+        <SignatureDialog
+          key={signatureStudent.id}
+          student={signatureStudent}
+          rules={detail.rules}
+          pendingCount={detail.rulesPendingCount}
+          busy={signatureSaving}
+          onClose={() => setSignatureStudent(null)}
+          onSave={(signatureDataUrl) => saveSignature(signatureStudent, signatureDataUrl)}
+        />
+      )}
+      {detail && signatureViewerStudent && (
+        <SignatureViewer
+          student={signatureViewerStudent}
+          sessionId={detail.session.id}
+          rules={detail.rules}
+          onClose={() => setSignatureViewerStudent(null)}
+        />
       )}
     </section>
   );

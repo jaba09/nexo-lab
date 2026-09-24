@@ -274,6 +274,8 @@ Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
   assert.equal(attendanceSummary.studentCount, 1);
   assert.equal(attendanceSummary.attendedCount, 0);
   assert.equal(attendanceSummary.attendanceTaken, false);
+  assert.equal(attendanceSummary.rulesAcceptedCount, 0);
+  assert.equal(attendanceSummary.rulesPendingCount, 1);
 
   const attendanceDetailResponse = await fetch(`${origin}/api/attendance?sessionId=${attendanceSessionId}`);
   assert.equal(attendanceDetailResponse.status, 200);
@@ -281,6 +283,53 @@ Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
   assert.equal(attendanceDetail.students.length, 1);
   assert.equal(attendanceDetail.students[0].email, "924740@unizar.es");
   assert.equal(attendanceDetail.students[0].attended, false);
+  assert.equal(attendanceDetail.students[0].rulesAccepted, false);
+  assert.equal(attendanceDetail.rules.academicYear, "2026-27");
+  assert.match(attendanceDetail.rules.version, /^2026-27-v\d+$/);
+  assert.equal(attendanceDetail.rulesAcceptedCount, 0);
+  assert.equal(attendanceDetail.rulesPendingCount, 1);
+
+  const signatureDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const saveSignatureResponse = await fetch(`${origin}/api/attendance`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: attendanceSessionId,
+      studentId: attendanceDetail.students[0].id,
+      signatureDataUrl,
+      acceptedRules: true,
+      teacherAttested: true,
+    }),
+  });
+  assert.equal(saveSignatureResponse.status, 200);
+  const signedAttendanceDetail = await saveSignatureResponse.json();
+  assert.equal(signedAttendanceDetail.students[0].rulesAccepted, true);
+  assert.ok(signedAttendanceDetail.students[0].rulesAcceptedAt);
+  assert.equal(signedAttendanceDetail.rulesAcceptedCount, 1);
+  assert.equal(signedAttendanceDetail.rulesPendingCount, 0);
+
+  const repeatedSignatureResponse = await fetch(`${origin}/api/attendance`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: attendanceSessionId,
+      studentId: attendanceDetail.students[0].id,
+      signatureDataUrl,
+      acceptedRules: true,
+      teacherAttested: true,
+    }),
+  });
+  assert.equal(repeatedSignatureResponse.status, 409);
+
+  const signatureImageResponse = await fetch(`${origin}/api/attendance?sessionId=${attendanceSessionId}&studentId=${attendanceDetail.students[0].id}&signature=image`);
+  assert.equal(signatureImageResponse.status, 200);
+  assert.match(signatureImageResponse.headers.get("content-type"), /image\/png/);
+  assert.deepEqual([...new Uint8Array(await signatureImageResponse.arrayBuffer()).slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+
+  const signaturePdfResponse = await fetch(`${origin}/api/attendance?sessionId=${attendanceSessionId}&studentId=${attendanceDetail.students[0].id}&signature=pdf`);
+  assert.equal(signaturePdfResponse.status, 200);
+  assert.match(signaturePdfResponse.headers.get("content-type"), /application\/pdf/);
+  assert.equal(Buffer.from(await signaturePdfResponse.arrayBuffer()).subarray(0, 4).toString(), "%PDF");
 
   const saveAttendanceResponse = await fetch(`${origin}/api/attendance`, {
     method: "PUT",
@@ -314,6 +363,8 @@ Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
   );
   savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(attendanceSessionId);
   assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM session_attendance WHERE session_id = ?").get(attendanceSessionId).total, 0);
+  assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM student_lab_rule_acceptances WHERE student_email = ?").get("924740@unizar.es").total, 1);
+  assert.equal(savedAttendanceDatabase.prepare("SELECT session_id AS sessionId FROM student_lab_rule_acceptances WHERE student_email = ?").get("924740@unizar.es").sessionId, null);
   savedAttendanceDatabase.close();
 
   const assignmentSession = initialData.sessions[0];

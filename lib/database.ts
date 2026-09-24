@@ -132,6 +132,21 @@ const schemaStatements = [
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (session_id, student_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS student_lab_rule_acceptances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_email TEXT NOT NULL COLLATE NOCASE,
+    student_first_name TEXT NOT NULL,
+    student_last_name TEXT NOT NULL,
+    academic_year TEXT NOT NULL,
+    rules_version TEXT NOT NULL,
+    rules_hash TEXT NOT NULL,
+    signature_png BLOB NOT NULL CHECK (length(signature_png) > 0),
+    session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+    captured_by_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE RESTRICT,
+    teacher_attested INTEGER NOT NULL CHECK (teacher_attested = 1),
+    signed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (student_email, academic_year, rules_version)
+  )`,
   `CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     recipient_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
@@ -166,6 +181,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)",
   "CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)",
   "CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)",
+  "CREATE INDEX IF NOT EXISTS idx_student_lab_rule_acceptances_email ON student_lab_rule_acceptances(student_email COLLATE NOCASE, academic_year, rules_version)",
   "CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)",
   "CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_teacher_id, created_at DESC, id DESC)",
 ];
@@ -565,6 +581,7 @@ function initializeDatabase(database: DatabaseSync) {
       SELECT RAISE(ABORT, 'Cada alumno solo puede pertenecer a un subgrupo.');
     END`);
   database.exec("CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_student_lab_rule_acceptances_email ON student_lab_rule_acceptances(student_email COLLATE NOCASE, academic_year, rules_version)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_teacher_id ON auth_sessions(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_teacher_id ON password_reset_tokens(teacher_id)");
