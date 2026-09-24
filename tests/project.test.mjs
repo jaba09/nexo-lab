@@ -33,8 +33,13 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceView, /Guardar asistencia/);
   assert.match(attendanceView, /Marcar todos/);
   assert.match(attendanceView, /Desmarcar todos/);
+  assert.match(attendanceView, /attendance-mobile-close/);
+  assert.match(attendanceView, /Hay cambios de asistencia sin guardar/);
   assert.match(attendanceStyles, /\.attendance-layout/);
   assert.match(attendanceStyles, /\.attendance-student\.attended/);
+  assert.match(attendanceStyles, /@media \(max-width: 760px\)[\s\S]*?\.attendance-roster\.mobile-open[\s\S]*?position: fixed/);
+  assert.match(attendanceStyles, /height: calc\(100dvh - 61px\)/);
+  assert.match(attendanceStyles, /\.attendance-mobile-close/);
   assert.match(attendanceRoute, /se\.teacher_id = \?/);
   assert.match(attendanceRoute, /semesterFromDate\(session\.sessionDate\)/);
   assert.match(attendanceRoute, /student_subgroups/);

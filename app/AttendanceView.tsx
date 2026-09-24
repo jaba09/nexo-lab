@@ -159,11 +159,11 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
     return () => events.close();
   }, [loadSessions]);
 
-  const dirty = useMemo(() => (
-    !detail?.attendanceTaken
-    || attendedIds.size !== initialAttendedIds.size
+  const modified = useMemo(() => (
+    attendedIds.size !== initialAttendedIds.size
     || [...attendedIds].some((id) => !initialAttendedIds.has(id))
-  ), [attendedIds, detail?.attendanceTaken, initialAttendedIds]);
+  ), [attendedIds, initialAttendedIds]);
+  const dirty = !detail?.attendanceTaken || modified;
   const visibleStudents = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase("es");
     if (!query) return detail?.students ?? [];
@@ -185,6 +185,17 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   function selectSession(sessionId: number) {
     setSelectedSessionId(sessionId);
     void loadDetail(sessionId);
+  }
+
+  function closeRoster() {
+    if (modified && !window.confirm("Hay cambios de asistencia sin guardar. ¿Quieres cerrar la lista?")) return;
+    setSelectedSessionId(null);
+    setDetail(null);
+    setAttendedIds(new Set());
+    setInitialAttendedIds(new Set());
+    setFilter("");
+    setError("");
+    setSuccess("");
   }
 
   async function saveAttendance() {
@@ -260,7 +271,8 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
             </div>
           </aside>
 
-          <div className="attendance-roster" aria-live="polite">
+          <div className={`attendance-roster${selectedSessionId ? " mobile-open" : ""}`} aria-live="polite">
+            {selectedSessionId && <button className="attendance-mobile-close" type="button" onClick={closeRoster} aria-label="Cerrar lista de alumnos">×</button>}
             {detailLoading ? <div className="attendance-roster-loading" role="status"><span />Cargando alumnado…</div> : !selectedSessionId || !detail ? (
               <div className="attendance-roster-placeholder"><span>✓</span><h2>Selecciona una sesión</h2><p>Aquí aparecerá la lista de su subgrupo para marcar los alumnos presentes.</p></div>
             ) : (
