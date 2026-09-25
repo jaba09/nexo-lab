@@ -41,6 +41,7 @@ export async function POST(request: Request) {
   const subject = cleanText(payload.subject);
   const body = cleanText(payload.body);
   const smtpPassword = typeof payload.smtpPassword === "string" ? payload.smtpPassword : "";
+  const blindCopy = payload.blindCopy !== false;
   const subjectId = audience === "subject" ? Number(payload.subjectId) : null;
 
   if (audience !== "subject" && audience !== "semester") {
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
       smtpPassword,
       senderName: authenticatedTeacher.name,
       recipients,
+      blindCopy,
       subject,
       body,
     });

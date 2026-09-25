@@ -3553,6 +3553,7 @@ function MessagesView({
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
+  const [blindCopy, setBlindCopy] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -3601,6 +3602,7 @@ function MessagesView({
           subjectId: audienceSubjectId,
           subject: messageSubject,
           body: messageBody,
+          blindCopy,
           smtpPassword: password,
         }),
       });
@@ -3721,9 +3723,13 @@ function MessagesView({
               <span>Mensaje</span>
               <textarea required maxLength={20_000} rows={12} value={messageBody} onChange={(event) => setMessageBody(event.target.value)} placeholder="Escribe el mensaje que recibirán los profesores…" />
             </label>
+            <div className="messages-copy-option">
+              <input id="messages-blind-copy" type="checkbox" checked={blindCopy} onChange={(event) => setBlindCopy(event.target.checked)} />
+              <label htmlFor="messages-blind-copy"><strong>Enviar con copia oculta (CCO)</strong><small>{blindCopy ? "Los destinatarios no verán las demás direcciones." : "Los destinatarios aparecerán en el campo Para y podrán ver las demás direcciones."}</small></label>
+            </div>
             <div className="messages-security-note">
               <span aria-hidden="true">⌁</span>
-              <p>Los destinatarios se envían en copia oculta. La contraseña no se guarda en la base de datos ni en el almacenamiento del navegador.</p>
+              <p>{blindCopy ? "El mensaje se enviará con los destinatarios en copia oculta." : "El mensaje se enviará con las direcciones visibles."} La contraseña no se guarda en la base de datos ni en el almacenamiento del navegador.</p>
               {smtpPassword && <button type="button" onClick={() => { onSmtpPasswordChange(""); setPasswordEntry(""); setPasswordDialogOpen(true); }}>Cambiar contraseña</button>}
             </div>
             {error && <p className="messages-error" role="alert">{error}</p>}

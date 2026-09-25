@@ -492,6 +492,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .messages-sender-line > span { grid-row: 1 / 3; color: var(--muted); font: 700 8px var(--font-geist-mono); text-transform: uppercase; }
 .messages-sender-line strong { font-size: 10px; }
 .messages-sender-line small { color: var(--muted); font-size: 8px; }
+.messages-copy-option { min-height: 58px; padding: 10px 12px; border: 1px solid #d4d9c8; border-radius: 8px; background: #f7faef; display: grid !important; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 10px !important; cursor: pointer; }
+.messages-copy-option > input { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: #607f1e; }
+.messages-copy-option > label { display: grid; gap: 3px; color: var(--ink); cursor: pointer; }
+.messages-copy-option strong { font-size: 9px; }
+.messages-copy-option small { color: var(--muted); font-size: 8px; line-height: 1.4; }
 .messages-security-note { padding: 11px 12px; border: 1px solid #d9ddd1; border-radius: 8px; background: #f5f7ed; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 9px; color: #5f6d55; }
 .messages-security-note > span { width: 23px; height: 23px; border: 1px solid #aeb99b; border-radius: 50%; display: grid; place-items: center; font-size: 12px; }
 .messages-security-note p { margin: 0; font-size: 8px; line-height: 1.45; }

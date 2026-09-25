@@ -364,7 +364,7 @@ export default async function HelpPage() {
               <p>Un administrador concede el rol de editor desde la ficha de una asignatura. Desde Admin también puede ajustar las horas de la vista semanal, ejecutar un chequeo completo de interferencias de profesores e instalaciones y descargar el informe en PDF. El sistema conserva siempre al menos una cuenta administradora.</p>
               <div className="help-callout neutral">
                 <span aria-hidden="true">✉</span>
-                <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. La contraseña de Unizar se solicita en el primer envío y se conserva solo en memoria hasta cerrar sesión o recargar; los destinatarios reciben el mensaje en copia oculta.</p>
+                <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. Puedes decidir con un checkbox si las direcciones se envían en copia oculta; esta opción está activada por defecto. La contraseña de Unizar se solicita en el primer envío y se conserva solo en memoria hasta cerrar sesión o recargar.</p>
               </div>
             </HelpSection>
 

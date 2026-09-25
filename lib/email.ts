@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { smtpUsernameFromEmail } from "./smtp";
+import { smtpUsernameFromEmail, teacherGroupEmailAddressing } from "./smtp";
 
 const defaultSmtpHost = "smtp.unizar.es";
 const defaultSmtpPort = 587;
@@ -15,6 +15,7 @@ type TeacherGroupEmail = {
   smtpPassword: string;
   senderName: string;
   recipients: string[];
+  blindCopy: boolean;
   subject: string;
   body: string;
 };
@@ -107,6 +108,7 @@ export async function sendTeacherGroupEmail({
   smtpPassword,
   senderName,
   recipients,
+  blindCopy,
   subject,
   body,
 }: TeacherGroupEmail) {
@@ -116,12 +118,11 @@ export async function sendTeacherGroupEmail({
   if (!normalizedRecipients.length) throw new Error("MESSAGE_RECIPIENTS_REQUIRED");
 
   const transporter = smtpTransport(user, smtpPassword);
-  const blindCopyRecipients = normalizedRecipients.filter((email) => email !== user);
+  const addressing = teacherGroupEmailAddressing(user, normalizedRecipients, blindCopy);
   const safeBody = escapedHtml(body).replace(/\r?\n/g, "<br>");
   await transporter.sendMail({
     from: { name: senderName || "Nexo Lab", address: user },
-    to: user,
-    bcc: blindCopyRecipients.length ? blindCopyRecipients : undefined,
+    ...addressing,
     replyTo: user,
     subject,
     text: body,
