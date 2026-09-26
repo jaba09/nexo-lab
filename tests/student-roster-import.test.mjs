@@ -60,6 +60,38 @@ test("previews and imports a semester student roster with zero or one subgroup p
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE semester_id = '2026-27 S2'").get().total, 1);
 });
 
+test("recognizes Moodle course groups and compact laboratory subgroup names", () => {
+  const database = rosterDatabase();
+  const moodleCsv = `\uFEFFNombre,Apellido(s),"Dirección de correo",Grupos
+Ana,Uno,ana@unizar.es,"Grupo 531, mif11 Xa 9-11h"
+Beto,Dos,beto@unizar.es,mif12 Xb 9-11h
+Carla,Tres,carla@unizar.es,Grupo 532
+Diego,Cuatro,diego@unizar.es,
+`;
+
+  const preview = previewStudentRoster(database, 1, "2026-27 S1", moodleCsv);
+  assert.equal(preview.invalidCount, 0);
+  assert.equal(preview.studentCount, 4);
+  assert.equal(preview.assignedStudentCount, 2);
+  assert.equal(preview.unassignedStudentCount, 2);
+  assert.deepEqual(preview.subgroups, [
+    { code: "11", label: "G11 - Xa 9-11h", studentCount: 1 },
+    { code: "12", label: "G12 - Xb 9-11h", studentCount: 1 },
+  ]);
+});
+
+test("rejects more than one compact laboratory subgroup while ignoring the course group", () => {
+  const database = rosterDatabase();
+  const invalidCsv = `Nombre,Apellido(s),Dirección de correo,Grupos
+Ángel,Luesma Larrosa,948909@unizar.es,"Grupo 531, mif25 Ja 11-13h, mif35 Ma 16-18h"
+`;
+
+  const preview = previewStudentRoster(database, 1, "2026-27 S1", invalidCsv);
+  assert.equal(preview.studentCount, 0);
+  assert.equal(preview.invalidCount, 1);
+  assert.match(preview.invalidRows[0].message, /solo puede pertenecer a un subgrupo/i);
+});
+
 test("rejects a student assigned to more than one subgroup without replacing the roster", () => {
   const database = rosterDatabase();
   const invalidCsv = `Nombre,Apellido(s),Dirección de correo,Grupos

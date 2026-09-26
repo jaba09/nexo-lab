@@ -105,22 +105,32 @@ function validEmail(value: string) {
 
 function parseSubgroups(value: string) {
   if (!value.trim()) return { subgroups: [] as StudentSubgroup[] };
-  const parts = value.trim().split(/\s*,\s*(?=G\d+\s*-)/i);
-  if (parts.length > 1) {
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  const subgroups: StudentSubgroup[] = [];
+  for (const part of parts) {
+    // Moodle also includes the broad course group (for example, "Grupo 531").
+    // It is not a laboratory subgroup and must not be imported as one.
+    if (/^Grupo\s+\d{1,6}$/i.test(part)) continue;
+
+    const legacyMatch = /^G(\d{1,6})\s*-\s*(.+)$/i.exec(part);
+    const moodleMatch = /^[\p{L}_-]+?(\d{1,6})\s+(.+)$/iu.exec(part);
+    const match = legacyMatch ?? moodleMatch;
+    if (!match || !match[2].trim() || part.length > 200) {
+      return { subgroups: [] as StudentSubgroup[], error: `grupo no válido: ${part || "vacío"}` };
+    }
+    const code = String(Number(match[1]));
+    const label = `G${code} - ${match[2].trim()}`;
+    const existing = subgroups.find((subgroup) => subgroup.code === code);
+    if (existing && existing.label !== label) {
+      return { subgroups: [] as StudentSubgroup[], error: `el subgrupo G${code} tiene descripciones distintas` };
+    }
+    if (!existing) subgroups.push({ code, label });
+  }
+  if (subgroups.length > 1) {
     return {
       subgroups: [] as StudentSubgroup[],
       error: "cada alumno solo puede pertenecer a un subgrupo",
     };
-  }
-  const subgroups: StudentSubgroup[] = [];
-  for (const part of parts) {
-    const match = /^G(\d{1,6})\s*-\s*(.+)$/i.exec(part.trim());
-    if (!match || !match[2].trim() || part.length > 200) {
-      return { subgroups: [] as StudentSubgroup[], error: `grupo no válido: ${part.trim() || "vacío"}` };
-    }
-    const code = String(Number(match[1]));
-    const label = `G${code} - ${match[2].trim()}`;
-    if (!subgroups.some((subgroup) => subgroup.code === code)) subgroups.push({ code, label });
   }
   return { subgroups };
 }
