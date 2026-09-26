@@ -223,7 +223,6 @@ export function previewStudentRoster(database: DatabaseSync, subjectId: number, 
 
 export function importStudentRoster(database: DatabaseSync, subjectId: number, semesterId: string, content: string): StudentRosterImportResult {
   const parsed = parseStudentRows(content);
-  if (parsed.issues.length) throw new Error("Corrige las filas no válidas antes de importar el alumnado.");
   if (!parsed.rows.length) throw new Error("El CSV no contiene alumnos para importar.");
   const replacedStudentCount = existingStudentCount(database, subjectId, semesterId);
   database.exec("BEGIN IMMEDIATE");
@@ -246,8 +245,8 @@ export function importStudentRoster(database: DatabaseSync, subjectId: number, s
   return {
     totalRows: parsed.totalRows,
     ...summarize(parsed.rows),
-    invalidCount: 0,
-    invalidRows: [],
+    invalidCount: parsed.issues.length,
+    invalidRows: parsed.issues,
     existingStudentCount: parsed.rows.length,
     replacedStudentCount,
   };

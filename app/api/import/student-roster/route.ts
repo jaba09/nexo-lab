@@ -45,9 +45,6 @@ export async function POST(request: Request) {
 
     const preview = previewStudentRoster(database, subjectId, semesterId, content);
     if (action !== "import") return Response.json(preview);
-    if (preview.invalidCount) {
-      return Response.json({ error: "Corrige las filas no válidas antes de importar el alumnado.", ...preview }, { status: 400 });
-    }
     if (!preview.studentCount) {
       return Response.json({ error: "El CSV no contiene alumnos para importar." }, { status: 400 });
     }

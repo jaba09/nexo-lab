@@ -1446,9 +1446,12 @@ export default function Home() {
     const unassigned = result.unassignedStudentCount
       ? ` ${result.unassignedStudentCount} ${result.unassignedStudentCount === 1 ? "alumno queda" : "alumnos quedan"} sin subgrupo.`
       : "";
+    const ignored = result.invalidCount
+      ? ` Se ${result.invalidCount === 1 ? "ha ignorado 1 fila no válida" : `han ignorado ${result.invalidCount} filas no válidas`}.`
+      : "";
     setNotice({
       kind: "success",
-      message: `Se han cargado ${result.studentCount} alumnos en ${result.subgroupCount} subgrupos.${unassigned}`,
+      message: `Se han cargado ${result.studentCount} alumnos en ${result.subgroupCount} subgrupos.${unassigned}${ignored}`,
     });
   }
 
@@ -5418,7 +5421,7 @@ function StudentRosterImportDialog({
 
   async function importRoster(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!preview || !selectedFile || preview.invalidCount || !preview.studentCount) return;
+    if (!preview || !selectedFile || !preview.studentCount) return;
     setBusy(true);
     setError("");
     try {
@@ -5466,13 +5469,14 @@ function StudentRosterImportDialog({
               </div>
 
               {preview.invalidCount > 0 && (
-                <div className="ics-error" role="alert">
-                  <strong>{preview.invalidCount} {preview.invalidCount === 1 ? "fila no es válida" : "filas no son válidas"}.</strong>
+                <div className="dependency-message student-roster-invalid-warning" role="status">
+                  <strong>{preview.invalidCount} {preview.invalidCount === 1 ? "fila no es válida y se ignorará" : "filas no son válidas y se ignorarán"}.</strong>
                   {preview.invalidRows.map((issue) => <span key={`${issue.rowNumber}-${issue.message}`}>Fila {issue.rowNumber}: {issue.message}</span>)}
+                  <span>Puedes continuar: sólo se importarán las {preview.studentCount} filas válidas.</span>
                 </div>
               )}
 
-              {preview.existingStudentCount > 0 && !preview.invalidCount && (
+              {preview.existingStudentCount > 0 && (
                 <div className="dependency-message student-roster-replace-warning">
                   <strong>Esta asignatura ya tiene {preview.existingStudentCount} alumnos cargados para este semestre.</strong>
                   <span>Al continuar se sustituirá ese listado completo por el contenido de este CSV.</span>
@@ -5499,7 +5503,7 @@ function StudentRosterImportDialog({
 
           <div className="form-actions">
             <button className="secondary-button" type="button" disabled={busy} onClick={onClose}>Cancelar</button>
-            <button className="primary-button" type="submit" disabled={busy || !preview || !preview.studentCount || Boolean(preview.invalidCount)}>
+            <button className="primary-button" type="submit" disabled={busy || !preview || !preview.studentCount}>
               {busy && preview ? "Importando…" : preview?.existingStudentCount ? "Sustituir alumnado" : "Importar alumnado"}
             </button>
           </div>

@@ -92,7 +92,7 @@ test("rejects more than one compact laboratory subgroup while ignoring the cours
   assert.match(preview.invalidRows[0].message, /solo puede pertenecer a un subgrupo/i);
 });
 
-test("rejects a student assigned to more than one subgroup without replacing the roster", () => {
+test("does not replace the roster when every student row is invalid", () => {
   const database = rosterDatabase();
   const invalidCsv = `Nombre,Apellido(s),Dirección de correo,Grupos
 Ángel,Luesma Larrosa,948909@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A 15:00-17:00"
@@ -101,17 +101,37 @@ test("rejects a student assigned to more than one subgroup without replacing the
   assert.equal(preview.studentCount, 0);
   assert.equal(preview.invalidCount, 1);
   assert.match(preview.invalidRows[0].message, /solo puede pertenecer a un subgrupo/i);
-  assert.throws(() => importStudentRoster(database, 1, "2026-27 S1", invalidCsv), /filas no válidas/);
+  assert.throws(() => importStudentRoster(database, 1, "2026-27 S1", invalidCsv), /no contiene alumnos/);
   assert.equal(database.prepare("SELECT first_name AS firstName FROM subject_students WHERE semester_id = '2026-27 S1'").get().firstName, "Anterior");
 });
 
-test("rejects malformed rows without replacing an existing roster", () => {
+test("does not replace the roster when every row is malformed", () => {
   const database = rosterDatabase();
   const invalidCsv = `Nombre,Apellido(s),Dirección de correo,Grupos
 Ana,Alumno,correo-invalido,G11 - Martes-A 15:00-17:00
 `;
   const preview = previewStudentRoster(database, 1, "2026-27 S1", invalidCsv);
   assert.equal(preview.invalidCount, 1);
-  assert.throws(() => importStudentRoster(database, 1, "2026-27 S1", invalidCsv), /filas no válidas/);
+  assert.throws(() => importStudentRoster(database, 1, "2026-27 S1", invalidCsv), /no contiene alumnos/);
   assert.equal(database.prepare("SELECT first_name AS firstName FROM subject_students WHERE semester_id = '2026-27 S1'").get().firstName, "Anterior");
+});
+
+test("imports valid students and reports the invalid rows it ignored", () => {
+  const database = rosterDatabase();
+  const mixedCsv = `Nombre,Apellido(s),Dirección de correo,Grupos
+Ana,Correcta,ana@unizar.es,"Grupo 531, mif11 Xa 9-11h"
+Ángel,Doble,angel@unizar.es,"Grupo 531, mif25 Ja 11-13h, mif35 Ma 16-18h"
+Beto,Correcto,beto@unizar.es,Grupo 532
+`;
+
+  const result = importStudentRoster(database, 1, "2026-27 S1", mixedCsv);
+  assert.equal(result.totalRows, 3);
+  assert.equal(result.studentCount, 2);
+  assert.equal(result.invalidCount, 1);
+  assert.equal(result.invalidRows[0].rowNumber, 3);
+  assert.equal(result.replacedStudentCount, 1);
+  assert.deepEqual(
+    database.prepare("SELECT email FROM subject_students WHERE semester_id = '2026-27 S1' ORDER BY email").all().map((row) => row.email),
+    ["ana@unizar.es", "beto@unizar.es"],
+  );
 });

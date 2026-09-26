@@ -938,6 +938,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .assignment-import-dialog .ics-error { display: grid; gap: 4px; }
 .student-roster-replace-warning { margin: 0; display: grid; gap: 4px; }
 .student-roster-replace-warning span { font-size: 9px; line-height: 1.4; }
+.student-roster-invalid-warning { margin: 0; display: grid; gap: 4px; }
+.student-roster-invalid-warning span { font-size: 10px; line-height: 1.4; }
 .student-roster-groups { max-height: 220px; padding: 10px; border: 1px solid #dfe3d5; border-radius: 9px; background: #f8faf3; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; overflow-y: auto; }
 .student-roster-groups > span { min-height: 48px; padding: 8px; border: 1px solid #d9dfcb; border-radius: 7px; background: #fff; display: grid; align-content: center; gap: 4px; }
 .student-roster-groups strong { color: #4f681b; font: 750 9px var(--font-geist-mono); }

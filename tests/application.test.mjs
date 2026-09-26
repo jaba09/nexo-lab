@@ -223,6 +223,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
 Lorena,"Abad Sanz",924740@unizar.es,"G32 - Lunes-B 11:00-13:00"
 Clara,"Agustín Sanz",868411@unizar.es,
 Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
+Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A 15:00-17:00"
 `;
   function studentRosterFormData(subjectId, action = "preview") {
     const formData = new FormData();
@@ -239,6 +240,7 @@ Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
   assert.equal(studentRosterPreviewResponse.status, 200);
   const studentRosterPreview = await studentRosterPreviewResponse.json();
   assert.equal(studentRosterPreview.studentCount, 3);
+  assert.equal(studentRosterPreview.invalidCount, 1);
   assert.equal(studentRosterPreview.subgroupCount, 2);
   assert.equal(studentRosterPreview.unassignedStudentCount, 1);
   const studentRosterImportResponse = await fetch(`${origin}/api/import/student-roster`, {
@@ -248,6 +250,7 @@ Alumno,"Un grupo",999999@unizar.es,"G22 - Martes-B 09:00-11:00"
   assert.equal(studentRosterImportResponse.status, 200);
   const studentRosterImport = await studentRosterImportResponse.json();
   assert.equal(studentRosterImport.studentCount, 3);
+  assert.equal(studentRosterImport.invalidCount, 1);
   assert.equal(studentRosterImport.replacedStudentCount, 0);
   const dataWithStudentRoster = await (await fetch(`${origin}/api/data`)).json();
   assert.deepEqual(dataWithStudentRoster.studentRosters, [{
