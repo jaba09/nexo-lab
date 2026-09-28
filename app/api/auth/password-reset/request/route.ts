@@ -23,9 +23,6 @@ function publicApplicationUrl(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const configurationError = passwordEmailConfigurationError();
-  if (configurationError) return NextResponse.json({ error: configurationError }, { status: 503 });
-
   let payload: Record<string, unknown>;
   try {
     payload = await request.json() as Record<string, unknown>;
@@ -37,17 +34,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Introduce una dirección de correo válida." }, { status: 400 });
   }
 
+  const database = getDatabase();
+  const teacher = database.prepare(`SELECT id, name, email FROM teachers
+    WHERE email = ? COLLATE NOCASE`).get(email) as { id: number; name: string; email: string } | undefined;
+  if (!teacher) {
+    return NextResponse.json(
+      { error: "No hay ningún usuario registrado con este correo electrónico." },
+      { status: 404 },
+    );
+  }
+
+  const configurationError = passwordEmailConfigurationError();
+  if (configurationError) return NextResponse.json({ error: configurationError }, { status: 503 });
+
   let publicUrl: URL;
   try {
     publicUrl = publicApplicationUrl(request);
   } catch {
     return NextResponse.json({ error: "La dirección pública de la aplicación no está bien configurada." }, { status: 503 });
   }
-
-  const database = getDatabase();
-  const teacher = database.prepare(`SELECT id, name, email FROM teachers
-    WHERE email = ? COLLATE NOCASE`).get(email) as { id: number; name: string; email: string } | undefined;
-  if (!teacher) return NextResponse.json({ message: acceptedMessage });
 
   const recentRequest = database.prepare(`SELECT 1 FROM password_reset_tokens
     WHERE teacher_id = ? AND created_at > ?`).get(teacher.id, Date.now() - 60_000);

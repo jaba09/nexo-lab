@@ -1445,10 +1445,18 @@ END:VCALENDAR\r
   const invalidatedSessionResponse = await fetch(`${origin}/api/data`);
   assert.equal(invalidatedSessionResponse.status, 401);
 
+  const unknownRecoveryResponse = await fetch(`${origin}/api/auth/password-reset/request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "no-registrado@unizar.es" }),
+  });
+  assert.equal(unknownRecoveryResponse.status, 404);
+  assert.match((await unknownRecoveryResponse.json()).error, /ningún usuario registrado/i);
+
   const unconfiguredRecoveryResponse = await fetch(`${origin}/api/auth/password-reset/request`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: bootstrapEmail }),
+    body: JSON.stringify({ email: "elena.martin@universidad.es" }),
   });
   assert.equal(unconfiguredRecoveryResponse.status, 503);
 
