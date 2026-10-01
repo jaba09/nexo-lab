@@ -38,6 +38,8 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   const subjectStudentColumns = database.prepare("PRAGMA table_info(subject_students)").all();
   assert.ok(subjectStudentColumns.some((column) => column.name === "semester_id"));
   assert.ok(subjectStudentColumns.some((column) => column.name === "email"));
+  assert.ok(subjectStudentColumns.some((column) => column.name === "roster_active"));
+  assert.ok(subjectStudentColumns.some((column) => column.name === "roster_source"));
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students").get().total, 0);
   assert.ok(database.prepare("PRAGMA table_info(student_subgroups)").all().some((column) => column.name === "group_code"));
   const studentSubgroupTriggers = database.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'prevent_multiple_student_subgroups_%'").all();
@@ -61,6 +63,11 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.ok(attendanceColumns.some((column) => column.name === "attended"));
   assert.ok(attendanceColumns.some((column) => column.name === "marked_by_teacher_id"));
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM session_attendance").get().total, 0);
+  const sessionStudentInclusionColumns = database.prepare("PRAGMA table_info(session_student_inclusions)").all();
+  assert.ok(sessionStudentInclusionColumns.some((column) => column.name === "session_id"));
+  assert.ok(sessionStudentInclusionColumns.some((column) => column.name === "student_id"));
+  assert.ok(sessionStudentInclusionColumns.some((column) => column.name === "removed_at"));
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM session_student_inclusions").get().total, 0);
   const labRuleAcceptanceColumns = database.prepare("PRAGMA table_info(student_lab_rule_acceptances)").all();
   assert.ok(labRuleAcceptanceColumns.some((column) => column.name === "student_email"));
   assert.ok(labRuleAcceptanceColumns.some((column) => column.name === "rules_version"));

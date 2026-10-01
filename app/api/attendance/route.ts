@@ -33,6 +33,7 @@ type AttendanceStudent = {
   attended: number;
   rulesAccepted: number;
   rulesAcceptedAt: string | null;
+  manuallyIncluded: number;
 };
 
 type RulesAcceptance = {
@@ -49,6 +50,18 @@ function positiveInteger(value: unknown) {
 function normalizedGroupCode(value: string | null) {
   const normalized = String(value ?? "").trim().replace(/^G/i, "").replace(/^0+(?=\d)/, "");
   return /^\d{1,6}$/.test(normalized) ? normalized : "";
+}
+
+function normalizedText(value: unknown) {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+}
+
+function normalizedEmail(value: unknown) {
+  return normalizedText(value).toLocaleLowerCase("es");
+}
+
+function validEmail(value: string) {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function signaturePng(value: unknown) {
@@ -97,21 +110,49 @@ function sessionStudents(database: DatabaseSync, session: AttendanceSession) {
     ss.id, ss.first_name AS firstName, ss.last_name AS lastName, ss.email,
     COALESCE(sa.attended, 0) AS attended,
     CASE WHEN lra.id IS NULL THEN 0 ELSE 1 END AS rulesAccepted,
-    lra.signed_at AS rulesAcceptedAt
+    lra.signed_at AS rulesAcceptedAt,
+    CASE WHEN ssi.session_id IS NOT NULL
+      AND NOT (ss.roster_active = 1 AND (? = '' OR EXISTS (
+        SELECT 1 FROM student_subgroups effective_sg
+        WHERE effective_sg.student_id = ss.id AND effective_sg.group_code = ?
+      ))) THEN 1 ELSE 0 END AS manuallyIncluded
     FROM subject_students ss
     LEFT JOIN session_attendance sa ON sa.student_id = ss.id AND sa.session_id = ?
+    LEFT JOIN session_student_inclusions ssi
+      ON ssi.student_id = ss.id AND ssi.session_id = ? AND ssi.removed_at IS NULL
     LEFT JOIN student_lab_rule_acceptances lra
       ON lra.student_email = ss.email COLLATE NOCASE
       AND lra.academic_year = ?
       AND lra.rules_version = ?
     WHERE ss.subject_id = ? AND ss.semester_id = ?
-      AND (? = '' OR EXISTS (
+      AND (ssi.session_id IS NOT NULL OR (ss.roster_active = 1 AND (? = '' OR EXISTS (
         SELECT 1 FROM student_subgroups sg
         WHERE sg.student_id = ss.id AND sg.group_code = ?
-    ))
+      ))))
     ORDER BY CASE WHEN lra.id IS NULL THEN 0 ELSE 1 END,
       ss.last_name COLLATE NOCASE, ss.first_name COLLATE NOCASE, ss.email COLLATE NOCASE`)
-    .all(session.id, rules.academicYear, rules.version, session.subjectId, semesterId, groupCode, groupCode) as AttendanceStudent[];
+    .all(
+      groupCode,
+      groupCode,
+      session.id,
+      session.id,
+      rules.academicYear,
+      rules.version,
+      session.subjectId,
+      semesterId,
+      groupCode,
+      groupCode,
+    ) as AttendanceStudent[];
+}
+
+function availableStudents(database: DatabaseSync, session: AttendanceSession, includedIds: Set<number>) {
+  const semesterId = semesterFromDate(session.sessionDate);
+  return (database.prepare(`SELECT id, first_name AS firstName, last_name AS lastName, email
+    FROM subject_students
+    WHERE subject_id = ? AND semester_id = ?
+    ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE, email COLLATE NOCASE`)
+    .all(session.subjectId, semesterId) as { id: number; firstName: string; lastName: string; email: string }[])
+    .filter((student) => !includedIds.has(Number(student.id)));
 }
 
 function attendanceDetail(database: DatabaseSync, session: AttendanceSession) {
@@ -119,6 +160,7 @@ function attendanceDetail(database: DatabaseSync, session: AttendanceSession) {
     ...student,
     attended: Boolean(student.attended),
     rulesAccepted: Boolean(student.rulesAccepted),
+    manuallyIncluded: Boolean(student.manuallyIncluded),
   }));
   const status = database.prepare(`SELECT COUNT(*) AS markedCount, MAX(updated_at) AS updatedAt
     FROM session_attendance WHERE session_id = ?`).get(session.id) as { markedCount: number; updatedAt: string | null };
@@ -126,6 +168,7 @@ function attendanceDetail(database: DatabaseSync, session: AttendanceSession) {
     session,
     semesterId: semesterFromDate(session.sessionDate),
     students,
+    availableStudents: availableStudents(database, session, new Set(students.map((student) => Number(student.id)))),
     rules: sessionRules(session),
     attendanceTaken: students.length > 0 && Number(status.markedCount) >= students.length,
     attendedCount: students.filter((student) => student.attended).length,
@@ -335,5 +378,96 @@ export async function PUT(request: Request) {
     return Response.json(attendanceDetail(database, session));
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "No se pudo guardar la asistencia." }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  const teacher = await getAuthenticatedTeacher();
+  if (!teacher) return unauthorizedResponse();
+  try {
+    const payload = await request.json() as Record<string, unknown>;
+    const sessionId = positiveInteger(payload.sessionId);
+    const firstName = normalizedText(payload.firstName);
+    const lastName = normalizedText(payload.lastName);
+    const email = normalizedEmail(payload.email);
+    if (!sessionId) return Response.json({ error: "La sesión no es válida." }, { status: 400 });
+    if (!firstName || firstName.length > 120) return Response.json({ error: "Introduce un nombre válido." }, { status: 400 });
+    if (!lastName || lastName.length > 180) return Response.json({ error: "Introduce unos apellidos válidos." }, { status: 400 });
+    if (!validEmail(email)) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
+
+    const database = getDatabase();
+    const session = ownedSession(database, teacher.id, sessionId);
+    if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+    const semesterId = semesterFromDate(session.sessionDate);
+    const existing = database.prepare(`SELECT id FROM subject_students
+      WHERE subject_id = ? AND semester_id = ? AND email = ? COLLATE NOCASE`)
+      .get(session.subjectId, semesterId, email) as { id: number } | undefined;
+    if (existing && sessionStudents(database, session).some((student) => Number(student.id) === Number(existing.id))) {
+      return Response.json({ error: "Este alumno ya forma parte de la lista de la sesión." }, { status: 409 });
+    }
+
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      const studentId = existing?.id ?? Number(database.prepare(`INSERT INTO subject_students
+        (subject_id, semester_id, first_name, last_name, email, roster_active, roster_source)
+        VALUES (?, ?, ?, ?, ?, 0, 'manual')`)
+        .run(session.subjectId, semesterId, firstName, lastName, email).lastInsertRowid);
+      database.prepare(`INSERT INTO session_student_inclusions
+        (session_id, student_id, added_by_teacher_id, created_at, removed_at, removed_by_teacher_id)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, NULL, NULL)
+        ON CONFLICT(session_id, student_id) DO UPDATE SET
+          added_by_teacher_id = excluded.added_by_teacher_id,
+          created_at = CURRENT_TIMESTAMP,
+          removed_at = NULL,
+          removed_by_teacher_id = NULL`)
+        .run(session.id, studentId, teacher.id);
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+    publishDataChange();
+    return Response.json(attendanceDetail(database, session));
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "No se pudo añadir el alumno." }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const teacher = await getAuthenticatedTeacher();
+  if (!teacher) return unauthorizedResponse();
+  try {
+    const payload = await request.json() as Record<string, unknown>;
+    const sessionId = positiveInteger(payload.sessionId);
+    const studentId = positiveInteger(payload.studentId);
+    if (!sessionId || !studentId) {
+      return Response.json({ error: "La sesión o el alumno no son válidos." }, { status: 400 });
+    }
+    const database = getDatabase();
+    const session = ownedSession(database, teacher.id, sessionId);
+    if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+    const student = sessionStudents(database, session).find((item) => Number(item.id) === studentId);
+    if (!student?.manuallyIncluded) {
+      return Response.json({ error: "Sólo se pueden retirar alumnos añadidos manualmente a esta sesión." }, { status: 409 });
+    }
+
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      const result = database.prepare(`UPDATE session_student_inclusions
+        SET removed_at = CURRENT_TIMESTAMP, removed_by_teacher_id = ?
+        WHERE session_id = ? AND student_id = ? AND removed_at IS NULL`)
+        .run(teacher.id, session.id, studentId);
+      if (!result.changes) throw new Error("La inclusión manual ya no está activa.");
+      database.prepare("DELETE FROM session_attendance WHERE session_id = ? AND student_id = ?")
+        .run(session.id, studentId);
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+    publishDataChange();
+    return Response.json(attendanceDetail(database, session));
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "No se pudo retirar el alumno." }, { status: 500 });
   }
 }

@@ -399,6 +399,7 @@ export async function GET() {
       COUNT(DISTINCT sg.group_code) AS subgroupCount
       FROM subject_students ss
       LEFT JOIN student_subgroups sg ON sg.student_id = ss.id
+      WHERE ss.roster_active = 1
       GROUP BY ss.subject_id, ss.semester_id
       ORDER BY ss.subject_id, ss.semester_id`).all();
     const teachers = database.prepare(`SELECT

@@ -84,6 +84,8 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   })).status, 401);
   assert.equal((await fetch(`${origin}/api/pizarra`)).status, 401);
   assert.equal((await fetch(`${origin}/api/attendance`)).status, 401);
+  assert.equal((await fetch(`${origin}/api/attendance`, { method: "PATCH" })).status, 401);
+  assert.equal((await fetch(`${origin}/api/attendance`, { method: "DELETE" })).status, 401);
   assert.equal((await fetch(`${origin}/api/import/student-roster`, { method: "POST" })).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
@@ -127,6 +129,17 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   const forbiddenAttendanceResponse = await fetch(`${origin}/api/attendance?sessionId=${anotherTeachersSession.id}`);
   assert.equal(forbiddenAttendanceResponse.status, 404);
   assert.match((await forbiddenAttendanceResponse.json()).error, /no está asignada a tu usuario/i);
+  const forbiddenAttendanceAddition = await fetch(`${origin}/api/attendance`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: anotherTeachersSession.id,
+      firstName: "Alumno",
+      lastName: "Sin permiso",
+      email: "sin-permiso@unizar.es",
+    }),
+  });
+  assert.equal(forbiddenAttendanceAddition.status, 404);
   const pizarraResponse = await fetch(`${origin}/api/pizarra`);
   assert.equal(pizarraResponse.status, 200);
   assert.match(pizarraResponse.headers.get("cache-control"), /private, no-store/);
@@ -266,6 +279,10 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run("2026-12-15", "09:00", 120, 1, 1, 1, "attendance-test", "ASI-01", "32");
   const attendanceSessionId = Number(attendanceSessionResult.lastInsertRowid);
+  const otherAttendanceSessionId = Number(attendanceDatabase.prepare(`INSERT INTO sessions
+    (session_date, start_time, duration, subject_id, teacher_id, practice_id, source_uid, subject_code, group_code)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run("2026-12-16", "09:00", 120, 1, 1, 1, "attendance-test-other", "ASI-01", "32").lastInsertRowid);
   attendanceDatabase.close();
 
   const attendanceSessionsResponse = await fetch(`${origin}/api/attendance`);
@@ -358,6 +375,61 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   assert.equal(savedAttendance.attendedCount, 1);
   assert.equal(savedAttendance.students[0].attended, true);
 
+  const addStudentResponse = await fetch(`${origin}/api/attendance`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: attendanceSessionId,
+      firstName: "Alumno",
+      lastName: "Invitado",
+      email: "invitado@unizar.es",
+    }),
+  });
+  assert.equal(addStudentResponse.status, 200);
+  const attendanceWithAddedStudent = await addStudentResponse.json();
+  assert.equal(attendanceWithAddedStudent.students.length, 2);
+  assert.equal(attendanceWithAddedStudent.attendanceTaken, false);
+  const addedStudent = attendanceWithAddedStudent.students.find((student) => student.email === "invitado@unizar.es");
+  assert.ok(addedStudent);
+  assert.equal(addedStudent.manuallyIncluded, true);
+  assert.equal(addedStudent.attended, false);
+
+  const duplicateStudentResponse = await fetch(`${origin}/api/attendance`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: attendanceSessionId,
+      firstName: "Alumno",
+      lastName: "Invitado",
+      email: "INVITADO@UNIZAR.ES",
+    }),
+  });
+  assert.equal(duplicateStudentResponse.status, 409);
+
+  const otherAttendanceDetail = await (await fetch(`${origin}/api/attendance?sessionId=${otherAttendanceSessionId}`)).json();
+  assert.equal(otherAttendanceDetail.students.some((student) => student.email === "invitado@unizar.es"), false);
+
+  const repeatedRosterImportResponse = await fetch(`${origin}/api/import/student-roster`, {
+    method: "POST",
+    body: studentRosterFormData(1, "import"),
+  });
+  assert.equal(repeatedRosterImportResponse.status, 200);
+  const detailAfterRosterImport = await (await fetch(`${origin}/api/attendance?sessionId=${attendanceSessionId}`)).json();
+  assert.equal(detailAfterRosterImport.students.length, 2);
+  assert.equal(detailAfterRosterImport.students.find((student) => student.email === "924740@unizar.es").attended, true);
+  assert.equal(detailAfterRosterImport.students.find((student) => student.email === "invitado@unizar.es").manuallyIncluded, true);
+
+  const removeStudentResponse = await fetch(`${origin}/api/attendance`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: attendanceSessionId, studentId: addedStudent.id }),
+  });
+  assert.equal(removeStudentResponse.status, 200);
+  const attendanceAfterRemoval = await removeStudentResponse.json();
+  assert.equal(attendanceAfterRemoval.students.length, 1);
+  assert.equal(attendanceAfterRemoval.attendanceTaken, true);
+  assert.equal(attendanceAfterRemoval.students[0].email, "924740@unizar.es");
+
   const changedRosterResponse = await fetch(`${origin}/api/attendance`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
@@ -373,7 +445,15 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
       FROM session_attendance WHERE session_id = ?`).all(attendanceSessionId).map((row) => ({ ...row })),
     [{ sessionId: attendanceSessionId, studentId: attendanceDetail.students[0].id, attended: 1, markedByTeacherId: 1 }],
   );
+  assert.equal(savedAttendanceDatabase.prepare(`SELECT roster_active AS active, roster_source AS source
+    FROM subject_students WHERE email = ?`).get("invitado@unizar.es").active, 0);
+  assert.equal(savedAttendanceDatabase.prepare(`SELECT roster_active AS active, roster_source AS source
+    FROM subject_students WHERE email = ?`).get("invitado@unizar.es").source, "manual");
+  assert.ok(savedAttendanceDatabase.prepare(`SELECT removed_at AS removedAt
+    FROM session_student_inclusions WHERE session_id = ? AND student_id = ?`)
+    .get(attendanceSessionId, addedStudent.id).removedAt);
   savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(attendanceSessionId);
+  savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(otherAttendanceSessionId);
   assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM session_attendance WHERE session_id = ?").get(attendanceSessionId).total, 0);
   assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM student_lab_rule_acceptances WHERE student_email = ?").get("924740@unizar.es").total, 1);
   assert.equal(savedAttendanceDatabase.prepare("SELECT session_id AS sessionId FROM student_lab_rule_acceptances WHERE student_email = ?").get("924740@unizar.es").sessionId, null);

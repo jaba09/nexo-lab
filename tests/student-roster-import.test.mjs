@@ -15,6 +15,8 @@ function rosterDatabase() {
       first_name TEXT NOT NULL,
       last_name TEXT NOT NULL,
       email TEXT NOT NULL COLLATE NOCASE,
+      roster_active INTEGER NOT NULL DEFAULT 1,
+      roster_source TEXT NOT NULL DEFAULT 'csv',
       UNIQUE (subject_id, semester_id, email)
     );
     CREATE TABLE student_subgroups (
@@ -55,7 +57,8 @@ test("previews and imports a semester student roster with zero or one subgroup p
 
   const result = importStudentRoster(database, 1, "2026-27 S1", csv);
   assert.equal(result.replacedStudentCount, 1);
-  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE subject_id = 1 AND semester_id = '2026-27 S1'").get().total, 3);
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE subject_id = 1 AND semester_id = '2026-27 S1' AND roster_active = 1").get().total, 3);
+  assert.equal(database.prepare("SELECT roster_active AS active FROM subject_students WHERE email = 'anterior@unizar.es'").get().active, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM student_subgroups").get().total, 2);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE semester_id = '2026-27 S2'").get().total, 1);
 });
@@ -131,7 +134,24 @@ Beto,Correcto,beto@unizar.es,Grupo 532
   assert.equal(result.invalidRows[0].rowNumber, 3);
   assert.equal(result.replacedStudentCount, 1);
   assert.deepEqual(
-    database.prepare("SELECT email FROM subject_students WHERE semester_id = '2026-27 S1' ORDER BY email").all().map((row) => row.email),
+    database.prepare("SELECT email FROM subject_students WHERE semester_id = '2026-27 S1' AND roster_active = 1 ORDER BY email").all().map((row) => row.email),
     ["ana@unizar.es", "beto@unizar.es"],
   );
+});
+
+test("updates matching students without changing their identifiers", () => {
+  const database = rosterDatabase();
+  const existingId = database.prepare("SELECT id FROM subject_students WHERE email = 'anterior@unizar.es'").get().id;
+  const updatedCsv = `Nombre,Apellido(s),Dirección de correo,Grupos
+Nombre,Nuevo,anterior@unizar.es,G11 - Lunes-A 09:00-11:00
+`;
+
+  importStudentRoster(database, 1, "2026-27 S1", updatedCsv);
+  const student = database.prepare(`SELECT id, first_name AS firstName, last_name AS lastName,
+    roster_active AS active, roster_source AS source FROM subject_students WHERE email = 'anterior@unizar.es'`).get();
+  assert.equal(student.id, existingId);
+  assert.equal(student.firstName, "Nombre");
+  assert.equal(student.lastName, "Nuevo");
+  assert.equal(student.active, 1);
+  assert.equal(student.source, "csv");
 });

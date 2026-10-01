@@ -66,6 +66,8 @@ const schemaStatements = [
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     email TEXT NOT NULL COLLATE NOCASE,
+    roster_active INTEGER NOT NULL DEFAULT 1 CHECK (roster_active IN (0, 1)),
+    roster_source TEXT NOT NULL DEFAULT 'csv' CHECK (roster_source IN ('csv', 'manual')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (subject_id, semester_id, email)
   )`,
@@ -124,6 +126,15 @@ const schemaStatements = [
       REFERENCES subject_practices(subject_id, practice_id)
       ON DELETE RESTRICT
   )`,
+  `CREATE TABLE IF NOT EXISTS session_student_inclusions (
+    session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    student_id INTEGER NOT NULL REFERENCES subject_students(id) ON DELETE CASCADE,
+    added_by_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    removed_at TEXT,
+    removed_by_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+    PRIMARY KEY (session_id, student_id)
+  )`,
   `CREATE TABLE IF NOT EXISTS session_attendance (
     session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     student_id INTEGER NOT NULL REFERENCES subject_students(id) ON DELETE CASCADE,
@@ -180,6 +191,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_subject_practices_practice_id ON subject_practices(practice_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)",
   "CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)",
+  "CREATE INDEX IF NOT EXISTS idx_session_student_inclusions_student ON session_student_inclusions(student_id)",
   "CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)",
   "CREATE INDEX IF NOT EXISTS idx_student_lab_rule_acceptances_email ON student_lab_rule_acceptances(student_email COLLATE NOCASE, academic_year, rules_version)",
   "CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)",
@@ -535,6 +547,14 @@ function initializeDatabase(database: DatabaseSync) {
     database.exec("ALTER TABLE subjects ADD COLUMN abbreviation TEXT NOT NULL DEFAULT ''");
   }
 
+  const studentColumnInfo = database.prepare("PRAGMA table_info(subject_students)").all() as { name: string }[];
+  if (!studentColumnInfo.some((column) => column.name === "roster_active")) {
+    database.exec("ALTER TABLE subject_students ADD COLUMN roster_active INTEGER NOT NULL DEFAULT 1 CHECK (roster_active IN (0, 1))");
+  }
+  if (!studentColumnInfo.some((column) => column.name === "roster_source")) {
+    database.exec("ALTER TABLE subject_students ADD COLUMN roster_source TEXT NOT NULL DEFAULT 'csv' CHECK (roster_source IN ('csv', 'manual'))");
+  }
+
   const teacherColumnInfo = database.prepare("PRAGMA table_info(teachers)").all() as { name: string }[];
   if (!teacherColumnInfo.some((column) => column.name === "email")) {
     database.exec("ALTER TABLE teachers ADD COLUMN email TEXT NOT NULL DEFAULT ''");
@@ -561,6 +581,7 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_session_student_inclusions_student ON session_student_inclusions(student_id)");
   database.exec(`CREATE TRIGGER IF NOT EXISTS prevent_multiple_student_subgroups_insert
     BEFORE INSERT ON student_subgroups
     WHEN EXISTS (

@@ -40,8 +40,11 @@
 .attendance-roster-head > div > span { color: #62704e; font: 750 8px var(--font-geist-mono); text-transform: capitalize; }
 .attendance-roster-head h2 { margin: 8px 0 5px; overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .attendance-roster-head p { margin: 0; color: var(--muted); font-size: 9px; }
-.attendance-roster-head > strong { flex: 0 0 auto; min-width: 92px; color: #607f1e; font: 750 31px/1 var(--font-geist-mono); text-align: right; }
-.attendance-roster-head > strong small { margin-top: 5px; display: block; color: var(--muted); font: 700 7px var(--font-geist-mono); text-transform: uppercase; }
+.attendance-roster-head-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.attendance-roster-head-actions > button { min-height: 38px; padding: 0 11px; border: 1px solid #779337; border-radius: 7px; background: #edf6d5; color: #4c641a; font-size: 8px; font-weight: 780; cursor: pointer; }
+.attendance-roster-head-actions > button:disabled { opacity: .45; cursor: default; }
+.attendance-roster-head-actions > strong { min-width: 92px; color: #607f1e; font: 750 31px/1 var(--font-geist-mono); text-align: right; }
+.attendance-roster-head-actions > strong small { margin-top: 5px; display: block; color: var(--muted); font: 700 7px var(--font-geist-mono); text-transform: uppercase; }
 .attendance-rules-toolbar { min-height: 66px; padding: 10px 16px; border-bottom: 1px solid #cfdbb2; background: #f1f7df; display: flex; align-items: center; gap: 8px; }
 .attendance-rules-toolbar > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .attendance-rules-toolbar strong { color: #44591c; font-size: 10px; }
@@ -69,6 +72,7 @@
 .attendance-student-actions button { min-height: 24px; padding: 4px 7px; border: 1px solid; border-radius: 5px; font: 750 7px var(--font-geist-mono); cursor: pointer; }
 .attendance-student-actions button.pending { border-color: #e4a29a; background: #fff0ed; color: #963e35; }
 .attendance-student-actions button.accepted { border-color: #b7cb83; background: #f1f8dd; color: #4d641d; }
+.attendance-student-actions button.remove { border-color: #e4a29a; background: #fff8f6; color: #963e35; }
 .attendance-search-empty { margin: 0; padding: 32px; color: var(--muted); font-size: 9px; text-align: center; }
 .attendance-roster-actions { min-height: 75px; padding: 12px 16px; border-top: 1px solid var(--line); background: #f7f6f0; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .attendance-roster-actions > span { color: var(--muted); font-size: 8px; }
@@ -123,6 +127,21 @@
 .attendance-signed-summary small { color: #607044; font-size: 8px; }
 .attendance-saved-signature { width: 100%; height: 240px; border: 1px solid #d5d8cf; border-radius: 9px; background: #fff; object-fit: contain; }
 .attendance-signature-note { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
+.attendance-student-dialog-overlay { position: fixed; inset: 0; z-index: 95; padding: 24px; background: rgba(17, 25, 22, .72); display: grid; place-items: center; }
+.attendance-student-dialog { width: min(620px, 100%); max-height: calc(100dvh - 48px); border: 1px solid #aeb4aa; border-radius: 16px; background: #fffffb; overflow: hidden; box-shadow: 0 24px 80px rgba(0, 0, 0, .28); }
+.attendance-student-dialog > header { padding: 20px 22px; border-bottom: 1px solid var(--line); background: #f4f6ea; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.attendance-student-dialog > header span { color: #607f1e; font: 750 8px var(--font-geist-mono); text-transform: uppercase; }
+.attendance-student-dialog > header h2 { margin: 6px 0 5px; font-size: 24px; }
+.attendance-student-dialog > header p { margin: 0; color: var(--muted); font-size: 9px; }
+.attendance-student-dialog > header button { flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid #bfc4bb; border-radius: 50%; background: var(--white); font-size: 24px; cursor: pointer; }
+.attendance-student-dialog form { padding: 20px 22px 0; display: grid; gap: 15px; }
+.attendance-student-dialog form > div { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.attendance-student-dialog label { display: grid; gap: 6px; }
+.attendance-student-dialog label > span { color: #56605c; font: 750 8px var(--font-geist-mono); text-transform: uppercase; }
+.attendance-student-dialog input { width: 100%; height: 45px; padding: 0 12px; border: 1px solid #c9cdc4; border-radius: 8px; background: #fff; font-size: 11px; }
+.attendance-student-dialog-note { margin: 0; padding: 11px 13px; border: 1px solid #cfdbb2; border-radius: 8px; background: #f1f7df; color: #53652f; font-size: 9px; line-height: 1.45; }
+.attendance-student-dialog footer { margin: 4px -22px 0; min-height: 76px; padding: 12px 22px; border-top: 1px solid var(--line); background: #f7f6f0; display: flex; justify-content: flex-end; gap: 10px; }
+.attendance-student-dialog footer button { min-width: 180px; justify-content: center; }
 
 @media (max-width: 1120px) {
   .attendance-layout { grid-template-columns: minmax(270px, .65fr) minmax(450px, 1.35fr); }
@@ -147,7 +166,8 @@
   .attendance-mobile-close { position: absolute; top: 10px; right: 12px; z-index: 4; width: 42px; height: 42px; padding: 0; border: 1px solid #bfc4bb; border-radius: 50%; background: var(--white); display: grid; place-items: center; font-size: 25px; line-height: 1; cursor: pointer; }
   .attendance-roster-head { flex: 0 0 auto; min-height: 108px; padding: 15px 62px 14px 16px; align-items: flex-start; }
   .attendance-roster-head h2 { margin-top: 6px; font-size: 17px; white-space: normal; }
-  .attendance-roster-head > strong { min-width: 62px; padding-top: 28px; font-size: 24px; }
+  .attendance-roster-head-actions { padding-top: 27px; }
+  .attendance-roster-head-actions > strong { min-width: 62px; font-size: 24px; }
   .attendance-roster-toolbar { flex: 0 0 auto; }
   .attendance-rules-toolbar { flex: 0 0 auto; }
   .attendance-student-list { flex: 1 1 auto; min-height: 0; max-height: none; overscroll-behavior: contain; }
@@ -163,8 +183,9 @@
   .attendance-rules-toolbar { align-items: stretch; flex-wrap: wrap; }
   .attendance-rules-toolbar > div { flex-basis: 100%; }
   .attendance-rules-toolbar button { flex: 1; }
-  .attendance-roster-head { padding: 17px; }
-  .attendance-roster-head > strong { min-width: 70px; font-size: 25px; }
+  .attendance-roster-head { padding: 17px 62px 17px 17px; flex-wrap: wrap; }
+  .attendance-roster-head-actions { width: 100%; padding-top: 0; justify-content: space-between; }
+  .attendance-roster-head-actions > strong { min-width: 70px; font-size: 25px; }
   .attendance-roster-actions { align-items: stretch; flex-direction: column; }
   .attendance-roster-actions .primary-button { width: 100%; }
   .attendance-student { padding-left: 12px; padding-right: 12px; }
@@ -178,4 +199,9 @@
   .attendance-signature-pad canvas { height: 190px; }
   .attendance-signature-dialog > footer { padding-left: 14px; padding-right: 14px; }
   .attendance-signature-dialog > footer .primary-button, .attendance-signature-dialog > footer .secondary-button { min-width: 0; flex: 1; }
+  .attendance-student-dialog-overlay { padding: 0; }
+  .attendance-student-dialog { width: 100%; max-height: 100dvh; min-height: 100dvh; border: 0; border-radius: 0; }
+  .attendance-student-dialog form > div { grid-template-columns: 1fr; }
+  .attendance-student-dialog footer { margin-top: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .attendance-student-dialog footer button { min-width: 0; flex: 1; }
 }

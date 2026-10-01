@@ -31,6 +31,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /<AttendanceView teacherName=\{authenticatedTeacher\.name\}/);
   assert.match(attendanceView, /Próximas sesiones asignadas a \{teacherName\}/);
   assert.match(attendanceView, /Guardar asistencia/);
+  assert.match(attendanceView, /Añadir alumno/);
+  assert.match(attendanceView, /Añadir a esta sesión/);
+  assert.match(attendanceView, /Sólo esta sesión/);
+  assert.match(attendanceView, /Retirar/);
   assert.match(attendanceView, /Marcar todos/);
   assert.match(attendanceView, /Desmarcar todos/);
   assert.match(attendanceView, /Recoger firmas/);

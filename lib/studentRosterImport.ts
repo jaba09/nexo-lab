@@ -204,7 +204,8 @@ function summarize(rows: StudentRow[]) {
 }
 
 function existingStudentCount(database: DatabaseSync, subjectId: number, semesterId: string) {
-  const row = database.prepare("SELECT COUNT(*) AS total FROM subject_students WHERE subject_id = ? AND semester_id = ?")
+  const row = database.prepare(`SELECT COUNT(*) AS total FROM subject_students
+    WHERE subject_id = ? AND semester_id = ? AND roster_active = 1`)
     .get(subjectId, semesterId) as { total: number };
   return Number(row.total);
 }
@@ -227,14 +228,30 @@ export function importStudentRoster(database: DatabaseSync, subjectId: number, s
   const replacedStudentCount = existingStudentCount(database, subjectId, semesterId);
   database.exec("BEGIN IMMEDIATE");
   try {
-    database.prepare("DELETE FROM subject_students WHERE subject_id = ? AND semester_id = ?").run(subjectId, semesterId);
+    database.prepare(`UPDATE subject_students SET roster_active = 0
+      WHERE subject_id = ? AND semester_id = ? AND roster_source = 'csv'`).run(subjectId, semesterId);
+    const findStudent = database.prepare(`SELECT id FROM subject_students
+      WHERE subject_id = ? AND semester_id = ? AND email = ? COLLATE NOCASE`);
     const insertStudent = database.prepare(`INSERT INTO subject_students
-      (subject_id, semester_id, first_name, last_name, email) VALUES (?, ?, ?, ?, ?)`);
+      (subject_id, semester_id, first_name, last_name, email, roster_active, roster_source)
+      VALUES (?, ?, ?, ?, ?, 1, 'csv')`);
+    const updateStudent = database.prepare(`UPDATE subject_students
+      SET first_name = ?, last_name = ?, email = ?, roster_active = 1, roster_source = 'csv'
+      WHERE id = ?`);
+    const clearSubgroups = database.prepare("DELETE FROM student_subgroups WHERE student_id = ?");
     const insertSubgroup = database.prepare(`INSERT INTO student_subgroups
       (student_id, group_code, group_label) VALUES (?, ?, ?)`);
     for (const student of parsed.rows) {
-      const studentResult = insertStudent.run(subjectId, semesterId, student.firstName, student.lastName, student.email);
-      const studentId = Number(studentResult.lastInsertRowid);
+      const existing = findStudent.get(subjectId, semesterId, student.email) as { id: number } | undefined;
+      const studentId = existing?.id ?? Number(insertStudent.run(
+        subjectId,
+        semesterId,
+        student.firstName,
+        student.lastName,
+        student.email,
+      ).lastInsertRowid);
+      if (existing) updateStudent.run(student.firstName, student.lastName, student.email, studentId);
+      clearSubgroups.run(studentId);
       for (const subgroup of student.subgroups) insertSubgroup.run(studentId, subgroup.code, subgroup.label);
     }
     database.exec("COMMIT");

@@ -32,7 +32,10 @@ type AttendanceStudent = {
   attended: boolean;
   rulesAccepted: boolean;
   rulesAcceptedAt: string | null;
+  manuallyIncluded: boolean;
 };
+
+type AvailableStudent = Pick<AttendanceStudent, "id" | "firstName" | "lastName" | "email">;
 
 type LaboratoryRules = {
   academicYear: string;
@@ -50,6 +53,7 @@ type AttendanceDetail = {
   session: AttendanceSession;
   semesterId: string;
   students: AttendanceStudent[];
+  availableStudents: AvailableStudent[];
   rules: LaboratoryRules;
   attendanceTaken: boolean;
   attendedCount: number;
@@ -283,6 +287,72 @@ function SignatureViewer({
   );
 }
 
+function AddStudentDialog({
+  session,
+  availableStudents,
+  busy,
+  onClose,
+  onSave,
+}: {
+  session: AttendanceSession;
+  availableStudents: AvailableStudent[];
+  busy: boolean;
+  onClose: () => void;
+  onSave: (student: { firstName: string; lastName: string; email: string }) => Promise<void>;
+}) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+
+  function updateEmail(value: string) {
+    setEmail(value);
+    const match = availableStudents.find((student) => student.email.toLocaleLowerCase("es") === value.trim().toLocaleLowerCase("es"));
+    if (match) {
+      setFirstName(match.firstName);
+      setLastName(match.lastName);
+    }
+  }
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    void onSave({ firstName, lastName, email });
+  }
+
+  return (
+    <div className="attendance-student-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="add-student-title">
+      <section className="attendance-student-dialog">
+        <header>
+          <div>
+            <span>Inclusión puntual</span>
+            <h2 id="add-student-title">Añadir alumno</h2>
+            <p>{session.subjectCode}{session.groupCode ? ` · ${groupLabel(session.groupCode)}` : " · Todos los grupos"}</p>
+          </div>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Cerrar">×</button>
+        </header>
+        <form onSubmit={submit}>
+          <p className="attendance-student-dialog-note">Se añadirá únicamente a esta sesión. No se modificará su subgrupo ni el listado oficial del CSV.</p>
+          <label>
+            <span>Correo electrónico</span>
+            <input required type="email" list="attendance-available-students" autoComplete="off" value={email} onChange={(event) => updateEmail(event.target.value)} placeholder="alumno@unizar.es" />
+            <datalist id="attendance-available-students">
+              {availableStudents.map((student) => <option key={student.id} value={student.email}>{student.lastName}, {student.firstName}</option>)}
+            </datalist>
+          </label>
+          <div>
+            <label><span>Nombre</span><input required maxLength={120} value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
+            <label><span>Apellidos</span><input required maxLength={180} value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
+          </div>
+          <footer>
+            <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Cancelar</button>
+            <button className="primary-button" type="submit" disabled={busy}>{busy ? "Añadiendo…" : "Añadir a esta sesión"}</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 export default function AttendanceView({ teacherName }: { teacherName: string }) {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [today, setToday] = useState("");
@@ -297,6 +367,8 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   const [signatureSaving, setSignatureSaving] = useState(false);
   const [signatureStudent, setSignatureStudent] = useState<AttendanceStudent | null>(null);
   const [signatureViewerStudent, setSignatureViewerStudent] = useState<AttendanceStudent | null>(null);
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [studentSaving, setStudentSaving] = useState(false);
   const [onlyRulesPending, setOnlyRulesPending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -336,6 +408,11 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
     }
   }, []);
 
+  const modified = useMemo(() => (
+    attendedIds.size !== initialAttendedIds.size
+    || [...attendedIds].some((id) => !initialAttendedIds.has(id))
+  ), [attendedIds, initialAttendedIds]);
+
   useEffect(() => {
     const controller = new AbortController();
     async function loadInitialSessions() {
@@ -355,15 +432,14 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   }, []);
   useEffect(() => {
     const events = new EventSource("/api/events");
-    const refresh = () => { void loadSessions(); };
+    const refresh = () => {
+      void loadSessions();
+      if (selectedSessionId && !modified) void loadDetail(selectedSessionId);
+    };
     events.addEventListener("data-changed", refresh);
     return () => events.close();
-  }, [loadSessions]);
+  }, [loadDetail, loadSessions, modified, selectedSessionId]);
 
-  const modified = useMemo(() => (
-    attendedIds.size !== initialAttendedIds.size
-    || [...attendedIds].some((id) => !initialAttendedIds.has(id))
-  ), [attendedIds, initialAttendedIds]);
   const dirty = !detail?.attendanceTaken || modified;
   const visibleStudents = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase("es");
@@ -398,8 +474,75 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
     setOnlyRulesPending(false);
     setSignatureStudent(null);
     setSignatureViewerStudent(null);
+    setAddStudentOpen(false);
     setError("");
     setSuccess("");
+  }
+
+  function openAddStudent() {
+    if (modified) {
+      setError("Guarda o descarta los cambios de asistencia antes de añadir un alumno.");
+      return;
+    }
+    setAddStudentOpen(true);
+  }
+
+  async function addStudent(student: { firstName: string; lastName: string; email: string }) {
+    if (!detail) return;
+    setStudentSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/attendance", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: detail.session.id, ...student }),
+      });
+      const payload = await response.json() as AttendanceDetail & { error?: string };
+      if (!response.ok || !payload.session) throw new Error(payload.error || "No se pudo añadir el alumno.");
+      const selected = new Set(payload.students.filter((item) => item.attended).map((item) => item.id));
+      setDetail(payload);
+      setAttendedIds(selected);
+      setInitialAttendedIds(new Set(selected));
+      setAddStudentOpen(false);
+      setSuccess(`${student.firstName.trim()} ${student.lastName.trim()} se ha añadido únicamente a esta sesión.`);
+      await loadSessions();
+    } catch (cause) {
+      setError(errorMessage(cause, "No se pudo añadir el alumno."));
+    } finally {
+      setStudentSaving(false);
+    }
+  }
+
+  async function removeStudent(student: AttendanceStudent) {
+    if (!detail || !student.manuallyIncluded) return;
+    if (modified) {
+      setError("Guarda o descarta los cambios de asistencia antes de retirar un alumno.");
+      return;
+    }
+    if (!window.confirm(`¿Retirar a ${student.firstName} ${student.lastName} de esta sesión? Su firma de las normas se conservará.`)) return;
+    setStudentSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/attendance", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: detail.session.id, studentId: student.id }),
+      });
+      const payload = await response.json() as AttendanceDetail & { error?: string };
+      if (!response.ok || !payload.session) throw new Error(payload.error || "No se pudo retirar el alumno.");
+      const selected = new Set(payload.students.filter((item) => item.attended).map((item) => item.id));
+      setDetail(payload);
+      setAttendedIds(selected);
+      setInitialAttendedIds(new Set(selected));
+      setSuccess(`${student.firstName} ${student.lastName} ya no figura en esta sesión.`);
+      await loadSessions();
+    } catch (cause) {
+      setError(errorMessage(cause, "No se pudo retirar el alumno."));
+    } finally {
+      setStudentSaving(false);
+    }
   }
 
   async function saveAttendance() {
@@ -530,11 +673,14 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                     <h2>{sessionTitle(detail.session)}</h2>
                     <p>{detail.session.subjectCode} · {detail.session.subjectName}{detail.session.groupCode ? ` · ${groupLabel(detail.session.groupCode)}` : " · Todos los grupos"}</p>
                   </div>
-                  <strong>{attendedIds.size}<small>de {detail.students.length} presentes</small></strong>
+                  <div className="attendance-roster-head-actions">
+                    <button type="button" onClick={openAddStudent} disabled={studentSaving || modified}>+ Añadir alumno</button>
+                    <strong>{attendedIds.size}<small>de {detail.students.length} presentes</small></strong>
+                  </div>
                 </header>
 
                 {!detail.students.length ? (
-                  <div className="attendance-no-students"><span>CSV</span><h3>No hay alumnado para esta sesión</h3><p>Carga el CSV de la asignatura y semestre desde Inicio. Si la sesión tiene grupo, los códigos de subgrupo deben coincidir.</p></div>
+                  <div className="attendance-no-students"><span>CSV</span><h3>No hay alumnado para esta sesión</h3><p>Carga el CSV de la asignatura y semestre desde Inicio o utiliza «Añadir alumno» para una incorporación puntual.</p></div>
                 ) : (
                   <>
                     <div className="attendance-rules-toolbar">
@@ -551,7 +697,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                       {visibleStudents.map((student) => (
                         <div key={student.id} className={attendedIds.has(student.id) ? "attendance-student attended" : "attendance-student"}>
                           <input id={`attendance-${student.id}`} type="checkbox" checked={attendedIds.has(student.id)} onChange={(event) => toggleStudent(student.id, event.target.checked)} />
-                          <label htmlFor={`attendance-${student.id}`}><strong>{student.lastName}, {student.firstName}</strong><small>{student.email}</small></label>
+                          <label htmlFor={`attendance-${student.id}`}><strong>{student.lastName}, {student.firstName}</strong><small>{student.email}{student.manuallyIncluded ? " · Sólo esta sesión" : ""}</small></label>
                           <div className="attendance-student-actions">
                             <em>{attendedIds.has(student.id) ? "Presente" : "Ausente"}</em>
                             <button
@@ -561,6 +707,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                             >
                               {student.rulesAccepted ? `Firmado ${acceptanceDate(student.rulesAcceptedAt)}` : "Normas pendientes"}
                             </button>
+                            {student.manuallyIncluded && <button type="button" className="remove" disabled={studentSaving} onClick={() => void removeStudent(student)}>Retirar</button>}
                           </div>
                         </div>
                       ))}
@@ -594,6 +741,16 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
           sessionId={detail.session.id}
           rules={detail.rules}
           onClose={() => setSignatureViewerStudent(null)}
+        />
+      )}
+      {detail && addStudentOpen && (
+        <AddStudentDialog
+          key={detail.session.id}
+          session={detail.session}
+          availableStudents={detail.availableStudents}
+          busy={studentSaving}
+          onClose={() => setAddStudentOpen(false)}
+          onSave={addStudent}
         />
       )}
     </section>
