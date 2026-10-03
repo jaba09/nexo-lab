@@ -29,7 +29,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.ok(page.indexOf('key: "attendance"') > page.indexOf('key: "sessions"'));
   assert.ok(page.indexOf('key: "attendance"') < page.indexOf('key: "pizarra"'));
   assert.match(page, /<AttendanceView teacherName=\{authenticatedTeacher\.name\}/);
-  assert.match(attendanceView, /Próximas sesiones asignadas a \{teacherName\}/);
+  assert.match(attendanceView, /Próximas sesiones asignadas a \$\{teacherName\}/);
   assert.match(attendanceView, /Guardar asistencia/);
   assert.match(attendanceView, /Añadir alumno/);
   assert.match(attendanceView, /Añadir a esta sesión/);
@@ -44,6 +44,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceView, /confirmo que esta firma se ha recogido presencialmente/);
   assert.match(attendanceView, /attendance-mobile-close/);
   assert.match(attendanceView, /Hay cambios de asistencia sin guardar/);
+  assert.match(attendanceView, /Estadísticas/);
+  assert.match(attendanceView, /Cobertura del registro/);
+  assert.match(attendanceView, /No computan como ausencias/);
+  assert.match(attendanceView, /Sesiones sin lista/);
   assert.match(attendanceStyles, /\.attendance-layout/);
   assert.match(attendanceStyles, /\.attendance-student\.attended/);
   assert.match(attendanceStyles, /@media \(max-width: 760px\)[\s\S]*?\.attendance-roster\.mobile-open[\s\S]*?position: fixed/);
@@ -60,6 +64,7 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceRoute, /semesterFromDate\(session\.sessionDate\)/);
   assert.match(attendanceRoute, /student_subgroups/);
   assert.match(attendanceRoute, /INSERT INTO session_attendance/);
+  assert.match(attendanceRoute, /session_attendance_submissions/);
   assert.match(attendanceRoute, /INSERT OR IGNORE INTO student_lab_rule_acceptances/);
   assert.match(attendanceRoute, /createLabRulesAcceptancePdf/);
   assert.match(page, /semesterDisplayTitle/);

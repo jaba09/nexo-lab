@@ -7,7 +7,7 @@ import {
   createLabRulesAcceptancePdf,
   laboratoryRules,
 } from "../../../lib/labRules";
-import { semesterFromDate } from "../../../lib/semesters";
+import { semesterDefinition, semesterFromDate } from "../../../lib/semesters";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +40,23 @@ type RulesAcceptance = {
   signaturePng: Uint8Array;
   signedAt: string;
   teacherName: string;
+};
+
+type AttendanceSubmission = {
+  expectedStudentCount: number;
+  attendedStudentCount: number;
+  updatedAt: string;
+};
+
+type AttendanceStatisticsSubject = {
+  subjectId: number;
+  subjectCode: string;
+  subjectName: string;
+  scheduledSessionCount: number;
+  recordedSessionCount: number;
+  unrecordedSessionCount: number;
+  expectedStudentCount: number;
+  attendedStudentCount: number;
 };
 
 function positiveInteger(value: unknown) {
@@ -83,6 +100,27 @@ function madridDate() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+function madridDateTime() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return { date: `${value.year}-${value.month}-${value.day}`, time: `${value.hour}:${value.minute}` };
+}
+
+function attendanceSubmission(database: DatabaseSync, sessionId: number) {
+  return database.prepare(`SELECT expected_student_count AS expectedStudentCount,
+    attended_student_count AS attendedStudentCount, updated_at AS updatedAt
+    FROM session_attendance_submissions WHERE session_id = ?`)
+    .get(sessionId) as AttendanceSubmission | undefined;
 }
 
 function ownedSession(database: DatabaseSync, teacherId: number, sessionId: number) {
@@ -164,17 +202,135 @@ function attendanceDetail(database: DatabaseSync, session: AttendanceSession) {
   }));
   const status = database.prepare(`SELECT COUNT(*) AS markedCount, MAX(updated_at) AS updatedAt
     FROM session_attendance WHERE session_id = ?`).get(session.id) as { markedCount: number; updatedAt: string | null };
+  const submission = attendanceSubmission(database, session.id);
   return {
     session,
     semesterId: semesterFromDate(session.sessionDate),
     students,
     availableStudents: availableStudents(database, session, new Set(students.map((student) => Number(student.id)))),
     rules: sessionRules(session),
-    attendanceTaken: students.length > 0 && Number(status.markedCount) >= students.length,
+    attendanceTaken: students.length > 0
+      && Boolean(submission)
+      && Number(submission?.expectedStudentCount) === students.length
+      && Number(status.markedCount) === students.length,
     attendedCount: students.filter((student) => student.attended).length,
     rulesAcceptedCount: students.filter((student) => student.rulesAccepted).length,
     rulesPendingCount: students.filter((student) => !student.rulesAccepted).length,
-    updatedAt: status.updatedAt,
+    updatedAt: submission?.updatedAt ?? status.updatedAt,
+  };
+}
+
+function attendanceStatistics(database: DatabaseSync, teacherId: number, requestedSemesterId: string | null) {
+  const now = madridDateTime();
+  const allSessions = database.prepare(`SELECT
+    se.id, se.session_date AS sessionDate, se.start_time AS startTime, se.duration,
+    se.subject_id AS subjectId, s.code AS subjectCode, s.name AS subjectName,
+    p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode
+    FROM sessions se
+    JOIN subjects s ON s.id = se.subject_id
+    LEFT JOIN practices p ON p.id = se.practice_id
+    WHERE se.teacher_id = ?
+    ORDER BY se.session_date, se.start_time, se.id`)
+    .all(teacherId) as AttendanceSession[];
+  const availableSemesters = [...new Set(allSessions.map((session) => semesterFromDate(session.sessionDate)))]
+    .sort((left, right) => right.localeCompare(left));
+  const currentSemester = semesterFromDate(now.date);
+  if (!availableSemesters.length) availableSemesters.push(currentSemester);
+  const semesterId = requestedSemesterId && availableSemesters.includes(requestedSemesterId)
+    ? requestedSemesterId
+    : availableSemesters.includes(currentSemester) ? currentSemester : availableSemesters[0] ?? currentSemester;
+  const semester = semesterDefinition(semesterId);
+  const completedSessions = allSessions.filter((session) => (
+    session.sessionDate >= semester.startDate
+    && session.sessionDate <= semester.endDate
+    && (session.sessionDate < now.date || (session.sessionDate === now.date && session.startTime <= now.time))
+  ));
+  const subjects = new Map<number, AttendanceStatisticsSubject>();
+  const unrecordedSessions: Array<AttendanceSession & { studentCount: number }> = [];
+  let eligibleSessionCount = 0;
+  let recordedSessionCount = 0;
+  let withoutRosterSessionCount = 0;
+  let expectedStudentCount = 0;
+  let attendedStudentCount = 0;
+
+  for (const session of completedSessions) {
+    const submission = attendanceSubmission(database, session.id);
+    const currentStudentCount = sessionStudents(database, session).length;
+    const hasRoster = currentStudentCount > 0 || Number(submission?.expectedStudentCount ?? 0) > 0;
+    if (!hasRoster) {
+      withoutRosterSessionCount += 1;
+      continue;
+    }
+    eligibleSessionCount += 1;
+    const subject = subjects.get(session.subjectId) ?? {
+      subjectId: session.subjectId,
+      subjectCode: session.subjectCode,
+      subjectName: session.subjectName,
+      scheduledSessionCount: 0,
+      recordedSessionCount: 0,
+      unrecordedSessionCount: 0,
+      expectedStudentCount: 0,
+      attendedStudentCount: 0,
+    };
+    subject.scheduledSessionCount += 1;
+    if (submission) {
+      recordedSessionCount += 1;
+      subject.recordedSessionCount += 1;
+      expectedStudentCount += Number(submission.expectedStudentCount);
+      attendedStudentCount += Number(submission.attendedStudentCount);
+      subject.expectedStudentCount += Number(submission.expectedStudentCount);
+      subject.attendedStudentCount += Number(submission.attendedStudentCount);
+    } else {
+      subject.unrecordedSessionCount += 1;
+      unrecordedSessions.push({ ...session, studentCount: currentStudentCount });
+    }
+    subjects.set(session.subjectId, subject);
+  }
+
+  const studentRows = database.prepare(`SELECT
+    LOWER(ss.email) AS email, MAX(ss.first_name) AS firstName, MAX(ss.last_name) AS lastName,
+    COUNT(*) AS recordedSessionCount, SUM(sa.attended) AS attendedSessionCount
+    FROM session_attendance sa
+    JOIN session_attendance_submissions sub ON sub.session_id = sa.session_id
+    JOIN sessions se ON se.id = sa.session_id
+    JOIN subject_students ss ON ss.id = sa.student_id
+    WHERE se.teacher_id = ? AND se.session_date BETWEEN ? AND ?
+    GROUP BY LOWER(ss.email)
+    ORDER BY MAX(ss.last_name) COLLATE NOCASE, MAX(ss.first_name) COLLATE NOCASE`)
+    .all(teacherId, semester.startDate, semester.endDate) as Array<{
+      email: string;
+      firstName: string;
+      lastName: string;
+      recordedSessionCount: number;
+      attendedSessionCount: number;
+    }>;
+  const studentsToReview = studentRows
+    .map((student) => ({
+      ...student,
+      attendanceRate: student.recordedSessionCount
+        ? Math.round((student.attendedSessionCount / student.recordedSessionCount) * 100)
+        : null,
+    }))
+    .filter((student) => student.recordedSessionCount >= 2 && Number(student.attendanceRate) < 75)
+    .sort((left, right) => Number(left.attendanceRate) - Number(right.attendanceRate)
+      || left.lastName.localeCompare(right.lastName, "es", { sensitivity: "base" }));
+
+  return {
+    semesterId,
+    availableSemesters,
+    completedSessionCount: completedSessions.length,
+    eligibleSessionCount,
+    recordedSessionCount,
+    unrecordedSessionCount: eligibleSessionCount - recordedSessionCount,
+    withoutRosterSessionCount,
+    expectedStudentCount,
+    attendedStudentCount,
+    coverageRate: eligibleSessionCount ? Math.round((recordedSessionCount / eligibleSessionCount) * 100) : null,
+    attendanceRate: expectedStudentCount ? Math.round((attendedStudentCount / expectedStudentCount) * 100) : null,
+    subjects: [...subjects.values()].sort((left, right) => left.subjectCode.localeCompare(right.subjectCode, "es", { numeric: true })),
+    unrecordedSessions: unrecordedSessions.sort((left, right) => right.sessionDate.localeCompare(left.sessionDate)
+      || right.startTime.localeCompare(left.startTime)),
+    studentsToReview,
   };
 }
 
@@ -196,6 +352,11 @@ export async function GET(request: Request) {
   try {
     const database = getDatabase();
     const url = new URL(request.url);
+    if (url.searchParams.get("view") === "statistics") {
+      return Response.json(attendanceStatistics(database, teacher.id, url.searchParams.get("semesterId")), {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    }
     const sessionId = positiveInteger(url.searchParams.get("sessionId"));
     if (sessionId) {
       const session = ownedSession(database, teacher.id, sessionId);
@@ -369,6 +530,15 @@ export async function PUT(request: Request) {
       for (const studentId of currentIds) {
         insert.run(sessionId, studentId, attendedIds.has(studentId) ? 1 : 0, teacher.id);
       }
+      database.prepare(`INSERT INTO session_attendance_submissions
+        (session_id, marked_by_teacher_id, expected_student_count, attended_student_count, submitted_at, updated_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT(session_id) DO UPDATE SET
+          marked_by_teacher_id = excluded.marked_by_teacher_id,
+          expected_student_count = excluded.expected_student_count,
+          attended_student_count = excluded.attended_student_count,
+          updated_at = CURRENT_TIMESTAMP`)
+        .run(sessionId, teacher.id, currentIds.length, attendedIds.size);
       database.exec("COMMIT");
     } catch (error) {
       database.exec("ROLLBACK");
