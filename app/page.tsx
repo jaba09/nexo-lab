@@ -6,6 +6,7 @@ import { downloadAllSessionsReportPdf, downloadSessionsCsv, downloadSessionsIcs,
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { messageAudienceTeacherIds } from "../lib/messageAudience";
+import { messageMailtoUrl, recommendedMailtoLength } from "../lib/messageMailto";
 import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 import { findSessionConflicts, installationIncludedInConflictChecks, type SessionConflict } from "../lib/sessionConflicts";
@@ -3646,6 +3647,30 @@ function MessagesView({
     void sendMessage(smtpPassword);
   }
 
+  function openInMailApplication() {
+    setError("");
+    if (!recipientTeachers.length) {
+      setError("El grupo seleccionado no tiene profesores con correo electrónico.");
+      return;
+    }
+    if (!messageSubject.trim() || !messageBody.trim()) {
+      setError("Escribe el asunto y el mensaje antes de abrir la aplicación de correo.");
+      return;
+    }
+    const mailto = messageMailtoUrl({
+      senderEmail: sender.email,
+      recipients: recipientTeachers.map((teacher) => teacher.email),
+      blindCopy,
+      subject: messageSubject.trim(),
+      body: messageBody.trim(),
+    });
+    if (mailto.length > recommendedMailtoLength) {
+      setError("El mensaje o la lista de destinatarios es demasiado grande para abrirlos de forma fiable en otra aplicación. Acorta el texto o utiliza «Enviar desde la web».");
+      return;
+    }
+    window.location.assign(mailto);
+  }
+
   function submitSmtpPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!passwordEntry) {
@@ -3736,9 +3761,13 @@ function MessagesView({
               {smtpPassword && <button type="button" onClick={() => { onSmtpPasswordChange(""); setPasswordEntry(""); setPasswordDialogOpen(true); }}>Cambiar contraseña</button>}
             </div>
             {error && <p className="messages-error" role="alert">{error}</p>}
-            <button className="primary-button messages-send-button" type="submit" disabled={sending || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>
-              {sending ? "Enviando…" : `Enviar a ${recipientTeachers.length} ${recipientTeachers.length === 1 ? "profesor" : "profesores"}`}<ArrowIcon />
-            </button>
+            <div className="messages-send-actions">
+              <button className="secondary-button messages-mail-app-button" type="button" disabled={sending || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()} onClick={openInMailApplication}>Abrir en mi correo <span aria-hidden="true">↗</span></button>
+              <button className="primary-button messages-send-button" type="submit" disabled={sending || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>
+                {sending ? "Enviando…" : "Enviar desde la web"}<ArrowIcon />
+              </button>
+            </div>
+            <p className="messages-mail-app-note">«Abrir en mi correo» prepara el mensaje en la aplicación predeterminada del dispositivo sin pedir la contraseña SMTP. Revisa la cuenta remitente antes de enviarlo.</p>
           </div>
         </form>
       </div>

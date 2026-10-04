@@ -14,12 +14,13 @@ test("chooses hidden or visible addressing for teacher group messages", () => {
   );
 });
 
-test("provides an authenticated teacher group email workflow without persisting SMTP credentials", async () => {
-  const [page, route, email, smtp, styles, help] = await Promise.all([
+test("provides SMTP and operating-system email workflows without persisting credentials", async () => {
+  const [page, route, email, smtp, mailto, styles, help] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/messages/send/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/email.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/smtp.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/messageMailto.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/ayuda/page.tsx", import.meta.url), "utf8"),
   ]);
@@ -36,6 +37,10 @@ test("provides an authenticated teacher group email workflow without persisting 
   assert.match(page, /Enviar con copia oculta \(CCO\)/);
   assert.match(page, /const \[blindCopy, setBlindCopy\] = useState\(true\)/);
   assert.match(page, /blindCopy,/);
+  assert.match(page, /Abrir en mi correo/);
+  assert.match(page, /Enviar desde la web/);
+  assert.match(page, /messageMailtoUrl/);
+  assert.match(page, /window\.location\.assign\(mailto\)/);
   assert.doesNotMatch(route, /isAdmin|readOnlyResponse/);
   assert.match(route, /messageAudienceTeacherIds\(sessions, semesterId, subjectId, semesterFromDate\)/);
   assert.match(route, /recipients\.length > 200/);
@@ -46,10 +51,13 @@ test("provides an authenticated teacher group email workflow without persisting 
   assert.match(email, /const authenticationUser = smtpUsernameFromEmail\(user\)/);
   assert.match(email, /auth: \{ user: authenticationUser, pass: password \}/);
   assert.match(smtp, /normalized\.endsWith\(suffix\) \? normalized\.slice\(0, -suffix\.length\) : normalized/);
+  assert.match(mailto, /mailto:/);
+  assert.match(mailto, /\["bcc", bcc\.join\(","\)\]/);
   assert.match(page, /Usuario SMTP \{smtpUsernameFromEmail\(sender\.email\)\}/);
   assert.match(styles, /\.messages-layout/);
   assert.match(styles, /\.messages-access-badge/);
   assert.match(styles, /\.messages-copy-option/);
+  assert.match(styles, /\.messages-send-actions/);
   assert.match(styles, /\.smtp-password-dialog/);
   assert.match(help, /esta opción está activada por defecto/);
   assert.match(help, /<tr><td>Enviar mensajes a grupos<\/td><td><span className="yes">Sí<\/span><\/td><td><span className="yes">Sí<\/span><\/td><td><span className="yes">Sí<\/span><\/td><\/tr>/);
