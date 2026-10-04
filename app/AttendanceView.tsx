@@ -70,32 +70,18 @@ type AttendanceSessionsPayload = {
 type AttendanceStatistics = {
   semesterId: string;
   availableSemesters: string[];
-  completedSessionCount: number;
-  eligibleSessionCount: number;
-  recordedSessionCount: number;
-  unrecordedSessionCount: number;
-  withoutRosterSessionCount: number;
-  expectedStudentCount: number;
-  attendedStudentCount: number;
-  coverageRate: number | null;
-  attendanceRate: number | null;
   subjects: Array<{
     subjectId: number;
     subjectCode: string;
     subjectName: string;
+    teacherCount: number;
+    controllingTeacherCount: number;
+    teacherControlRate: number | null;
     scheduledSessionCount: number;
     recordedSessionCount: number;
-    unrecordedSessionCount: number;
+    sessionControlRate: number | null;
     expectedStudentCount: number;
     attendedStudentCount: number;
-  }>;
-  unrecordedSessions: Array<AttendanceSession & { studentCount: number }>;
-  studentsToReview: Array<{
-    email: string;
-    firstName: string;
-    lastName: string;
-    recordedSessionCount: number;
-    attendedSessionCount: number;
     attendanceRate: number | null;
   }>;
 };
@@ -415,46 +401,29 @@ function AttendanceStatisticsPanel({
 }) {
   if (loading && !statistics) return <div className="loading-state" role="status"><span />Calculando estadísticas…</div>;
   if (!statistics) return null;
-  const subjectRate = (subject: AttendanceStatistics["subjects"][number]) => subject.expectedStudentCount
-    ? Math.round((subject.attendedStudentCount / subject.expectedStudentCount) * 100)
-    : null;
   return (
     <div className="attendance-statistics" aria-busy={loading}>
       <div className="attendance-statistics-toolbar">
-        <div><strong>Resumen de {semesterLabel(statistics.semesterId)}</strong><span>Solo se calculan porcentajes con listas guardadas en la aplicación.</span></div>
+        <div><strong>Control de asistencia · {semesterLabel(statistics.semesterId)}</strong><span>Resultados acumulados hasta hoy para todas las asignaturas con alumnado cargado.</span></div>
         <label><span>Semestre</span><select value={statistics.semesterId} disabled={loading} onChange={(event) => onSemesterChange(event.target.value)}>{statistics.availableSemesters.map((semester) => <option key={semester} value={semester}>{semesterLabel(semester)}</option>)}</select></label>
       </div>
 
       <div className="attendance-data-warning">
         <span>DAT</span>
-        <p><strong>Los datos incompletos se muestran, no se convierten en ausencias.</strong> Hay {statistics.unrecordedSessionCount} {statistics.unrecordedSessionCount === 1 ? "sesión con alumnado cuya lista no se ha guardado" : "sesiones con alumnado cuyas listas no se han guardado"}. Esas sesiones quedan fuera del porcentaje de asistencia.</p>
+        <p><strong>Una lista no guardada no equivale a una ausencia.</strong> El porcentaje de alumnos asistentes utiliza exclusivamente las sesiones con control registrado. Los porcentajes de profesorado y sesiones muestran, precisamente, qué parte de la docencia sí está cubierta por la aplicación.</p>
       </div>
 
-      <div className="attendance-stat-cards">
-        <article><span>Cobertura del registro</span><strong>{percentage(statistics.coverageRate)}</strong><small>{statistics.recordedSessionCount} de {statistics.eligibleSessionCount} sesiones con alumnado</small></article>
-        <article><span>Asistencia registrada</span><strong>{percentage(statistics.attendanceRate)}</strong><small>{statistics.attendedStudentCount} de {statistics.expectedStudentCount} convocatorias registradas</small></article>
-        <article><span>Listas sin guardar</span><strong>{statistics.unrecordedSessionCount}</strong><small>No computan como ausencias</small></article>
-        <article><span>Sin listado de alumnos</span><strong>{statistics.withoutRosterSessionCount}</strong><small>Sesiones celebradas no evaluables</small></article>
-      </div>
-
-      <section className="attendance-stat-panel">
-        <header><div><span>POR ASIGNATURA</span><h2>Cobertura y asistencia</h2></div><small>{statistics.completedSessionCount} sesiones celebradas en total</small></header>
+      <section className="attendance-stat-panel attendance-subject-statistics">
+        <header><div><span>POR ASIGNATURA</span><h2>Uso del control de asistencia</h2></div><small>{statistics.subjects.length} {statistics.subjects.length === 1 ? "asignatura" : "asignaturas"}</small></header>
         {!statistics.subjects.length ? <p className="attendance-stat-empty">Todavía no hay sesiones celebradas con alumnado en este semestre.</p> : (
-          <div className="attendance-stat-table-wrap"><table><thead><tr><th>Asignatura</th><th>Listas</th><th>Sin registrar</th><th>Cobertura</th><th>Asistencia</th></tr></thead><tbody>{statistics.subjects.map((subject) => <tr key={subject.subjectId}><td><strong>{subject.subjectCode}</strong><span>{subject.subjectName}</span></td><td>{subject.recordedSessionCount}/{subject.scheduledSessionCount}</td><td className={subject.unrecordedSessionCount ? "warning" : ""}>{subject.unrecordedSessionCount}</td><td>{percentage(subject.scheduledSessionCount ? Math.round((subject.recordedSessionCount / subject.scheduledSessionCount) * 100) : null)}</td><td>{percentage(subjectRate(subject))}<small>{subject.attendedStudentCount}/{subject.expectedStudentCount}</small></td></tr>)}</tbody></table></div>
+          <div className="attendance-stat-table-wrap"><table><thead><tr><th>Asignatura</th><th>Profesores con control</th><th>Alumnos que asisten</th><th>Sesiones con control</th></tr></thead><tbody>{statistics.subjects.map((subject) => <tr key={subject.subjectId}>
+            <td><strong>{subject.subjectCode}</strong><span>{subject.subjectName}</span></td>
+            <td><div className="attendance-stat-metric"><strong>{subject.controllingTeacherCount} / {subject.teacherCount}</strong><span>{percentage(subject.teacherControlRate)}</span><i><b style={{ width: `${subject.teacherControlRate ?? 0}%` }} /></i><small>profesores que han guardado al menos una lista</small></div></td>
+            <td><div className="attendance-stat-metric"><strong>{percentage(subject.attendanceRate)}</strong><span>{subject.expectedStudentCount ? `${subject.attendedStudentCount} / ${subject.expectedStudentCount}` : "Sin datos"}</span><i><b style={{ width: `${subject.attendanceRate ?? 0}%` }} /></i><small>solo sobre listas con control registrado</small></div></td>
+            <td><div className="attendance-stat-metric"><strong>{percentage(subject.sessionControlRate)}</strong><span>{subject.recordedSessionCount} / {subject.scheduledSessionCount}</span><i><b style={{ width: `${subject.sessionControlRate ?? 0}%` }} /></i><small>sesiones celebradas con lista guardada</small></div></td>
+          </tr>)}</tbody></table></div>
         )}
       </section>
-
-      <div className="attendance-stat-grid">
-        <section className="attendance-stat-panel">
-          <header><div><span>CALIDAD DEL DATO</span><h2>Sesiones sin lista</h2></div><small>{statistics.unrecordedSessionCount}</small></header>
-          {!statistics.unrecordedSessions.length ? <p className="attendance-stat-empty">Todas las sesiones evaluables tienen la lista guardada.</p> : <div className="attendance-stat-list">{statistics.unrecordedSessions.map((session) => <article key={session.id}><time dateTime={`${session.sessionDate}T${session.startTime}`}><strong>{shortDateFormatter.format(localDate(session.sessionDate))}</strong><span>{session.startTime}</span></time><div><strong>{session.subjectCode} · {session.practiceName ?? "Sin práctica"}</strong><small>{session.groupCode ? groupLabel(session.groupCode) : "Todos los grupos"} · {session.studentCount} alumnos</small></div><em>Sin registrar</em></article>)}</div>}
-        </section>
-
-        <section className="attendance-stat-panel">
-          <header><div><span>SEGUIMIENTO</span><h2>Asistencia inferior al 75 %</h2></div><small>mín. 2 listas</small></header>
-          {!statistics.studentsToReview.length ? <p className="attendance-stat-empty">No hay alumnos por debajo del umbral con datos suficientes.</p> : <div className="attendance-stat-list students">{statistics.studentsToReview.map((student) => <article key={student.email}><div><strong>{student.lastName}, {student.firstName}</strong><small>{student.email}</small></div><span>{student.attendedSessionCount}/{student.recordedSessionCount}</span><em>{percentage(student.attendanceRate)}</em></article>)}</div>}
-        </section>
-      </div>
     </div>
   );
 }
@@ -753,8 +722,8 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   return (
     <section className="attendance-view">
       <header className="attendance-heading">
-        <div><span className="section-kicker">Control de asistencia</span><h1>Asistencia</h1><p>{view === "register" ? `Próximas sesiones asignadas a ${teacherName}.` : `Estadísticas de las listas registradas por ${teacherName}.`}</p></div>
-        <div className="attendance-heading-stat"><strong>{view === "statistics" ? percentage(statistics?.coverageRate ?? null) : sessions.length}</strong><span>{view === "statistics" ? "cobertura del registro" : sessions.length === 1 ? "sesión próxima" : "sesiones próximas"}</span></div>
+        <div><span className="section-kicker">Control de asistencia</span><h1>Asistencia</h1><p>{view === "register" ? `Próximas sesiones asignadas a ${teacherName}.` : "Uso del control de asistencia por asignatura y semestre."}</p></div>
+        <div className="attendance-heading-stat"><strong>{view === "statistics" ? statistics?.subjects.length ?? "—" : sessions.length}</strong><span>{view === "statistics" ? "asignaturas evaluadas" : sessions.length === 1 ? "sesión próxima" : "sesiones próximas"}</span></div>
       </header>
 
       <nav className="attendance-view-tabs" aria-label="Vistas de asistencia">

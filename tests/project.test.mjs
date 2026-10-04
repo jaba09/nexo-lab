@@ -45,9 +45,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceView, /attendance-mobile-close/);
   assert.match(attendanceView, /Hay cambios de asistencia sin guardar/);
   assert.match(attendanceView, /Estadísticas/);
-  assert.match(attendanceView, /Cobertura del registro/);
-  assert.match(attendanceView, /No computan como ausencias/);
-  assert.match(attendanceView, /Sesiones sin lista/);
+  assert.match(attendanceView, /Profesores con control/);
+  assert.match(attendanceView, /Alumnos que asisten/);
+  assert.match(attendanceView, /Sesiones con control/);
+  assert.match(attendanceView, /Una lista no guardada no equivale a una ausencia/);
   assert.match(attendanceStyles, /\.attendance-layout/);
   assert.match(attendanceStyles, /\.attendance-student\.attended/);
   assert.match(attendanceStyles, /@media \(max-width: 760px\)[\s\S]*?\.attendance-roster\.mobile-open[\s\S]*?position: fixed/);

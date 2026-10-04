@@ -291,6 +291,10 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
     (session_date, start_time, duration, subject_id, teacher_id, practice_id, source_uid, subject_code, group_code)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run("2026-09-22", "09:00", 120, 1, 1, 1, "attendance-statistics-missing", "ASI-01", "32").lastInsertRowid);
+  const statisticsOtherTeacherSessionId = Number(attendanceDatabase.prepare(`INSERT INTO sessions
+    (session_date, start_time, duration, subject_id, teacher_id, practice_id, source_uid, subject_code, group_code)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run("2026-09-23", "09:00", 120, 1, 2, 1, "attendance-statistics-other-teacher", "ASI-01", "32").lastInsertRowid);
   attendanceDatabase.close();
 
   const attendanceSessionsResponse = await fetch(`${origin}/api/attendance`);
@@ -398,18 +402,17 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   assert.equal(statisticsResponse.status, 200);
   const statistics = await statisticsResponse.json();
   assert.equal(statistics.semesterId, "2026-27 S1");
-  assert.ok(statistics.eligibleSessionCount >= 2);
-  assert.equal(statistics.recordedSessionCount, 1);
-  assert.equal(statistics.unrecordedSessionCount, statistics.eligibleSessionCount - 1);
-  assert.equal(statistics.coverageRate, Math.round(100 / statistics.eligibleSessionCount));
-  assert.equal(statistics.expectedStudentCount, 1);
-  assert.equal(statistics.attendedStudentCount, 1);
-  assert.equal(statistics.attendanceRate, 100);
   assert.equal(statistics.subjects.length, 1);
-  assert.equal(statistics.subjects[0].recordedSessionCount, 1);
-  assert.equal(statistics.subjects[0].unrecordedSessionCount, statistics.subjects[0].scheduledSessionCount - 1);
-  assert.ok(statistics.unrecordedSessions.some((session) => session.id === statisticsMissingSessionId));
-  assert.deepEqual(statistics.studentsToReview, []);
+  const subjectStatistics = statistics.subjects[0];
+  assert.equal(subjectStatistics.teacherCount, 2);
+  assert.equal(subjectStatistics.controllingTeacherCount, 1);
+  assert.equal(subjectStatistics.teacherControlRate, 50);
+  assert.ok(subjectStatistics.scheduledSessionCount >= 3);
+  assert.equal(subjectStatistics.recordedSessionCount, 1);
+  assert.equal(subjectStatistics.sessionControlRate, Math.round(100 / subjectStatistics.scheduledSessionCount));
+  assert.equal(subjectStatistics.expectedStudentCount, 1);
+  assert.equal(subjectStatistics.attendedStudentCount, 1);
+  assert.equal(subjectStatistics.attendanceRate, 100);
 
   const addStudentResponse = await fetch(`${origin}/api/attendance`, {
     method: "PATCH",
@@ -498,6 +501,7 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(otherAttendanceSessionId);
   savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(statisticsRecordedSessionId);
   savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(statisticsMissingSessionId);
+  savedAttendanceDatabase.prepare("DELETE FROM sessions WHERE id = ?").run(statisticsOtherTeacherSessionId);
   assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM session_attendance WHERE session_id = ?").get(attendanceSessionId).total, 0);
   assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM session_attendance_submissions WHERE session_id = ?").get(attendanceSessionId).total, 0);
   assert.equal(savedAttendanceDatabase.prepare("SELECT COUNT(*) AS total FROM student_lab_rule_acceptances WHERE student_email = ?").get("924740@unizar.es").total, 1);
