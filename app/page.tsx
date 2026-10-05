@@ -7,7 +7,6 @@ import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
 import { messageAudienceTeacherIds } from "../lib/messageAudience";
 import { messageMailtoUrl, recommendedMailtoLength } from "../lib/messageMailto";
-import { smtpUsernameFromEmail } from "../lib/smtp";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 import { findSessionConflicts, installationIncludedInConflictChecks, type SessionConflict } from "../lib/sessionConflicts";
 import { downloadInterferenceReportPdf, type InterferenceReportItem } from "../lib/interferenceReport";
@@ -850,7 +849,6 @@ export default function Home() {
   const [studentRosterImportSubject, setStudentRosterImportSubject] = useState<Subject | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(() => semesterFromDate(localIsoDate()));
-  const [smtpPassword, setSmtpPassword] = useState("");
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const latestDataRequest = useRef(0);
 
@@ -953,7 +951,6 @@ export default function Home() {
   async function finishLogin(teacher: AuthenticatedTeacher) {
     setAuthenticatedTeacher(teacher);
     setActive("overview");
-    setSmtpPassword("");
     setAuthenticationError("");
     setLoading(true);
     await loadData();
@@ -967,7 +964,6 @@ export default function Home() {
       setAuthenticatedTeacher(null);
       setData(emptyData);
       setActive("overview");
-      setSmtpPassword("");
       setDrawer(null);
       setStudentRosterImportSubject(null);
       setNotificationsOpen(false);
@@ -1605,12 +1601,6 @@ export default function Home() {
               sender={authenticatedTeacher}
               selectedSemester={selectedSemester}
               onSelectedSemesterChange={setSelectedSemester}
-              smtpPassword={smtpPassword}
-              onSmtpPasswordChange={setSmtpPassword}
-              onSent={(recipientCount) => setNotice({
-                kind: "success",
-                message: `Mensaje enviado correctamente a ${recipientCount} ${recipientCount === 1 ? "profesor" : "profesores"}.`,
-              })}
             />
           ) : active === "preferences" ? (
             <AdminView
@@ -3541,29 +3531,18 @@ function MessagesView({
   sender,
   selectedSemester,
   onSelectedSemesterChange,
-  smtpPassword,
-  onSmtpPasswordChange,
-  onSent,
 }: {
   data: AppData;
   sender: AuthenticatedTeacher;
   selectedSemester: string;
   onSelectedSemesterChange: (semesterId: string) => void;
-  smtpPassword: string;
-  onSmtpPasswordChange: (password: string) => void;
-  onSent: (recipientCount: number) => void;
 }) {
   const [audience, setAudience] = useState<MessageAudience>("subject");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
-  const [blindCopy, setBlindCopy] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [blindCopy, setBlindCopy] = useState(false);
   const [error, setError] = useState("");
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [passwordEntry, setPasswordEntry] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const passwordInputRef = useRef<HTMLInputElement>(null);
   const semesters = semesterOptions([
     ...data.sessions.map((session) => session.sessionDate),
     ...data.holidays.map((holiday) => holiday.holidayDate),
@@ -3588,63 +3567,9 @@ function MessagesView({
   const recipientTeachers = audienceTeachers.filter((teacher) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacher.email.trim()));
   const missingEmailCount = audienceTeachers.length - recipientTeachers.length;
 
-  useEffect(() => {
-    if (passwordDialogOpen) passwordInputRef.current?.focus();
-  }, [passwordDialogOpen]);
-
-  async function sendMessage(password: string) {
-    setSending(true);
-    setError("");
-    setPasswordError("");
-    try {
-      const response = await fetch(apiUrl("/api/messages/send"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audience,
-          semesterId: selectedSemester,
-          subjectId: audienceSubjectId,
-          subject: messageSubject,
-          body: messageBody,
-          blindCopy,
-          smtpPassword: password,
-        }),
-      });
-      const payload = await response.json() as { recipientCount?: number; error?: string; code?: string };
-      if (!response.ok) {
-        if (payload.code === "SMTP_AUTH_FAILED") {
-          onSmtpPasswordChange("");
-          setPasswordEntry("");
-          setPasswordError(payload.error || "La contraseña del correo no es correcta.");
-          setPasswordDialogOpen(true);
-          return;
-        }
-        throw new Error(payload.error || "No se pudo enviar el mensaje.");
-      }
-      onSmtpPasswordChange(password);
-      setMessageSubject("");
-      setMessageBody("");
-      onSent(Number(payload.recipientCount ?? recipientTeachers.length));
-    } catch (sendError) {
-      setError(clientErrorMessage(sendError, "No se pudo enviar el mensaje."));
-    } finally {
-      setSending(false);
-    }
-  }
-
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!recipientTeachers.length) {
-      setError("El grupo seleccionado no tiene profesores con correo electrónico.");
-      return;
-    }
-    if (!smtpPassword) {
-      setPasswordEntry("");
-      setPasswordError("");
-      setPasswordDialogOpen(true);
-      return;
-    }
-    void sendMessage(smtpPassword);
+    openInMailApplication();
   }
 
   function openInMailApplication() {
@@ -3665,21 +3590,10 @@ function MessagesView({
       body: messageBody.trim(),
     });
     if (mailto.length > recommendedMailtoLength) {
-      setError("El mensaje o la lista de destinatarios es demasiado grande para abrirlos de forma fiable en otra aplicación. Acorta el texto o utiliza «Enviar desde la web».");
+      setError("El mensaje o la lista de destinatarios es demasiado grande para abrirlos de forma fiable en otra aplicación. Acorta el texto o divide los destinatarios en varios grupos.");
       return;
     }
     window.location.assign(mailto);
-  }
-
-  function submitSmtpPassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!passwordEntry) {
-      setPasswordError("Introduce la contraseña de tu correo de Unizar.");
-      return;
-    }
-    setPasswordDialogOpen(false);
-    onSmtpPasswordChange(passwordEntry);
-    void sendMessage(passwordEntry);
   }
 
   return (
@@ -3739,7 +3653,7 @@ function MessagesView({
         <form className="panel messages-compose-panel" onSubmit={submitMessage}>
           <div className="panel-head">
             <div><span className="section-kicker">Correo electrónico</span><h2>Redactar mensaje</h2></div>
-            <span className="messages-smtp-status"><i />SMTP Unizar</span>
+            <span className="messages-mail-status"><i />Aplicación de correo</span>
           </div>
           <div className="messages-compose-fields">
             <div className="messages-sender-line"><span>De</span><strong>{sender.name}</strong><small>{sender.email}</small></div>
@@ -3757,43 +3671,16 @@ function MessagesView({
             </div>
             <div className="messages-security-note">
               <span aria-hidden="true">⌁</span>
-              <p>{blindCopy ? "El mensaje se enviará con los destinatarios en copia oculta." : "El mensaje se enviará con las direcciones visibles."} La contraseña no se guarda en la base de datos ni en el almacenamiento del navegador.</p>
-              {smtpPassword && <button type="button" onClick={() => { onSmtpPasswordChange(""); setPasswordEntry(""); setPasswordDialogOpen(true); }}>Cambiar contraseña</button>}
+              <p>{blindCopy ? "Los destinatarios se prepararán en copia oculta." : "Los destinatarios se prepararán en el campo Para y podrán ver las demás direcciones."} La aplicación web no solicita ni utiliza la contraseña de tu correo.</p>
             </div>
             {error && <p className="messages-error" role="alert">{error}</p>}
             <div className="messages-send-actions">
-              <button className="secondary-button messages-mail-app-button" type="button" disabled={sending || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()} onClick={openInMailApplication}>Abrir en mi correo <span aria-hidden="true">↗</span></button>
-              <button className="primary-button messages-send-button" type="submit" disabled={sending || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>
-                {sending ? "Enviando…" : "Enviar desde la web"}<ArrowIcon />
-              </button>
+              <button className="primary-button messages-mail-app-button" type="submit" disabled={!recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>Abrir en mi correo <span aria-hidden="true">↗</span></button>
             </div>
-            <p className="messages-mail-app-note">«Abrir en mi correo» prepara el mensaje en la aplicación predeterminada del dispositivo sin pedir la contraseña SMTP. Revisa la cuenta remitente antes de enviarlo.</p>
+            <p className="messages-mail-app-note">El mensaje se abrirá preparado en la aplicación predeterminada del dispositivo. Revisa la cuenta remitente y pulsa enviar desde allí.</p>
           </div>
         </form>
       </div>
-
-      {passwordDialogOpen && (
-        <div className="import-dialog-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !sending && setPasswordDialogOpen(false)}>
-          <section className="import-dialog smtp-password-dialog" role="dialog" aria-modal="true" aria-labelledby="smtp-password-title">
-            <div className="drawer-head">
-              <div><span className="entity-pill">SMTP</span><h2 id="smtp-password-title">Contraseña del correo</h2><p>Servidor smtp.unizar.es · Usuario SMTP {smtpUsernameFromEmail(sender.email)} · Remitente {sender.email}.</p></div>
-              <button className="icon-button" type="button" disabled={sending} onClick={() => setPasswordDialogOpen(false)} aria-label="Cerrar contraseña de correo">×</button>
-            </div>
-            <form className="smtp-password-form" onSubmit={submitSmtpPassword}>
-              <label>
-                <span>Contraseña del usuario {smtpUsernameFromEmail(sender.email)}</span>
-                <input ref={passwordInputRef} required type="password" autoComplete="current-password" maxLength={256} value={passwordEntry} onChange={(event) => { setPasswordEntry(event.target.value); setPasswordError(""); }} />
-              </label>
-              <p className="smtp-password-help">Se conservará únicamente en memoria hasta que cierres sesión o recargues la aplicación.</p>
-              {passwordError && <p className="messages-error" role="alert">{passwordError}</p>}
-              <div className="form-actions">
-                <button className="secondary-button" type="button" disabled={sending} onClick={() => setPasswordDialogOpen(false)}>Cancelar</button>
-                <button className="primary-button" type="submit" disabled={sending}>{sending ? "Enviando…" : "Guardar y enviar"}</button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
     </>
   );
 }

@@ -366,7 +366,7 @@ export default async function HelpPage() {
               <p>Un administrador concede el rol de editor desde la ficha de una asignatura. Desde Admin también puede ajustar las horas de la vista semanal, ejecutar un chequeo completo de interferencias de profesores e instalaciones y descargar el informe en PDF. El sistema conserva siempre al menos una cuenta administradora.</p>
               <div className="help-callout neutral">
                 <span aria-hidden="true">✉</span>
-                <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. «Abrir en mi correo» prepara el mensaje en la aplicación predeterminada del dispositivo sin solicitar la contraseña; revisa allí la cuenta remitente y pulsa enviar. «Enviar desde la web» utiliza el SMTP de Unizar: la contraseña se solicita en el primer envío y se conserva solo en memoria. Puedes decidir con un checkbox si las direcciones se incluyen en copia oculta; esta opción está activada por defecto.</p>
+                <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. «Abrir en mi correo» prepara el mensaje en la aplicación predeterminada del dispositivo sin solicitar ni almacenar contraseñas; revisa allí la cuenta remitente y pulsa enviar. Por defecto, los destinatarios aparecen en el campo Para. Activa el checkbox de copia oculta solo cuando quieras ocultar sus direcciones.</p>
               </div>
             </HelpSection>
 
