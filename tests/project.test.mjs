@@ -48,6 +48,11 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(attendanceView, /Profesores con control/);
   assert.match(attendanceView, /Alumnos que asisten/);
   assert.match(attendanceView, /Sesiones con control/);
+  assert.match(attendanceView, /Nombrar sustituto/);
+  assert.match(attendanceView, /Cambiar sustituto/);
+  assert.match(attendanceView, /Retirar sustituto/);
+  assert.match(attendanceView, /Sustitución de/);
+  assert.match(attendanceRoute, /session_attendance_delegations/);
   assert.match(attendanceView, /Una lista no guardada no equivale a una ausencia/);
   assert.match(attendanceStyles, /\.attendance-layout/);
   assert.match(attendanceStyles, /\.attendance-student\.attended/);

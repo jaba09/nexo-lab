@@ -226,7 +226,7 @@ export default async function HelpPage() {
               id="asistencia"
               number="04"
               title="Asistencia"
-              intro="Pasa lista directamente sobre las próximas sesiones que tienes asignadas."
+              intro="Pasa lista directamente sobre las sesiones que tienes asignadas o para las que actúas como sustituto."
             >
               <ol className="help-compact-steps">
                 <li><strong>1.</strong> Abre «Asistencia» debajo de Calendario.</li>
@@ -236,11 +236,12 @@ export default async function HelpPage() {
               </ol>
               <p>La lista se obtiene del alumnado cargado para la asignatura y el semestre. Si la sesión tiene subgrupo, solo aparecen los alumnos incluidos en ese código de grupo. Puedes buscar por nombre o correo y utilizar «Marcar todos» o «Desmarcar todos».</p>
               <p>Si falta una persona concreta, utiliza «Añadir alumno» dentro de la sesión. La incorporación es puntual: no cambia su subgrupo ni el listado oficial del CSV y no aparecerá en otras sesiones. Los alumnos añadidos manualmente se identifican como «Sólo esta sesión» y se pueden retirar antes o después de pasar lista; su aceptación de las normas se conserva.</p>
+              <p>El profesor responsable puede utilizar «Nombrar sustituto» dentro de una sesión para autorizar excepcionalmente a otro profesor. La sesión aparecerá en Asistencia del sustituto, que podrá pasar lista, añadir alumnado puntual y recoger firmas. La asignación docente no cambia; el responsable puede cambiar o retirar al sustituto y este recibe una notificación interna.</p>
               <p>La aceptación de las normas es única para cada alumno, curso académico y versión del documento. Se identifica por el correo institucional, por lo que sigue siendo válida en otras asignaturas y después de volver a importar el alumnado. El profesor confirma que la firma se ha recogido presencialmente y puede consultar o descargar posteriormente el justificante PDF.</p>
-              <p>La pestaña «Estadísticas» muestra, para cada asignatura, cuántos profesores han guardado al menos una lista respecto del total, el porcentaje de alumnos asistentes en las listas registradas y el porcentaje de sesiones celebradas con control. Las sesiones sin lista permanecen en los indicadores de cobertura, pero se excluyen del porcentaje de asistencia: nunca se interpreta automáticamente que todos sus alumnos faltaron.</p>
+              <p>La pestaña «Estadísticas» muestra, para cada asignatura, cuántos profesores responsables tienen al menos una sesión con control respecto del total, el porcentaje de alumnos asistentes en las listas registradas y el porcentaje de sesiones celebradas con control. Si pasa lista un sustituto, la cobertura se atribuye a la sesión y a su responsable oficial. Las sesiones sin lista permanecen en los indicadores de cobertura, pero se excluyen del porcentaje de asistencia: nunca se interpreta automáticamente que todos sus alumnos faltaron.</p>
               <div className="help-callout lime">
                 <span aria-hidden="true">✓</span>
-                <p><strong>Acceso personal</strong> Cada profesor solo puede consultar y guardar la asistencia de las sesiones que tiene asignadas.</p>
+                <p><strong>Acceso personal</strong> Cada profesor solo puede consultar y guardar la asistencia de las sesiones que tiene asignadas o para las que ha sido nombrado sustituto.</p>
               </div>
             </HelpSection>
 

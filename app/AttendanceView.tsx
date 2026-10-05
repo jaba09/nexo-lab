@@ -22,6 +22,20 @@ type AttendanceSession = {
   rulesAcceptedCount: number;
   rulesPendingCount: number;
   updatedAt: string | null;
+  responsibleTeacherId: number;
+  responsibleTeacherCode: string;
+  responsibleTeacherName: string;
+  substituteTeacherId: number | null;
+  substituteTeacherCode: string | null;
+  substituteTeacherName: string | null;
+  attendanceRole: "responsible" | "substitute";
+  canManageSubstitute: boolean;
+};
+
+type AttendanceTeacher = {
+  id: number;
+  code: string;
+  name: string;
 };
 
 type AttendanceStudent = {
@@ -64,6 +78,7 @@ type AttendanceDetail = {
 
 type AttendanceSessionsPayload = {
   sessions: AttendanceSession[];
+  teachers: AttendanceTeacher[];
   today: string;
 };
 
@@ -135,7 +150,7 @@ async function fetchAttendanceSessions(signal?: AbortSignal) {
   const response = await fetch("/api/attendance?includePast=true", { cache: "no-store", signal });
   const payload = await response.json() as Partial<AttendanceSessionsPayload> & { error?: string };
   if (!response.ok || !payload.sessions) throw new Error(payload.error || "No se pudieron cargar tus sesiones.");
-  return { sessions: payload.sessions, today: payload.today ?? "" } satisfies AttendanceSessionsPayload;
+  return { sessions: payload.sessions, teachers: payload.teachers ?? [], today: payload.today ?? "" } satisfies AttendanceSessionsPayload;
 }
 
 async function fetchAttendanceStatistics(semesterId?: string) {
@@ -390,6 +405,62 @@ function AddStudentDialog({
   );
 }
 
+function SubstituteDialog({
+  session,
+  teachers,
+  busy,
+  onClose,
+  onSave,
+  onRemove,
+}: {
+  session: AttendanceSession;
+  teachers: AttendanceTeacher[];
+  busy: boolean;
+  onClose: () => void;
+  onSave: (teacherId: number) => Promise<void>;
+  onRemove: () => Promise<void>;
+}) {
+  const options = teachers.filter((teacher) => teacher.id !== session.responsibleTeacherId);
+  const [teacherId, setTeacherId] = useState(String(session.substituteTeacherId ?? options[0]?.id ?? ""));
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || !teacherId) return;
+    void onSave(Number(teacherId));
+  }
+
+  return (
+    <div className="attendance-student-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="substitute-title">
+      <section className="attendance-student-dialog attendance-substitute-dialog">
+        <header>
+          <div>
+            <span>Autorización excepcional</span>
+            <h2 id="substitute-title">Profesor sustituto</h2>
+            <p>{session.subjectCode}{session.groupCode ? ` · ${groupLabel(session.groupCode)}` : ""} · {dateFormatter.format(localDate(session.sessionDate))} · {session.startTime}</p>
+          </div>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Cerrar sustitución">×</button>
+        </header>
+        <form onSubmit={submit}>
+          <p className="attendance-student-dialog-note">El sustituto podrá pasar lista, añadir alumnado puntual y recoger firmas en esta sesión. El profesor responsable y la asignación docente no cambian.</p>
+          <label>
+            <span>Profesor sustituto</span>
+            <select required value={teacherId} onChange={(event) => setTeacherId(event.target.value)}>
+              {!options.length && <option value="">No hay otros profesores disponibles</option>}
+              {options.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name} · {teacher.code}</option>)}
+            </select>
+          </label>
+          {session.substituteTeacherName && <p className="attendance-current-substitute">Sustituto actual: <strong>{session.substituteTeacherName}</strong>{session.substituteTeacherCode ? ` · ${session.substituteTeacherCode}` : ""}</p>}
+          <footer>
+            {session.substituteTeacherId && <button className="delete-button attendance-remove-substitute" type="button" onClick={() => void onRemove()} disabled={busy}>Retirar sustituto</button>}
+            <button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Cancelar</button>
+            <button className="primary-button" type="submit" disabled={busy || !teacherId}>{busy ? "Guardando…" : session.substituteTeacherId ? "Cambiar sustituto" : "Nombrar sustituto"}</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function AttendanceStatisticsPanel({
   statistics,
   loading,
@@ -418,7 +489,7 @@ function AttendanceStatisticsPanel({
         {!statistics.subjects.length ? <p className="attendance-stat-empty">Todavía no hay sesiones celebradas con alumnado en este semestre.</p> : (
           <div className="attendance-stat-table-wrap"><table><thead><tr><th>Asignatura</th><th>Profesores con control</th><th>Alumnos que asisten</th><th>Sesiones con control</th></tr></thead><tbody>{statistics.subjects.map((subject) => <tr key={subject.subjectId}>
             <td><strong>{subject.subjectCode}</strong><span>{subject.subjectName}</span></td>
-            <td><div className="attendance-stat-metric"><strong>{subject.controllingTeacherCount} / {subject.teacherCount}</strong><span>{percentage(subject.teacherControlRate)}</span><i><b style={{ width: `${subject.teacherControlRate ?? 0}%` }} /></i><small>profesores que han guardado al menos una lista</small></div></td>
+            <td><div className="attendance-stat-metric"><strong>{subject.controllingTeacherCount} / {subject.teacherCount}</strong><span>{percentage(subject.teacherControlRate)}</span><i><b style={{ width: `${subject.teacherControlRate ?? 0}%` }} /></i><small>responsables con alguna sesión controlada</small></div></td>
             <td><div className="attendance-stat-metric"><strong>{percentage(subject.attendanceRate)}</strong><span>{subject.expectedStudentCount ? `${subject.attendedStudentCount} / ${subject.expectedStudentCount}` : "Sin datos"}</span><i><b style={{ width: `${subject.attendanceRate ?? 0}%` }} /></i><small>solo sobre listas con control registrado</small></div></td>
             <td><div className="attendance-stat-metric"><strong>{percentage(subject.sessionControlRate)}</strong><span>{subject.recordedSessionCount} / {subject.scheduledSessionCount}</span><i><b style={{ width: `${subject.sessionControlRate ?? 0}%` }} /></i><small>sesiones celebradas con lista guardada</small></div></td>
           </tr>)}</tbody></table></div>
@@ -431,6 +502,7 @@ function AttendanceStatisticsPanel({
 export default function AttendanceView({ teacherName }: { teacherName: string }) {
   const [view, setView] = useState<"register" | "statistics">("register");
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
+  const [teachers, setTeachers] = useState<AttendanceTeacher[]>([]);
   const [today, setToday] = useState("");
   const [showPastSessions, setShowPastSessions] = useState(false);
   const visibleSessions = sessions.filter((session) => showPastSessions || session.sessionDate >= today);
@@ -450,6 +522,8 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   const [signatureViewerStudent, setSignatureViewerStudent] = useState<AttendanceStudent | null>(null);
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [studentSaving, setStudentSaving] = useState(false);
+  const [substituteDialogOpen, setSubstituteDialogOpen] = useState(false);
+  const [substituteSaving, setSubstituteSaving] = useState(false);
   const [onlyRulesPending, setOnlyRulesPending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -458,6 +532,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
     try {
       const payload = await fetchAttendanceSessions();
       setSessions(payload.sessions);
+      setTeachers(payload.teachers);
       setToday(payload.today);
       setSelectedSessionId((current) => current && payload.sessions.some((session) => session.id === current) ? current : null);
     } catch (cause) {
@@ -512,6 +587,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
         const payload = await fetchAttendanceSessions(controller.signal);
         if (controller.signal.aborted) return;
         setSessions(payload.sessions);
+        setTeachers(payload.teachers);
         setToday(payload.today);
       } catch (cause) {
         if (!controller.signal.aborted) setError(errorMessage(cause, "No se pudieron cargar tus sesiones."));
@@ -577,6 +653,7 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
     setSignatureStudent(null);
     setSignatureViewerStudent(null);
     setAddStudentOpen(false);
+    setSubstituteDialogOpen(false);
     setError("");
     setSuccess("");
   }
@@ -587,6 +664,64 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
       return;
     }
     setAddStudentOpen(true);
+  }
+
+  function openSubstituteDialog() {
+    if (!detail?.session.canManageSubstitute) return;
+    if (modified) {
+      setError("Guarda o descarta los cambios de asistencia antes de gestionar al sustituto.");
+      return;
+    }
+    setSubstituteDialogOpen(true);
+  }
+
+  async function saveSubstitute(substituteTeacherId: number) {
+    if (!detail) return;
+    setSubstituteSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/attendance/delegation", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: detail.session.id, substituteTeacherId }),
+      });
+      const payload = await response.json() as { delegation?: { substituteTeacherName: string }; error?: string };
+      if (!response.ok || !payload.delegation) throw new Error(payload.error || "No se pudo nombrar al sustituto.");
+      setSubstituteDialogOpen(false);
+      await loadSessions();
+      await loadDetail(detail.session.id);
+      setSuccess(`${payload.delegation.substituteTeacherName} podrá pasar lista en esta sesión.`);
+    } catch (cause) {
+      setError(errorMessage(cause, "No se pudo nombrar al sustituto."));
+    } finally {
+      setSubstituteSaving(false);
+    }
+  }
+
+  async function removeSubstitute() {
+    if (!detail?.session.substituteTeacherId) return;
+    if (!window.confirm(`¿Retirar a ${detail.session.substituteTeacherName ?? "este profesor"} como sustituto de esta sesión?`)) return;
+    setSubstituteSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/attendance/delegation", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: detail.session.id }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "No se pudo retirar al sustituto.");
+      setSubstituteDialogOpen(false);
+      await loadSessions();
+      await loadDetail(detail.session.id);
+      setSuccess("La sustitución se ha retirado. La asignación oficial de la sesión no ha cambiado.");
+    } catch (cause) {
+      setError(errorMessage(cause, "No se pudo retirar al sustituto."));
+    } finally {
+      setSubstituteSaving(false);
+    }
   }
 
   async function addStudent(student: { firstName: string; lastName: string; email: string }) {
@@ -767,6 +902,9 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                   <span className="attendance-session-copy">
                     <strong>{sessionTitle(session)}</strong>
                     <small>{session.subjectCode} · {session.subjectName}{session.groupCode ? ` · ${groupLabel(session.groupCode)}` : ""}{session.studentCount ? session.rulesPendingCount ? ` · ${session.rulesPendingCount} normas pendientes` : " · Normas firmadas" : ""}</small>
+                    {session.attendanceRole === "substitute"
+                      ? <small className="attendance-delegation-label">Sustitución de {session.responsibleTeacherName}</small>
+                      : session.substituteTeacherName && <small className="attendance-delegation-label">Sustituto: {session.substituteTeacherName}</small>}
                   </span>
                   <span className={`attendance-session-status${session.attendanceTaken ? " complete" : ""}${!session.studentCount ? " no-roster" : ""}`}>
                     {!session.studentCount ? "Sin alumnado" : session.attendanceTaken ? `${session.attendedCount}/${session.studentCount}` : `${session.studentCount} alumnos`}
@@ -788,8 +926,12 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
                     <span>{dateFormatter.format(localDate(detail.session.sessionDate))} · {detail.session.startTime}–{endTime(detail.session.startTime, detail.session.duration)}</span>
                     <h2>{sessionTitle(detail.session)}</h2>
                     <p>{detail.session.subjectCode} · {detail.session.subjectName}{detail.session.groupCode ? ` · ${groupLabel(detail.session.groupCode)}` : " · Todos los grupos"}</p>
+                    {detail.session.attendanceRole === "substitute"
+                      ? <p className="attendance-delegation-detail">Sustitución de {detail.session.responsibleTeacherName}</p>
+                      : detail.session.substituteTeacherName && <p className="attendance-delegation-detail">Sustituto autorizado: {detail.session.substituteTeacherName} · {detail.session.substituteTeacherCode}</p>}
                   </div>
                   <div className="attendance-roster-head-actions">
+                    {detail.session.canManageSubstitute && <button type="button" onClick={openSubstituteDialog} disabled={substituteSaving || modified}>{detail.session.substituteTeacherId ? "Cambiar sustituto" : "+ Nombrar sustituto"}</button>}
                     <button type="button" onClick={openAddStudent} disabled={studentSaving || modified}>+ Añadir alumno</button>
                     <strong>{attendedIds.size}<small>de {detail.students.length} presentes</small></strong>
                   </div>
@@ -867,6 +1009,17 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
           busy={studentSaving}
           onClose={() => setAddStudentOpen(false)}
           onSave={addStudent}
+        />
+      )}
+      {detail && substituteDialogOpen && (
+        <SubstituteDialog
+          key={`${detail.session.id}-${detail.session.substituteTeacherId ?? "none"}`}
+          session={detail.session}
+          teachers={teachers}
+          busy={substituteSaving}
+          onClose={() => setSubstituteDialogOpen(false)}
+          onSave={saveSubstitute}
+          onRemove={removeSubstitute}
         />
       )}
     </section>

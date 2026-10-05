@@ -23,7 +23,22 @@ type AttendanceSession = {
   practiceCode: string | null;
   practiceName: string | null;
   groupCode: string | null;
+  responsibleTeacherId: number;
+  responsibleTeacherCode: string;
+  responsibleTeacherName: string;
+  substituteTeacherId: number | null;
+  substituteTeacherCode: string | null;
+  substituteTeacherName: string | null;
+  attendanceRole: "responsible" | "substitute";
+  canManageSubstitute: boolean;
 };
+
+type AttendanceSessionRow = Omit<AttendanceSession, "attendanceRole" | "canManageSubstitute">;
+
+type AttendanceStatisticsSession = Pick<AttendanceSession,
+  "id" | "sessionDate" | "startTime" | "duration" | "subjectId" | "subjectCode" |
+  "subjectName" | "practiceCode" | "practiceName" | "groupCode"
+> & { teacherId: number };
 
 type AttendanceStudent = {
   id: number;
@@ -126,24 +141,40 @@ function attendanceSubmission(database: DatabaseSync, sessionId: number) {
     .get(sessionId) as AttendanceSubmission | undefined;
 }
 
-function ownedSession(database: DatabaseSync, teacherId: number, sessionId: number) {
-  return database.prepare(`SELECT
+function accessibleSession(database: DatabaseSync, teacherId: number, sessionId: number) {
+  const session = database.prepare(`SELECT
     se.id, se.session_date AS sessionDate, se.start_time AS startTime, se.duration,
     se.subject_id AS subjectId, s.code AS subjectCode, s.name AS subjectName,
-    p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode
+    p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode,
+    responsible.id AS responsibleTeacherId, responsible.code AS responsibleTeacherCode,
+    responsible.name AS responsibleTeacherName,
+    delegation.substitute_teacher_id AS substituteTeacherId,
+    substitute.code AS substituteTeacherCode, substitute.name AS substituteTeacherName
     FROM sessions se
     JOIN subjects s ON s.id = se.subject_id
+    JOIN teachers responsible ON responsible.id = se.teacher_id
     LEFT JOIN practices p ON p.id = se.practice_id
-    WHERE se.id = ? AND se.teacher_id = ?`)
-    .get(sessionId, teacherId) as AttendanceSession | undefined;
+    LEFT JOIN session_attendance_delegations delegation ON delegation.session_id = se.id
+    LEFT JOIN teachers substitute ON substitute.id = delegation.substitute_teacher_id
+    WHERE se.id = ?
+      AND (se.teacher_id = ? OR delegation.substitute_teacher_id = ?)`)
+    .get(sessionId, teacherId, teacherId) as AttendanceSessionRow | undefined;
+  if (!session) return undefined;
+  return {
+    ...session,
+    attendanceRole: session.responsibleTeacherId === teacherId
+      ? "responsible" as const
+      : "substitute" as const,
+    canManageSubstitute: session.responsibleTeacherId === teacherId,
+  };
 }
 
-function sessionRules(session: AttendanceSession) {
+function sessionRules(session: Pick<AttendanceSession, "sessionDate">) {
   const semesterId = semesterFromDate(session.sessionDate);
   return laboratoryRules(academicYearFromSemester(semesterId));
 }
 
-function sessionStudents(database: DatabaseSync, session: AttendanceSession) {
+function sessionStudents(database: DatabaseSync, session: Pick<AttendanceSession, "id" | "sessionDate" | "subjectId" | "groupCode">) {
   const semesterId = semesterFromDate(session.sessionDate);
   const rules = sessionRules(session);
   const groupCode = normalizedGroupCode(session.groupCode);
@@ -235,7 +266,7 @@ function attendanceStatistics(database: DatabaseSync, requestedSemesterId: strin
     LEFT JOIN practices p ON p.id = se.practice_id
     WHERE se.teacher_id IS NOT NULL
     ORDER BY se.session_date, se.start_time, se.id`)
-    .all() as Array<AttendanceSession & { teacherId: number }>;
+    .all() as AttendanceStatisticsSession[];
   const availableSemesters = [...new Set(allSessions.map((session) => semesterFromDate(session.sessionDate)))]
     .sort((left, right) => right.localeCompare(left));
   const currentSemester = semesterFromDate(now.date);
@@ -270,8 +301,7 @@ function attendanceStatistics(database: DatabaseSync, requestedSemesterId: strin
     subject.teacherIds.add(session.teacherId);
     subject.scheduledSessionCount += 1;
     if (submission) {
-      subject.teacherIds.add(Number(submission.markedByTeacherId));
-      subject.controllingTeacherIds.add(Number(submission.markedByTeacherId));
+      subject.controllingTeacherIds.add(session.teacherId);
       subject.recordedSessionCount += 1;
       subject.expectedStudentCount += Number(submission.expectedStudentCount);
       subject.attendedStudentCount += Number(submission.attendedStudentCount);
@@ -332,8 +362,8 @@ export async function GET(request: Request) {
     }
     const sessionId = positiveInteger(url.searchParams.get("sessionId"));
     if (sessionId) {
-      const session = ownedSession(database, teacher.id, sessionId);
-      if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+      const session = accessibleSession(database, teacher.id, sessionId);
+      if (!session) return Response.json({ error: "La sesión no existe o no está asignada ni delegada a tu usuario." }, { status: 404 });
       const studentId = positiveInteger(url.searchParams.get("studentId"));
       const signatureFormat = url.searchParams.get("signature");
       if (studentId && signatureFormat) {
@@ -381,16 +411,29 @@ export async function GET(request: Request) {
     }
 
     const today = madridDate();
-    const sessions = database.prepare(`SELECT
+    const sessionRows = database.prepare(`SELECT
       se.id, se.session_date AS sessionDate, se.start_time AS startTime, se.duration,
       se.subject_id AS subjectId, s.code AS subjectCode, s.name AS subjectName,
-      p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode
+      p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode,
+      responsible.id AS responsibleTeacherId, responsible.code AS responsibleTeacherCode,
+      responsible.name AS responsibleTeacherName,
+      delegation.substitute_teacher_id AS substituteTeacherId,
+      substitute.code AS substituteTeacherCode, substitute.name AS substituteTeacherName
       FROM sessions se
       JOIN subjects s ON s.id = se.subject_id
+      JOIN teachers responsible ON responsible.id = se.teacher_id
       LEFT JOIN practices p ON p.id = se.practice_id
-      WHERE se.teacher_id = ? AND (? = 1 OR se.session_date >= ?)
+      LEFT JOIN session_attendance_delegations delegation ON delegation.session_id = se.id
+      LEFT JOIN teachers substitute ON substitute.id = delegation.substitute_teacher_id
+      WHERE (se.teacher_id = ? OR delegation.substitute_teacher_id = ?)
+        AND (? = 1 OR se.session_date >= ?)
       ORDER BY se.session_date, se.start_time, se.id`)
-      .all(teacher.id, url.searchParams.get("includePast") === "true" ? 1 : 0, today) as AttendanceSession[];
+      .all(teacher.id, teacher.id, url.searchParams.get("includePast") === "true" ? 1 : 0, today) as AttendanceSessionRow[];
+    const sessions: AttendanceSession[] = sessionRows.map((session) => ({
+      ...session,
+      attendanceRole: session.responsibleTeacherId === teacher.id ? "responsible" : "substitute",
+      canManageSubstitute: session.responsibleTeacherId === teacher.id,
+    }));
     const summaries = sessions.map((session) => {
       const detail = attendanceDetail(database, session);
       return {
@@ -404,7 +447,10 @@ export async function GET(request: Request) {
         updatedAt: detail.updatedAt,
       };
     });
-    return Response.json({ sessions: summaries, today }, {
+    const teachers = database.prepare(`SELECT id, code, name FROM teachers
+      WHERE id <> ? ORDER BY name COLLATE NOCASE, code COLLATE NOCASE`)
+      .all(teacher.id);
+    return Response.json({ sessions: summaries, teachers, today }, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
@@ -432,8 +478,8 @@ export async function POST(request: Request) {
       return Response.json({ error: error instanceof Error ? error.message : "La firma no es válida." }, { status: 400 });
     }
     const database = getDatabase();
-    const session = ownedSession(database, teacher.id, sessionId);
-    if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+    const session = accessibleSession(database, teacher.id, sessionId);
+    if (!session) return Response.json({ error: "La sesión no existe o no está asignada ni delegada a tu usuario." }, { status: 404 });
     const student = sessionStudents(database, session).find((item) => item.id === studentId);
     if (!student) return Response.json({ error: "El alumno no pertenece a esta sesión." }, { status: 404 });
     const rules = sessionRules(session);
@@ -477,8 +523,8 @@ export async function PUT(request: Request) {
     if (!sessionId) return Response.json({ error: "La sesión no es válida." }, { status: 400 });
 
     const database = getDatabase();
-    const session = ownedSession(database, teacher.id, sessionId);
-    if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+    const session = accessibleSession(database, teacher.id, sessionId);
+    if (!session) return Response.json({ error: "La sesión no existe o no está asignada ni delegada a tu usuario." }, { status: 404 });
     const students = sessionStudents(database, session);
     if (!students.length) {
       return Response.json({ error: "Esta sesión no tiene alumnado cargado para su asignatura y subgrupo." }, { status: 400 });
@@ -539,8 +585,8 @@ export async function PATCH(request: Request) {
     if (!validEmail(email)) return Response.json({ error: "Introduce un correo electrónico válido." }, { status: 400 });
 
     const database = getDatabase();
-    const session = ownedSession(database, teacher.id, sessionId);
-    if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+    const session = accessibleSession(database, teacher.id, sessionId);
+    if (!session) return Response.json({ error: "La sesión no existe o no está asignada ni delegada a tu usuario." }, { status: 404 });
     const semesterId = semesterFromDate(session.sessionDate);
     const existing = database.prepare(`SELECT id FROM subject_students
       WHERE subject_id = ? AND semester_id = ? AND email = ? COLLATE NOCASE`)
@@ -587,8 +633,8 @@ export async function DELETE(request: Request) {
       return Response.json({ error: "La sesión o el alumno no son válidos." }, { status: 400 });
     }
     const database = getDatabase();
-    const session = ownedSession(database, teacher.id, sessionId);
-    if (!session) return Response.json({ error: "La sesión no existe o no está asignada a tu usuario." }, { status: 404 });
+    const session = accessibleSession(database, teacher.id, sessionId);
+    if (!session) return Response.json({ error: "La sesión no existe o no está asignada ni delegada a tu usuario." }, { status: 404 });
     const student = sessionStudents(database, session).find((item) => Number(item.id) === studentId);
     if (!student?.manuallyIncluded) {
       return Response.json({ error: "Sólo se pueden retirar alumnos añadidos manualmente a esta sesión." }, { status: 409 });

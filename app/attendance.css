@@ -64,6 +64,7 @@
 .attendance-session-copy strong, .attendance-session-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attendance-session-copy strong { font-size: 10px; }
 .attendance-session-copy small { color: var(--muted); font-size: 8px; }
+.attendance-session-copy .attendance-delegation-label { color: #526f18; font-weight: 760; }
 .attendance-session-status { position: absolute; right: 13px; bottom: 13px; padding: 4px 6px; border-radius: 5px; background: #edece6; color: #68716d; font: 750 7px var(--font-geist-mono); }
 .attendance-session-status.complete { background: #dcecb5; color: #4c641a; }
 .attendance-session-status.no-roster { background: #fee3de; color: #963e35; }
@@ -81,7 +82,8 @@
 .attendance-roster-head > div > span { color: #62704e; font: 750 8px var(--font-geist-mono); text-transform: capitalize; }
 .attendance-roster-head h2 { margin: 8px 0 5px; overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .attendance-roster-head p { margin: 0; color: var(--muted); font-size: 9px; }
-.attendance-roster-head-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.attendance-roster-head .attendance-delegation-detail { margin-top: 5px; color: #526f18; font-weight: 750; }
+.attendance-roster-head-actions { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .attendance-roster-head-actions > button { min-height: 38px; padding: 0 11px; border: 1px solid #779337; border-radius: 7px; background: #edf6d5; color: #4c641a; font-size: 8px; font-weight: 780; cursor: pointer; }
 .attendance-roster-head-actions > button:disabled { opacity: .45; cursor: default; }
 .attendance-roster-head-actions > strong { min-width: 92px; color: #607f1e; font: 750 31px/1 var(--font-geist-mono); text-align: right; }
@@ -179,10 +181,13 @@
 .attendance-student-dialog form > div { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
 .attendance-student-dialog label { display: grid; gap: 6px; }
 .attendance-student-dialog label > span { color: #56605c; font: 750 8px var(--font-geist-mono); text-transform: uppercase; }
-.attendance-student-dialog input { width: 100%; height: 45px; padding: 0 12px; border: 1px solid #c9cdc4; border-radius: 8px; background: #fff; font-size: 11px; }
+.attendance-student-dialog input, .attendance-student-dialog select { width: 100%; height: 45px; padding: 0 12px; border: 1px solid #c9cdc4; border-radius: 8px; background: #fff; font-size: 11px; }
 .attendance-student-dialog-note { margin: 0; padding: 11px 13px; border: 1px solid #cfdbb2; border-radius: 8px; background: #f1f7df; color: #53652f; font-size: 9px; line-height: 1.45; }
+.attendance-current-substitute { margin: 0; padding: 10px 12px; border: 1px solid #d6dcc7; border-radius: 8px; background: #f8faef; color: #59654c; font-size: 9px; }
 .attendance-student-dialog footer { margin: 4px -22px 0; min-height: 76px; padding: 12px 22px; border-top: 1px solid var(--line); background: #f7f6f0; display: flex; justify-content: flex-end; gap: 10px; }
 .attendance-student-dialog footer button { min-width: 180px; justify-content: center; }
+.attendance-substitute-dialog { width: min(660px, 100%); }
+.attendance-substitute-dialog footer .attendance-remove-substitute { margin-right: auto; border-color: #d99087; color: #913b33; }
 
 @media (max-width: 1120px) {
   .attendance-layout { grid-template-columns: minmax(270px, .65fr) minmax(450px, 1.35fr); }
@@ -231,6 +236,7 @@
   .attendance-rules-toolbar button { flex: 1; }
   .attendance-roster-head { padding: 17px 62px 17px 17px; flex-wrap: wrap; }
   .attendance-roster-head-actions { width: 100%; padding-top: 0; justify-content: space-between; }
+  .attendance-roster-head-actions > button { flex: 1; }
   .attendance-roster-head-actions > strong { min-width: 70px; font-size: 25px; }
   .attendance-roster-actions { align-items: stretch; flex-direction: column; }
   .attendance-roster-actions .primary-button { width: 100%; }
@@ -250,4 +256,6 @@
   .attendance-student-dialog form > div { grid-template-columns: 1fr; }
   .attendance-student-dialog footer { margin-top: 8px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
   .attendance-student-dialog footer button { min-width: 0; flex: 1; }
+  .attendance-substitute-dialog footer { flex-wrap: wrap; }
+  .attendance-substitute-dialog footer .attendance-remove-substitute { flex-basis: 100%; order: 3; }
 }

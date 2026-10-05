@@ -126,6 +126,13 @@ const schemaStatements = [
       REFERENCES subject_practices(subject_id, practice_id)
       ON DELETE RESTRICT
   )`,
+  `CREATE TABLE IF NOT EXISTS session_attendance_delegations (
+    session_id INTEGER PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    substitute_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    appointed_by_teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE RESTRICT,
+    appointed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS session_student_inclusions (
     session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     student_id INTEGER NOT NULL REFERENCES subject_students(id) ON DELETE CASCADE,
@@ -201,6 +208,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_subject_practices_practice_id ON subject_practices(practice_id)",
   "CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)",
   "CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)",
+  "CREATE INDEX IF NOT EXISTS idx_attendance_delegations_substitute ON session_attendance_delegations(substitute_teacher_id)",
   "CREATE INDEX IF NOT EXISTS idx_session_student_inclusions_student ON session_student_inclusions(student_id)",
   "CREATE INDEX IF NOT EXISTS idx_session_attendance_student_id ON session_attendance(student_id)",
   "CREATE INDEX IF NOT EXISTS idx_attendance_submissions_teacher ON session_attendance_submissions(marked_by_teacher_id)",
@@ -589,6 +597,13 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_practice_installations_installation_id ON practice_installations(installation_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_sessions_subject_practice ON sessions(subject_id, practice_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_sessions_teacher_id ON sessions(teacher_id)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_attendance_delegations_substitute ON session_attendance_delegations(substitute_teacher_id)");
+  database.exec(`CREATE TRIGGER IF NOT EXISTS clear_attendance_delegation_on_teacher_change
+    AFTER UPDATE OF teacher_id ON sessions
+    WHEN NEW.teacher_id IS NOT OLD.teacher_id
+    BEGIN
+      DELETE FROM session_attendance_delegations WHERE session_id = NEW.id;
+    END`);
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_subject_students_subject_semester ON subject_students(subject_id, semester_id)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_student_subgroups_group_code ON student_subgroups(group_code)");

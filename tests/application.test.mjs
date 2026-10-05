@@ -86,6 +86,8 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal((await fetch(`${origin}/api/attendance`)).status, 401);
   assert.equal((await fetch(`${origin}/api/attendance`, { method: "PATCH" })).status, 401);
   assert.equal((await fetch(`${origin}/api/attendance`, { method: "DELETE" })).status, 401);
+  assert.equal((await fetch(`${origin}/api/attendance/delegation`, { method: "PUT" })).status, 401);
+  assert.equal((await fetch(`${origin}/api/attendance/delegation`, { method: "DELETE" })).status, 401);
   assert.equal((await fetch(`${origin}/api/import/student-roster`, { method: "POST" })).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
@@ -128,7 +130,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.ok(anotherTeachersSession);
   const forbiddenAttendanceResponse = await fetch(`${origin}/api/attendance?sessionId=${anotherTeachersSession.id}`);
   assert.equal(forbiddenAttendanceResponse.status, 404);
-  assert.match((await forbiddenAttendanceResponse.json()).error, /no está asignada a tu usuario/i);
+  assert.match((await forbiddenAttendanceResponse.json()).error, /no está asignada ni delegada a tu usuario/i);
   const forbiddenAttendanceAddition = await fetch(`${origin}/api/attendance`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
@@ -296,6 +298,86 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run("2026-09-23", "09:00", 120, 1, 2, 1, "attendance-statistics-other-teacher", "ASI-01", "32").lastInsertRowid);
   attendanceDatabase.close();
+
+  const substituteTeacher = initialData.teachers.find((teacher) => teacher.id !== loginPayload.teacher.id);
+  assert.ok(substituteTeacher);
+  const selfDelegationResponse = await fetch(`${origin}/api/attendance/delegation`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: otherAttendanceSessionId, substituteTeacherId: loginPayload.teacher.id }),
+  });
+  assert.equal(selfDelegationResponse.status, 400);
+  assert.match((await selfDelegationResponse.json()).error, /no puede nombrarse como sustituto/i);
+
+  const createDelegationResponse = await fetch(`${origin}/api/attendance/delegation`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: otherAttendanceSessionId, substituteTeacherId: substituteTeacher.id }),
+  });
+  assert.equal(createDelegationResponse.status, 200);
+  const createdDelegation = await createDelegationResponse.json();
+  assert.equal(createdDelegation.delegation.substituteTeacherId, substituteTeacher.id);
+  const delegationDatabase = new DatabaseSync(databasePath);
+  assert.deepEqual(
+    { ...delegationDatabase.prepare(`SELECT session_id AS sessionId,
+      substitute_teacher_id AS substituteTeacherId, appointed_by_teacher_id AS appointedByTeacherId
+      FROM session_attendance_delegations WHERE session_id = ?`).get(otherAttendanceSessionId) },
+    { sessionId: otherAttendanceSessionId, substituteTeacherId: substituteTeacher.id, appointedByTeacherId: loginPayload.teacher.id },
+  );
+  assert.equal(delegationDatabase.prepare(`SELECT COUNT(*) AS total FROM notifications
+    WHERE recipient_teacher_id = ? AND session_id = ? AND title = 'Nueva sustitución de asistencia'`)
+    .get(substituteTeacher.id, otherAttendanceSessionId).total, 1);
+  const substituteToken = "substitute-attendance-session-token";
+  delegationDatabase.prepare(`INSERT INTO auth_sessions (token_hash, teacher_id, expires_at)
+    VALUES (?, ?, ?)`)
+    .run(createHash("sha256").update(substituteToken).digest("base64url"), substituteTeacher.id, Date.now() + 60_000);
+  delegationDatabase.close();
+
+  const responsibleCookie = sessionCookie;
+  sessionCookie = `nexo_lab_session=${substituteToken}`;
+  const substituteSessionsResponse = await fetch(`${origin}/api/attendance?includePast=true`);
+  assert.equal(substituteSessionsResponse.status, 200);
+  const substituteSessions = await substituteSessionsResponse.json();
+  const substituteSession = substituteSessions.sessions.find((session) => session.id === otherAttendanceSessionId);
+  assert.ok(substituteSession);
+  assert.equal(substituteSession.attendanceRole, "substitute");
+  assert.equal(substituteSession.canManageSubstitute, false);
+  assert.equal(substituteSession.responsibleTeacherId, loginPayload.teacher.id);
+  const substituteData = await (await fetch(`${origin}/api/data`)).json();
+  assert.ok(substituteData.notifications.some((notification) => (
+    notification.sessionId === otherAttendanceSessionId
+    && notification.title === "Nueva sustitución de asistencia"
+  )));
+  const substituteDetail = await (await fetch(`${origin}/api/attendance?sessionId=${otherAttendanceSessionId}`)).json();
+  assert.equal(substituteDetail.session.attendanceRole, "substitute");
+  const substituteCannotDelegateResponse = await fetch(`${origin}/api/attendance/delegation`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: otherAttendanceSessionId, substituteTeacherId: initialData.teachers.find((teacher) => teacher.id !== substituteTeacher.id)?.id }),
+  });
+  assert.equal(substituteCannotDelegateResponse.status, 403);
+  const substituteSaveResponse = await fetch(`${origin}/api/attendance`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId: otherAttendanceSessionId,
+      studentIds: substituteDetail.students.map((student) => student.id),
+      attendedStudentIds: substituteDetail.students.map((student) => student.id),
+    }),
+  });
+  assert.equal(substituteSaveResponse.status, 200);
+  sessionCookie = responsibleCookie;
+
+  const removeDelegationResponse = await fetch(`${origin}/api/attendance/delegation`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: otherAttendanceSessionId }),
+  });
+  assert.equal(removeDelegationResponse.status, 200);
+  assert.equal((await removeDelegationResponse.json()).delegation, null);
+  sessionCookie = `nexo_lab_session=${substituteToken}`;
+  assert.equal((await fetch(`${origin}/api/attendance?sessionId=${otherAttendanceSessionId}`)).status, 404);
+  sessionCookie = responsibleCookie;
 
   const attendanceSessionsResponse = await fetch(`${origin}/api/attendance`);
   assert.equal(attendanceSessionsResponse.status, 200);
@@ -779,8 +861,10 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   assert.equal(dataWithSession.notifications[0].readAt, null);
   assert.match(dataWithSession.notifications[0].message, /ASI-01A/);
   const notificationDatabase = new DatabaseSync(databasePath);
-  assert.equal(notificationDatabase.prepare("SELECT COUNT(*) AS total FROM notifications").get().total, 1);
-  assert.equal(notificationDatabase.prepare("SELECT recipient_teacher_id AS recipientTeacherId FROM notifications").get().recipientTeacherId, editedTeacher.id);
+  assert.equal(notificationDatabase.prepare(`SELECT COUNT(*) AS total FROM notifications
+    WHERE session_id = ? AND event_type = 'session-created'`).get(createdSession.id).total, 1);
+  assert.equal(notificationDatabase.prepare(`SELECT recipient_teacher_id AS recipientTeacherId FROM notifications
+    WHERE session_id = ? AND event_type = 'session-created'`).get(createdSession.id).recipientTeacherId, editedTeacher.id);
   notificationDatabase.close();
   const createdNotificationId = dataWithSession.notifications[0].id;
   const readNotificationResponse = await fetch(`${origin}/api/notifications`, {

@@ -69,6 +69,18 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.ok(attendanceSubmissionColumns.some((column) => column.name === "attended_student_count"));
   assert.ok(attendanceSubmissionColumns.some((column) => column.name === "submitted_at"));
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM session_attendance_submissions").get().total, 0);
+  const delegationColumns = database.prepare("PRAGMA table_info(session_attendance_delegations)").all();
+  assert.ok(delegationColumns.some((column) => column.name === "session_id"));
+  assert.ok(delegationColumns.some((column) => column.name === "substitute_teacher_id"));
+  assert.ok(delegationColumns.some((column) => column.name === "appointed_by_teacher_id"));
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM session_attendance_delegations").get().total, 0);
+  assert.ok(database.prepare(`SELECT name FROM sqlite_master
+    WHERE type = 'trigger' AND name = 'clear_attendance_delegation_on_teacher_change'`).get());
+  database.prepare(`INSERT INTO session_attendance_delegations
+    (session_id, substitute_teacher_id, appointed_by_teacher_id) VALUES (1, 2, 1)`).run();
+  database.prepare("UPDATE sessions SET teacher_id = 3 WHERE id = 1").run();
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM session_attendance_delegations WHERE session_id = 1").get().total, 0);
+  database.prepare("UPDATE sessions SET teacher_id = 1 WHERE id = 1").run();
   const sessionStudentInclusionColumns = database.prepare("PRAGMA table_info(session_student_inclusions)").all();
   assert.ok(sessionStudentInclusionColumns.some((column) => column.name === "session_id"));
   assert.ok(sessionStudentInclusionColumns.some((column) => column.name === "student_id"));
