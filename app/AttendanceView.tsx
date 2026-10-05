@@ -132,7 +132,7 @@ function acceptanceDate(value: string | null) {
 }
 
 async function fetchAttendanceSessions(signal?: AbortSignal) {
-  const response = await fetch("/api/attendance", { cache: "no-store", signal });
+  const response = await fetch("/api/attendance?includePast=true", { cache: "no-store", signal });
   const payload = await response.json() as Partial<AttendanceSessionsPayload> & { error?: string };
   if (!response.ok || !payload.sessions) throw new Error(payload.error || "No se pudieron cargar tus sesiones.");
   return { sessions: payload.sessions, today: payload.today ?? "" } satisfies AttendanceSessionsPayload;
@@ -432,6 +432,9 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   const [view, setView] = useState<"register" | "statistics">("register");
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [today, setToday] = useState("");
+  const [showPastSessions, setShowPastSessions] = useState(false);
+  const visibleSessions = sessions.filter((session) => showPastSessions || session.sessionDate >= today);
+  const sessionsLabel = showPastSessions ? "Sesiones asignadas" : "Próximas sesiones";
   const [statistics, setStatistics] = useState<AttendanceStatistics | null>(null);
   const [statisticsLoading, setStatisticsLoading] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
@@ -722,8 +725,8 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
   return (
     <section className="attendance-view">
       <header className="attendance-heading">
-        <div><span className="section-kicker">Control de asistencia</span><h1>Asistencia</h1><p>{view === "register" ? `Próximas sesiones asignadas a ${teacherName}.` : "Uso del control de asistencia por asignatura y semestre."}</p></div>
-        <div className="attendance-heading-stat"><strong>{view === "statistics" ? statistics?.subjects.length ?? "—" : sessions.length}</strong><span>{view === "statistics" ? "asignaturas evaluadas" : sessions.length === 1 ? "sesión próxima" : "sesiones próximas"}</span></div>
+        <div><span className="section-kicker">Control de asistencia</span><h1>Asistencia</h1><p>{view === "register" ? (showPastSessions ? `Sesiones asignadas a ${teacherName}.` : `Próximas sesiones asignadas a ${teacherName}.`) : "Uso del control de asistencia por asignatura y semestre."}</p></div>
+        <div className="attendance-heading-stat"><strong>{view === "statistics" ? statistics?.subjects.length ?? "—" : visibleSessions.length}</strong><span>{view === "statistics" ? "asignaturas evaluadas" : showPastSessions ? "sesiones asignadas" : visibleSessions.length === 1 ? "sesión próxima" : "sesiones próximas"}</span></div>
       </header>
 
       <nav className="attendance-view-tabs" aria-label="Vistas de asistencia">
@@ -731,19 +734,26 @@ export default function AttendanceView({ teacherName }: { teacherName: string })
         <button type="button" className={view === "statistics" ? "active" : ""} aria-current={view === "statistics" ? "page" : undefined} onClick={() => changeView("statistics")}>Estadísticas</button>
       </nav>
 
+      {view === "register" && (
+        <label className="attendance-past-sessions">
+          <input type="checkbox" checked={showPastSessions} onChange={(event) => setShowPastSessions(event.target.checked)} />
+          <span>Mostrar sesiones anteriores</span>
+        </label>
+      )}
+
       {error && <div className="attendance-message error" role="alert"><span>!</span><p>{error}</p><button type="button" onClick={() => setError("")} aria-label="Cerrar aviso">×</button></div>}
       {success && <div className="attendance-message success" role="status"><span>✓</span><p>{success}</p><button type="button" onClick={() => setSuccess("")} aria-label="Cerrar aviso">×</button></div>}
 
       {view === "statistics" ? (
         <AttendanceStatisticsPanel statistics={statistics} loading={statisticsLoading} onSemesterChange={(semesterId) => void loadStatistics(semesterId)} />
-      ) : !sessions.length ? (
-        <div className="attendance-empty"><span>ASI</span><h2>No tienes próximas sesiones</h2><p>Cuando una sesión tenga tu profesor asignado, aparecerá aquí desde el comienzo de ese día.</p></div>
+      ) : !visibleSessions.length ? (
+        <div className="attendance-empty"><span>ASI</span><h2>{showPastSessions ? "No tienes sesiones asignadas" : "No tienes próximas sesiones"}</h2><p>{showPastSessions ? "Aquí aparecerán las sesiones que tengas asignadas." : "Puedes marcar «Mostrar sesiones anteriores» para consultar las de días anteriores."}</p></div>
       ) : (
         <div className="attendance-layout">
-          <aside className="attendance-sessions" aria-label="Próximas sesiones">
-            <header><strong>Próximas sesiones</strong><small>Selecciona una para pasar lista</small></header>
+          <aside className="attendance-sessions" aria-label={sessionsLabel}>
+            <header><strong>{sessionsLabel}</strong><small>Selecciona una para pasar lista</small></header>
             <div>
-              {sessions.map((session) => (
+              {visibleSessions.map((session) => (
                 <button
                   type="button"
                   key={session.id}

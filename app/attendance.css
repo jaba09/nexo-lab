@@ -1,4 +1,6 @@
 .attendance-view { display: grid; gap: 18px; }
+.attendance-past-sessions { width: fit-content; min-height: 38px; display: flex; align-items: center; gap: 9px; font-size: 11px; cursor: pointer; }
+.attendance-past-sessions input { width: 18px; height: 18px; margin: 0; accent-color: #607f1e; }
 .attendance-heading { min-height: 230px; padding: 34px 38px; border: 1px solid var(--ink); border-radius: 14px; background: linear-gradient(135deg, var(--lime), #cde953); display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; overflow: hidden; }
 .attendance-heading h1 { margin: 8px 0 10px; font-size: clamp(48px, 6vw, 78px); font-weight: 640; letter-spacing: -.065em; line-height: .95; }
 .attendance-heading p { margin: 0; color: #42502b; font-size: 12px; }

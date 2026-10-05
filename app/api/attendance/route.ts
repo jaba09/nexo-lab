@@ -388,9 +388,9 @@ export async function GET(request: Request) {
       FROM sessions se
       JOIN subjects s ON s.id = se.subject_id
       LEFT JOIN practices p ON p.id = se.practice_id
-      WHERE se.teacher_id = ? AND se.session_date >= ?
+      WHERE se.teacher_id = ? AND (? = 1 OR se.session_date >= ?)
       ORDER BY se.session_date, se.start_time, se.id`)
-      .all(teacher.id, today) as AttendanceSession[];
+      .all(teacher.id, url.searchParams.get("includePast") === "true" ? 1 : 0, today) as AttendanceSession[];
     const summaries = sessions.map((session) => {
       const detail = attendanceDetail(database, session);
       return {
