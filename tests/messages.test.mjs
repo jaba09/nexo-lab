@@ -6,10 +6,10 @@ import { teacherGroupEmailAddressing } from "../lib/smtp.ts";
 test("chooses hidden or visible addressing for teacher group messages", () => {
   assert.deepEqual(
     teacherGroupEmailAddressing("sender@unizar.es", ["one@unizar.es", "sender@unizar.es", "two@unizar.es"], true),
-    { to: "sender@unizar.es", bcc: ["one@unizar.es", "two@unizar.es"] },
+    { to: undefined, bcc: ["one@unizar.es", "two@unizar.es"] },
   );
   assert.deepEqual(
-    teacherGroupEmailAddressing("sender@unizar.es", ["one@unizar.es", "two@unizar.es"], false),
+    teacherGroupEmailAddressing("sender@unizar.es", ["one@unizar.es", "sender@unizar.es", "two@unizar.es"], false),
     { to: ["one@unizar.es", "two@unizar.es"], bcc: undefined },
   );
 });
@@ -41,7 +41,9 @@ test("opens teacher group messages in the system email app without requesting cr
   assert.match(page, /messageMailtoUrl/);
   assert.match(page, /window\.location\.assign\(mailto\)/);
   assert.doesNotMatch(route, /isAdmin|readOnlyResponse/);
-  assert.match(route, /messageAudienceTeacherIds\(sessions, semesterId, subjectId, semesterFromDate\)/);
+  assert.match(route, /messageAudienceTeacherIds\(sessions, semesterId, subjectId, semesterFromDate, authenticatedTeacher\.id\)/);
+  assert.match(page, /messageAudienceTeacherIds\(data\.sessions, selectedSemester, audienceSubjectId, semesterFromDate, sender\.id\)/);
+  assert.match(route, /email !== senderEmail/);
   assert.match(route, /recipients\.length > 200/);
   assert.doesNotMatch(route, /INSERT|UPDATE|DELETE/i);
   assert.match(route, /const blindCopy = payload\.blindCopy !== false/);

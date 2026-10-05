@@ -3560,7 +3560,7 @@ function MessagesView({
     ? selectedSubjectId
     : String(subjects[0]?.id ?? "");
   const audienceSubjectId = audience === "subject" && effectiveSubjectId ? Number(effectiveSubjectId) : null;
-  const audienceTeacherIds = new Set(messageAudienceTeacherIds(data.sessions, selectedSemester, audienceSubjectId, semesterFromDate));
+  const audienceTeacherIds = new Set(messageAudienceTeacherIds(data.sessions, selectedSemester, audienceSubjectId, semesterFromDate, sender.id));
   const audienceTeachers = [...data.teachers]
     .filter((teacher) => audienceTeacherIds.has(teacher.id))
     .sort(compareTeachersBySurname);

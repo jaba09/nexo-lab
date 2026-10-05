@@ -24,3 +24,7 @@ test("selects all distinct teachers with teaching in the semester", () => {
 test("excludes unassigned sessions and sessions from another semester", () => {
   assert.deepEqual(messageAudienceTeacherIds(sessions, "2026-27 S2", 10, semesterFromDate), [12]);
 });
+
+test("excludes the authenticated teacher from the recipient audience", () => {
+  assert.deepEqual(messageAudienceTeacherIds(sessions, "2026-27 S1", null, semesterFromDate, 7), [4, 9]);
+});

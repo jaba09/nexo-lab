@@ -15,12 +15,10 @@ function normalizedEmails(values: string[]) {
 }
 
 export function messageMailtoUrl({ senderEmail, recipients, blindCopy, subject, body }: MessageMailtoInput) {
-  const normalizedRecipients = normalizedEmails(recipients);
   const normalizedSender = normalizedEmails([senderEmail])[0] ?? "";
-  const to = blindCopy ? (normalizedSender ? [normalizedSender] : []) : normalizedRecipients;
-  const bcc = blindCopy
-    ? normalizedRecipients.filter((email) => email !== normalizedSender)
-    : [];
+  const normalizedRecipients = normalizedEmails(recipients).filter((email) => email !== normalizedSender);
+  const to = blindCopy ? [] : normalizedRecipients;
+  const bcc = blindCopy ? normalizedRecipients : [];
   const parameters: [string, string][] = [];
   if (bcc.length) parameters.push(["bcc", bcc.join(",")]);
   parameters.push(["subject", subject], ["body", body]);

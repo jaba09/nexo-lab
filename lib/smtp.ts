@@ -5,10 +5,10 @@ export function smtpUsernameFromEmail(email: string) {
 }
 
 export function teacherGroupEmailAddressing(user: string, recipients: string[], blindCopy: boolean) {
-  if (!blindCopy) return { to: recipients, bcc: undefined };
-  const blindCopyRecipients = recipients.filter((email) => email !== user);
+  const externalRecipients = recipients.filter((email) => email !== user);
+  if (!blindCopy) return { to: externalRecipients, bcc: undefined };
   return {
-    to: user,
-    bcc: blindCopyRecipients.length ? blindCopyRecipients : undefined,
+    to: undefined,
+    bcc: externalRecipients.length ? externalRecipients : undefined,
   };
 }

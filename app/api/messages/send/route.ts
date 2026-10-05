@@ -76,14 +76,17 @@ export async function POST(request: Request) {
     session_date AS sessionDate, subject_id AS subjectId, teacher_id AS teacherId
     FROM sessions
     WHERE teacher_id IS NOT NULL`).all() as MessageAudienceSession[];
-  const teacherIds = messageAudienceTeacherIds(sessions, semesterId, subjectId, semesterFromDate);
+  const teacherIds = messageAudienceTeacherIds(sessions, semesterId, subjectId, semesterFromDate, authenticatedTeacher.id);
   if (!teacherIds.length) {
     return Response.json({ error: "El grupo seleccionado no tiene profesores con docencia." }, { status: 400 });
   }
   const placeholders = teacherIds.map(() => "?").join(", ");
   const teachers = database.prepare(`SELECT id, name, email FROM teachers WHERE id IN (${placeholders})`)
     .all(...teacherIds) as { id: number; name: string; email: string }[];
-  const recipients = [...new Set(teachers.map((teacher) => teacher.email.trim().toLowerCase()).filter(validEmail))];
+  const senderEmail = authenticatedTeacher.email.trim().toLowerCase();
+  const recipients = [...new Set(teachers
+    .map((teacher) => teacher.email.trim().toLowerCase())
+    .filter((email) => validEmail(email) && email !== senderEmail))];
   if (!recipients.length) {
     return Response.json({ error: "Ningún profesor del grupo tiene correo electrónico válido." }, { status: 400 });
   }

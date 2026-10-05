@@ -6,7 +6,7 @@ test("prepares visible recipients for the operating system mail application", ()
   assert.equal(
     messageMailtoUrl({
       senderEmail: "sender@unizar.es",
-      recipients: ["one@unizar.es", "two@unizar.es"],
+      recipients: ["one@unizar.es", "sender@unizar.es", "two@unizar.es"],
       blindCopy: false,
       subject: "Aviso de prácticas",
       body: "Primera línea\nSegunda línea",
@@ -15,7 +15,7 @@ test("prepares visible recipients for the operating system mail application", ()
   );
 });
 
-test("uses the sender as To and the group as BCC when hidden copy is selected", () => {
+test("excludes the sender and uses only the group as BCC when hidden copy is selected", () => {
   assert.equal(
     messageMailtoUrl({
       senderEmail: "SENDER@UNIZAR.ES",
@@ -24,7 +24,7 @@ test("uses the sender as To and the group as BCC when hidden copy is selected", 
       subject: "Reunión",
       body: "Hola",
     }),
-    "mailto:sender%40unizar.es?bcc=one%40unizar.es&subject=Reuni%C3%B3n&body=Hola",
+    "mailto:?bcc=one%40unizar.es&subject=Reuni%C3%B3n&body=Hola",
   );
   assert.equal(recommendedMailtoLength, 8_000);
 });
