@@ -186,6 +186,14 @@ const schemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     read_at TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS installation_incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    installation_id INTEGER NOT NULL REFERENCES installations(id) ON DELETE RESTRICT,
+    reported_by_teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS holidays (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     holiday_date TEXT NOT NULL UNIQUE,
@@ -215,6 +223,7 @@ const schemaStatements = [
   "CREATE INDEX IF NOT EXISTS idx_student_lab_rule_acceptances_email ON student_lab_rule_acceptances(student_email COLLATE NOCASE, academic_year, rules_version)",
   "CREATE INDEX IF NOT EXISTS idx_subject_editors_teacher_id ON subject_editors(teacher_id)",
   "CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_teacher_id, created_at DESC, id DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_installation_incidents_installation_created ON installation_incidents(installation_id, created_at DESC, id DESC)",
 ];
 
 const seedStatements = [
@@ -641,6 +650,7 @@ function initializeDatabase(database: DatabaseSync) {
   database.exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_teacher_id, created_at DESC, id DESC)");
   database.exec("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread ON notifications(recipient_teacher_id, read_at)");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_installation_incidents_installation_created ON installation_incidents(installation_id, created_at DESC, id DESC)");
   database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email COLLATE NOCASE) WHERE email <> ''");
   database.exec("CREATE INDEX IF NOT EXISTS idx_holidays_date ON holidays(holiday_date)");
   const insertAcademicDayType = database.prepare(`INSERT OR IGNORE INTO academic_day_types

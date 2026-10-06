@@ -281,7 +281,7 @@ export default async function HelpPage() {
                 <div><span>PRO</span><strong>Profesores</strong><p>Nombre, código, correo, contraseña, permisos y pertenencia al personal de laboratorio.</p></div>
                 <div><span>ASI</span><strong>Asistencia</strong><p>Próximas sesiones del profesor conectado y control de los alumnos presentes.</p></div>
                 <div><span>PIZ</span><strong>Pizarra</strong><p>Calendario semanal independiente de clases magistrales y problemas. Filtra por profesor, asignatura y semestre; pulsa una clase para consultar su grupo, aula y reparto docente.</p></div>
-                <div><span>MEN</span><strong>Mensajes</strong><p>Correo a profesores con docencia en una asignatura o semestre.</p></div>
+                <div><span>MEN</span><strong>Mensajes</strong><p>Correo por asignatura o incidencias dirigidas al personal de laboratorio.</p></div>
               </div>
               <h3>Notificaciones al personal de laboratorio</h3>
               <p>Los profesores marcados como «Personal de laboratorio» reciben un aviso interno cada vez que se crea o modifica una sesión. La campana de la barra superior muestra los avisos sin leer; al abrirla puedes marcar uno o todos como leídos. Los avisos quedan guardados aunque cierres la sesión.</p>
@@ -367,7 +367,7 @@ export default async function HelpPage() {
               <p>Un administrador concede el rol de editor desde la ficha de una asignatura. Desde Admin también puede ajustar las horas de la vista semanal, ejecutar un chequeo completo de interferencias de profesores e instalaciones y descargar el informe en PDF. El sistema conserva siempre al menos una cuenta administradora.</p>
               <div className="help-callout neutral">
                 <span aria-hidden="true">✉</span>
-                <p><strong>Mensajes</strong> Elige el semestre y el grupo, revisa los destinatarios y redacta el correo. «Abrir en mi correo» prepara el mensaje en la aplicación predeterminada del dispositivo sin solicitar ni almacenar contraseñas; revisa allí la cuenta remitente y pulsa enviar. Por defecto, los destinatarios aparecen en el campo Para. Activa el checkbox de copia oculta solo cuando quieras ocultar sus direcciones.</p>
+                <p><strong>Mensajes</strong> Elige una asignatura o una instalación; ambas selecciones son excluyentes y comienzan en «Sin selección». Una asignatura dirige el correo a sus profesores con docencia en el semestre. Una instalación lo dirige al personal de laboratorio y guarda el asunto y el mensaje en su histórico de incidencias al preparar el correo. «Abrir en mi correo» prepara el mensaje en la aplicación predeterminada sin solicitar ni almacenar contraseñas; revisa allí la cuenta remitente y pulsa enviar. Por defecto, los destinatarios aparecen en el campo Para. Activa el checkbox de copia oculta solo cuando quieras ocultar sus direcciones.</p>
               </div>
             </HelpSection>
 

@@ -112,6 +112,12 @@ test("creates the independent SQLite database with the migrated hierarchy", asyn
   assert.ok(notificationColumns.some((column) => column.name === "recipient_teacher_id"));
   assert.ok(notificationColumns.some((column) => column.name === "read_at"));
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM notifications").get().total, 0);
+  const installationIncidentColumns = database.prepare("PRAGMA table_info(installation_incidents)").all();
+  assert.ok(installationIncidentColumns.some((column) => column.name === "installation_id"));
+  assert.ok(installationIncidentColumns.some((column) => column.name === "reported_by_teacher_id"));
+  assert.ok(installationIncidentColumns.some((column) => column.name === "subject"));
+  assert.ok(installationIncidentColumns.some((column) => column.name === "message"));
+  assert.equal(database.prepare("SELECT COUNT(*) AS total FROM installation_incidents").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM auth_sessions").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM password_reset_tokens").get().total, 0);
   assert.equal(database.prepare("SELECT COUNT(*) AS total FROM sessions").get().total, 4);

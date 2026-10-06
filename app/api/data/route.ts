@@ -457,6 +457,14 @@ export async function GET() {
       WHERE recipient_teacher_id = ?
       ORDER BY created_at DESC, id DESC
       LIMIT 100`).all(authenticatedTeacher.id);
+    const installationIncidents = database.prepare(`SELECT
+      ii.id, ii.installation_id AS installationId,
+      ii.reported_by_teacher_id AS reportedByTeacherId,
+      COALESCE(t.name, 'Profesor eliminado') AS reportedByTeacherName,
+      ii.subject, ii.message, ii.created_at AS createdAt
+      FROM installation_incidents ii
+      LEFT JOIN teachers t ON t.id = ii.reported_by_teacher_id
+      ORDER BY ii.created_at DESC, ii.id DESC`).all();
 
     return Response.json({
       laboratories: laboratories.map((laboratory) => ({ ...laboratory, editVersion: recordVersion("laboratories", laboratory) })),
@@ -502,6 +510,7 @@ export async function GET() {
       holidays,
       academicDayTypes,
       notifications,
+      installationIncidents,
       preferences: readAppPreferences(database),
       viewer: authenticatedTeacher,
       editableSubjectIds: authenticatedTeacher.isAdmin
@@ -1100,6 +1109,8 @@ export async function DELETE(request: Request) {
     } else if (entity === "installations") {
       const usage = database.prepare("SELECT COUNT(*) AS total FROM practice_installations WHERE installation_id = ?").get(id) as { total: number };
       if (Number(usage.total)) return Response.json({ error: "No puedes eliminar esta instalación porque todavía la usan prácticas." }, { status: 409 });
+      const incidentUsage = database.prepare("SELECT COUNT(*) AS total FROM installation_incidents WHERE installation_id = ?").get(id) as { total: number };
+      if (Number(incidentUsage.total)) return Response.json({ error: "No puedes eliminar esta instalación porque tiene incidencias en su histórico." }, { status: 409 });
       database.prepare("DELETE FROM installations WHERE id = ?").run(id);
     } else if (entity === "practices") {
       const usage = database.prepare("SELECT COUNT(*) AS total FROM subject_practices WHERE practice_id = ?").get(id) as { total: number };

@@ -30,8 +30,16 @@ test("opens teacher group messages in the system email app without requesting cr
   assert.match(page, /navigation\.filter\([\s\S]*?\.map\(\(item\) =>/);
   assert.match(page, /function MessagesView/);
   assert.match(page, /Disponible para profesores/);
-  assert.match(page, /Docencia en una asignatura/);
-  assert.match(page, /Toda la docencia del semestre/);
+  assert.match(page, /<span>Asignatura<\/span>/);
+  assert.match(page, /<span>Instalación<\/span>/);
+  assert.match(page, /<option value="">Sin selección<\/option>/);
+  assert.doesNotMatch(page, /<span>Grupo<\/span>/);
+  assert.match(page, /setSelectedInstallationId\(""\)/);
+  assert.match(page, /setSelectedSubjectId\(""\)/);
+  assert.match(page, /laboratoryStaffAudienceTeacherIds\(data\.teachers, sender\.id\)/);
+  assert.match(page, /\/api\/messages\/incidents/);
+  assert.match(page, /Registrar incidencia y abrir correo/);
+  assert.match(page, /Histórico/);
   assert.match(page, /Enviar con copia oculta \(CCO\)/);
   assert.match(page, /const \[blindCopy, setBlindCopy\] = useState\(false\)/);
   assert.match(page, /blindCopy,/);
@@ -42,7 +50,7 @@ test("opens teacher group messages in the system email app without requesting cr
   assert.match(page, /window\.location\.assign\(mailto\)/);
   assert.doesNotMatch(route, /isAdmin|readOnlyResponse/);
   assert.match(route, /messageAudienceTeacherIds\(sessions, semesterId, subjectId, semesterFromDate, authenticatedTeacher\.id\)/);
-  assert.match(page, /messageAudienceTeacherIds\(data\.sessions, selectedSemester, audienceSubjectId, semesterFromDate, sender\.id\)/);
+  assert.match(page, /messageAudienceTeacherIds\(data\.sessions, selectedSemester, Number\(selectedSubjectId\), semesterFromDate, sender\.id\)/);
   assert.match(route, /email !== senderEmail/);
   assert.match(route, /recipients\.length > 200/);
   assert.doesNotMatch(route, /INSERT|UPDATE|DELETE/i);
@@ -59,6 +67,9 @@ test("opens teacher group messages in the system email app without requesting cr
   assert.match(styles, /\.messages-copy-option/);
   assert.match(styles, /\.messages-mail-status/);
   assert.match(styles, /\.messages-send-actions/);
+  assert.match(styles, /\.messages-incident-history/);
+  assert.match(styles, /\.messages-exclusive-note/);
+  assert.match(help, /histórico de incidencias/);
   assert.match(help, /Por defecto, los destinatarios aparecen en el campo Para/);
   assert.match(help, /sin solicitar ni almacenar contraseñas/);
   assert.match(help, /<tr><td>Enviar mensajes a grupos<\/td><td><span className="yes">Sí<\/span><\/td><td><span className="yes">Sí<\/span><\/td><td><span className="yes">Sí<\/span><\/td><\/tr>/);

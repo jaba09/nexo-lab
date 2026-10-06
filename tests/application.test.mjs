@@ -89,6 +89,7 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal((await fetch(`${origin}/api/attendance/delegation`, { method: "PUT" })).status, 401);
   assert.equal((await fetch(`${origin}/api/attendance/delegation`, { method: "DELETE" })).status, 401);
   assert.equal((await fetch(`${origin}/api/import/student-roster`, { method: "POST" })).status, 401);
+  assert.equal((await fetch(`${origin}/api/messages/incidents`, { method: "POST" })).status, 401);
   const unauthorizedEventsResponse = await fetch(`${origin}/api/events`);
   assert.equal(unauthorizedEventsResponse.status, 401);
 
@@ -160,6 +161,30 @@ test("serves the web app and persists CRUD operations through its own API", asyn
   assert.equal(initialData.laboratories.length, 3);
   assert.equal(initialData.installations.length, 4);
   assert.ok(initialData.installations.every((installation) => installation.materialsDescription === ""));
+  assert.deepEqual(initialData.installationIncidents, []);
+  const incidentResponse = await fetch(`${origin}/api/messages/incidents`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      installationId: initialData.installations[0].id,
+      subject: "Fuga detectada",
+      message: "Se ha observado una fuga durante la preparación.",
+    }),
+  });
+  assert.equal(incidentResponse.status, 201);
+  const incidentId = (await incidentResponse.json()).id;
+  assert.ok(incidentId);
+  const dataWithIncident = await (await fetch(`${origin}/api/data`)).json();
+  assert.equal(dataWithIncident.installationIncidents.length, 1);
+  assert.deepEqual(dataWithIncident.installationIncidents[0], {
+    id: incidentId,
+    installationId: initialData.installations[0].id,
+    reportedByTeacherId: loginPayload.teacher.id,
+    reportedByTeacherName: loginPayload.teacher.name,
+    subject: "Fuga detectada",
+    message: "Se ha observado una fuga durante la preparación.",
+    createdAt: dataWithIncident.installationIncidents[0].createdAt,
+  });
   assert.equal(initialData.practices.length, 5);
   assert.ok(initialData.practices.every((practice) => !Object.hasOwn(practice, "riskLevel")));
   assert.deepEqual(

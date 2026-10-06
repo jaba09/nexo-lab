@@ -4,6 +4,11 @@ export type MessageAudienceSession = {
   teacherId: number | null;
 };
 
+export type MessageAudienceTeacher = {
+  id: number;
+  isLabStaff: boolean;
+};
+
 export function messageAudienceTeacherIds(
   sessions: ReadonlyArray<MessageAudienceSession>,
   semesterId: string,
@@ -20,4 +25,13 @@ export function messageAudienceTeacherIds(
     teacherIds.add(Number(session.teacherId));
   }
   return [...teacherIds];
+}
+
+export function laboratoryStaffAudienceTeacherIds(
+  teachers: ReadonlyArray<MessageAudienceTeacher>,
+  excludedTeacherId?: number,
+) {
+  return teachers
+    .filter((teacher) => teacher.isLabStaff && Number(teacher.id) !== excludedTeacherId)
+    .map((teacher) => Number(teacher.id));
 }

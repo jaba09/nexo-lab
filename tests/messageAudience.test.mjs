@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { messageAudienceTeacherIds } from "../lib/messageAudience.ts";
+import { laboratoryStaffAudienceTeacherIds, messageAudienceTeacherIds } from "../lib/messageAudience.ts";
 import { semesterFromDate } from "../lib/semesters.ts";
 
 const sessions = [
@@ -27,4 +27,13 @@ test("excludes unassigned sessions and sessions from another semester", () => {
 
 test("excludes the authenticated teacher from the recipient audience", () => {
   assert.deepEqual(messageAudienceTeacherIds(sessions, "2026-27 S1", null, semesterFromDate, 7), [4, 9]);
+});
+
+test("selects only laboratory staff and excludes the sender", () => {
+  const teachers = [
+    { id: 4, isLabStaff: true },
+    { id: 7, isLabStaff: false },
+    { id: 9, isLabStaff: true },
+  ];
+  assert.deepEqual(laboratoryStaffAudienceTeacherIds(teachers, 4), [9]);
 });

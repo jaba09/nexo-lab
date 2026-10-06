@@ -5,7 +5,7 @@ import { semesterDefinition, semesterFromDate, semesterOptions } from "../lib/se
 import { downloadAllSessionsReportPdf, downloadSessionsCsv, downloadSessionsIcs, downloadSessionsPdf } from "../lib/sessionExports";
 import { sessionSelectionRangeIds } from "../lib/sessionSelection";
 import { mostFrequentGroupSchedule } from "../lib/sessionSchedules";
-import { messageAudienceTeacherIds } from "../lib/messageAudience";
+import { laboratoryStaffAudienceTeacherIds, messageAudienceTeacherIds } from "../lib/messageAudience";
 import { messageMailtoUrl, recommendedMailtoLength } from "../lib/messageMailto";
 import { downloadTeachersCsv } from "../lib/teacherExports";
 import { findSessionConflicts, installationIncludedInConflictChecks, type SessionConflict } from "../lib/sessionConflicts";
@@ -15,7 +15,6 @@ import AttendanceView from "./AttendanceView";
 
 type Section = "overview" | "laboratories" | "installations" | "practices" | "degrees" | "subjects" | "teachers" | "sessions" | "attendance" | "messages" | "preferences" | "pizarra";
 type Entity = Exclude<Section, "overview" | "attendance" | "messages" | "preferences" | "pizarra">;
-type MessageAudience = "subject" | "semester";
 type EditableRecord = { editVersion?: string };
 
 type Laboratory = EditableRecord & {
@@ -167,6 +166,16 @@ type AcademicDayType = {
 type AppPreferences = {
   calendarStartHour: number;
   calendarEndHour: number;
+};
+
+type InstallationIncident = {
+  id: number;
+  installationId: number;
+  reportedByTeacherId: number | null;
+  reportedByTeacherName: string;
+  subject: string;
+  message: string;
+  createdAt: string;
 };
 
 type IcsPreviewGroup = {
@@ -326,6 +335,7 @@ type AppData = {
   holidays: Holiday[];
   academicDayTypes: AcademicDayType[];
   notifications: AppNotification[];
+  installationIncidents: InstallationIncident[];
   preferences: AppPreferences;
   viewer?: AuthenticatedTeacher;
   editableSubjectIds: number[];
@@ -420,6 +430,7 @@ const emptyData: AppData = {
   holidays: [],
   academicDayTypes: [],
   notifications: [],
+  installationIncidents: [],
   preferences: { calendarStartHour: 8, calendarEndHour: 19 },
   editableSubjectIds: [],
 };
@@ -1014,6 +1025,7 @@ export default function Home() {
       holidays: data.holidays,
       academicDayTypes: data.academicDayTypes,
       notifications: data.notifications,
+      installationIncidents: data.installationIncidents,
       preferences: data.preferences,
       viewer: data.viewer,
       editableSubjectIds: data.editableSubjectIds,
@@ -3537,12 +3549,13 @@ function MessagesView({
   selectedSemester: string;
   onSelectedSemesterChange: (semesterId: string) => void;
 }) {
-  const [audience, setAudience] = useState<MessageAudience>("subject");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedInstallationId, setSelectedInstallationId] = useState("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [blindCopy, setBlindCopy] = useState(false);
   const [error, setError] = useState("");
+  const [savingIncident, setSavingIncident] = useState(false);
   const semesters = semesterOptions([
     ...data.sessions.map((session) => session.sessionDate),
     ...data.holidays.map((holiday) => holiday.holidayDate),
@@ -3556,26 +3569,47 @@ function MessagesView({
       left.name.localeCompare(right.name, "es", { sensitivity: "base" })
       || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
     ));
-  const effectiveSubjectId = subjects.some((subject) => String(subject.id) === selectedSubjectId)
-    ? selectedSubjectId
-    : String(subjects[0]?.id ?? "");
-  const audienceSubjectId = audience === "subject" && effectiveSubjectId ? Number(effectiveSubjectId) : null;
-  const audienceTeacherIds = new Set(messageAudienceTeacherIds(data.sessions, selectedSemester, audienceSubjectId, semesterFromDate, sender.id));
+  const installations = [...data.installations].sort((left, right) => (
+    left.laboratoryName.localeCompare(right.laboratoryName, "es", { sensitivity: "base" })
+    || left.name.localeCompare(right.name, "es", { sensitivity: "base" })
+    || left.code.localeCompare(right.code, "es", { numeric: true, sensitivity: "base" })
+  ));
+  const subjectSelected = subjects.some((subject) => String(subject.id) === selectedSubjectId);
+  const installationSelected = installations.some((installation) => String(installation.id) === selectedInstallationId);
+  const audienceTeacherIds = new Set(
+    installationSelected
+      ? laboratoryStaffAudienceTeacherIds(data.teachers, sender.id)
+      : subjectSelected
+        ? messageAudienceTeacherIds(data.sessions, selectedSemester, Number(selectedSubjectId), semesterFromDate, sender.id)
+        : [],
+  );
   const audienceTeachers = [...data.teachers]
     .filter((teacher) => audienceTeacherIds.has(teacher.id))
     .sort(compareTeachersBySurname);
   const recipientTeachers = audienceTeachers.filter((teacher) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacher.email.trim()));
   const missingEmailCount = audienceTeachers.length - recipientTeachers.length;
+  const selectedInstallation = installationSelected
+    ? installations.find((installation) => String(installation.id) === selectedInstallationId)
+    : undefined;
+  const installationIncidents = selectedInstallation
+    ? data.installationIncidents.filter((incident) => incident.installationId === selectedInstallation.id)
+    : [];
 
-  function submitMessage(event: FormEvent<HTMLFormElement>) {
+  async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    openInMailApplication();
+    await openInMailApplication();
   }
 
-  function openInMailApplication() {
+  async function openInMailApplication() {
     setError("");
+    if (!subjectSelected && !installationSelected) {
+      setError("Selecciona una asignatura o una instalación.");
+      return;
+    }
     if (!recipientTeachers.length) {
-      setError("El grupo seleccionado no tiene profesores con correo electrónico.");
+      setError(installationSelected
+        ? "No hay personal de laboratorio con correo electrónico para recibir la incidencia."
+        : "La asignatura seleccionada no tiene profesores con correo electrónico en este semestre.");
       return;
     }
     if (!messageSubject.trim() || !messageBody.trim()) {
@@ -3593,6 +3627,27 @@ function MessagesView({
       setError("El mensaje o la lista de destinatarios es demasiado grande para abrirlos de forma fiable en otra aplicación. Acorta el texto o divide los destinatarios en varios grupos.");
       return;
     }
+    if (selectedInstallation) {
+      setSavingIncident(true);
+      try {
+        const response = await fetch(apiUrl("/api/messages/incidents"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            installationId: selectedInstallation.id,
+            subject: messageSubject.trim(),
+            message: messageBody.trim(),
+          }),
+        });
+        const payload = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(payload.error || "No se pudo guardar la incidencia.");
+      } catch (problem) {
+        setError(clientErrorMessage(problem, "No se pudo guardar la incidencia."));
+        return;
+      } finally {
+        setSavingIncident(false);
+      }
+    }
     window.location.assign(mailto);
   }
 
@@ -3602,7 +3657,7 @@ function MessagesView({
         <div>
           <span className="section-kicker">Comunicación / MEN</span>
           <h1>Mensajes</h1>
-          <p>Envía correos a grupos de profesores calculados a partir de su docencia.</p>
+          <p>Escribe a los profesores de una asignatura o comunica una incidencia al personal de laboratorio.</p>
         </div>
         <span className="messages-access-badge">Disponible para profesores</span>
       </section>
@@ -3610,37 +3665,47 @@ function MessagesView({
       <div className="messages-layout">
         <section className="panel messages-audience-panel" aria-labelledby="messages-audience-title">
           <div className="panel-head">
-            <div><span className="section-kicker">Destinatarios</span><h2 id="messages-audience-title">Grupo de profesores</h2></div>
+            <div><span className="section-kicker">Destinatarios</span><h2 id="messages-audience-title">Elige los destinatarios</h2></div>
             <span className="panel-tag">{recipientTeachers.length} {recipientTeachers.length === 1 ? "correo" : "correos"}</span>
           </div>
           <div className="messages-audience-controls">
             <label>
               <span>Semestre</span>
-              <select value={selectedSemester} onChange={(event) => { onSelectedSemesterChange(event.target.value); setError(""); }}>
+              <select value={selectedSemester} disabled={installationSelected} onChange={(event) => { onSelectedSemesterChange(event.target.value); setError(""); }}>
                 {semesters.map((semester) => <option key={semester.id} value={semester.id}>{semesterDisplayTitle(semester.id)}</option>)}
               </select>
             </label>
             <label>
-              <span>Grupo</span>
-              <select value={audience} onChange={(event) => { setAudience(event.target.value as MessageAudience); setError(""); }}>
-                <option value="subject">Docencia en una asignatura</option>
-                <option value="semester">Toda la docencia del semestre</option>
+              <span>Asignatura</span>
+              <select value={subjectSelected ? selectedSubjectId : ""} onChange={(event) => {
+                setSelectedSubjectId(event.target.value);
+                if (event.target.value) setSelectedInstallationId("");
+                setError("");
+              }}>
+                <option value="">Sin selección</option>
+                {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>)}
               </select>
             </label>
-            {audience === "subject" && (
-              <label>
-                <span>Asignatura</span>
-                <select value={effectiveSubjectId} onChange={(event) => { setSelectedSubjectId(event.target.value); setError(""); }} disabled={!subjects.length}>
-                  {subjects.length
-                    ? subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>)
-                    : <option value="">Sin asignaturas con sesiones</option>}
-                </select>
-              </label>
-            )}
+            <label>
+              <span>Instalación</span>
+              <select value={installationSelected ? selectedInstallationId : ""} onChange={(event) => {
+                setSelectedInstallationId(event.target.value);
+                if (event.target.value) setSelectedSubjectId("");
+                setError("");
+              }}>
+                <option value="">Sin selección</option>
+                {installations.map((installation) => <option key={installation.id} value={installation.id}>{installation.code} · {installation.name} · {installation.laboratoryName}</option>)}
+              </select>
+            </label>
+            <p className="messages-exclusive-note">Elige una asignatura o una instalación. Al seleccionar una, la otra se desmarca automáticamente.</p>
           </div>
           <div className="messages-recipient-summary">
             <strong>{recipientTeachers.length}</strong>
-            <span>{recipientTeachers.length === 1 ? "profesor recibirá el mensaje" : "profesores recibirán el mensaje"}</span>
+            <span>{!subjectSelected && !installationSelected
+              ? "Selecciona una asignatura o una instalación"
+              : installationSelected
+                ? recipientTeachers.length === 1 ? "miembro del personal de laboratorio recibirá la incidencia" : "miembros del personal de laboratorio recibirán la incidencia"
+                : recipientTeachers.length === 1 ? "profesor recibirá el mensaje" : "profesores recibirán el mensaje"}</span>
             {missingEmailCount > 0 && <small>{missingEmailCount} {missingEmailCount === 1 ? "profesor queda fuera porque no tiene correo" : "profesores quedan fuera porque no tienen correo"}</small>}
           </div>
           <div className="messages-recipient-list" aria-label="Profesores destinatarios">
@@ -3648,6 +3713,22 @@ function MessagesView({
               <span key={teacher.id}><strong>{teacher.code}</strong><span>{teacher.name}<small>{teacher.email}</small></span></span>
             )) : <p>No hay destinatarios con correo para esta selección.</p>}
           </div>
+          {selectedInstallation && (
+            <section className="messages-incident-history" aria-label={`Histórico de incidencias de ${selectedInstallation.name}`}>
+              <div><span className="section-kicker">Histórico</span><h3>{selectedInstallation.name}</h3><b>{installationIncidents.length}</b></div>
+              {installationIncidents.length ? (
+                <div className="messages-incident-list">
+                  {installationIncidents.map((incident) => (
+                    <article key={incident.id}>
+                      <header><strong>{incident.subject}</strong><time>{notificationTimestamp(incident.createdAt)}</time></header>
+                      <p>{incident.message}</p>
+                      <small>Registrada por {incident.reportedByTeacherName}</small>
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="messages-incident-empty">Esta instalación todavía no tiene incidencias registradas.</p>}
+            </section>
+          )}
         </section>
 
         <form className="panel messages-compose-panel" onSubmit={submitMessage}>
@@ -3663,7 +3744,7 @@ function MessagesView({
             </label>
             <label>
               <span>Mensaje</span>
-              <textarea required maxLength={20_000} rows={12} value={messageBody} onChange={(event) => setMessageBody(event.target.value)} placeholder="Escribe el mensaje que recibirán los profesores…" />
+              <textarea required maxLength={20_000} rows={12} value={messageBody} onChange={(event) => setMessageBody(event.target.value)} placeholder={installationSelected ? "Describe la incidencia de la instalación…" : "Escribe el mensaje que recibirán los profesores…"} />
             </label>
             <div className="messages-copy-option">
               <input id="messages-blind-copy" type="checkbox" checked={blindCopy} onChange={(event) => setBlindCopy(event.target.checked)} />
@@ -3675,9 +3756,9 @@ function MessagesView({
             </div>
             {error && <p className="messages-error" role="alert">{error}</p>}
             <div className="messages-send-actions">
-              <button className="primary-button messages-mail-app-button" type="submit" disabled={!recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>Abrir en mi correo <span aria-hidden="true">↗</span></button>
+              <button className="primary-button messages-mail-app-button" type="submit" disabled={savingIncident || (!subjectSelected && !installationSelected) || !recipientTeachers.length || !messageSubject.trim() || !messageBody.trim()}>{savingIncident ? "Guardando incidencia…" : installationSelected ? "Registrar incidencia y abrir correo" : "Abrir en mi correo"} <span aria-hidden="true">↗</span></button>
             </div>
-            <p className="messages-mail-app-note">El mensaje se abrirá preparado en la aplicación predeterminada del dispositivo. Revisa la cuenta remitente y pulsa enviar desde allí.</p>
+            <p className="messages-mail-app-note">{installationSelected ? "La incidencia se guardará en el histórico al preparar el correo. " : ""}El mensaje se abrirá en la aplicación predeterminada del dispositivo. Revisa la cuenta remitente y pulsa enviar desde allí.</p>
           </div>
         </form>
       </div>
