@@ -1077,6 +1077,9 @@ export default function Home() {
   const editingRecord = drawer && editingId !== null
     ? (data[drawer] as EntityRecord[]).find((item) => item.id === editingId)
     : undefined;
+  const editingInstallationIncidents = drawer === "installations" && editingId !== null
+    ? data.installationIncidents.filter((incident) => incident.installationId === editingId)
+    : [];
   const editingStale = Boolean(editingId !== null && editingVersion
     && (!editingRecord || editingRecord.editVersion !== editingVersion));
   const editingSubjectScheduledPracticeCounts = new Map<number, number>();
@@ -1795,6 +1798,25 @@ export default function Home() {
                     />
                     <small>Campo opcional · máximo 5.000 caracteres</small>
                   </label>
+                  {editingId !== null && (
+                    <section className="installation-drawer-incidents" aria-label={`Histórico de incidencias de ${form.name}`}>
+                      <header>
+                        <div><span>Histórico de incidencias</span><strong>{editingInstallationIncidents.length} {editingInstallationIncidents.length === 1 ? "incidencia" : "incidencias"}</strong></div>
+                        <b>{editingInstallationIncidents.length}</b>
+                      </header>
+                      {editingInstallationIncidents.length ? (
+                        <div className="installation-drawer-incident-list">
+                          {editingInstallationIncidents.map((incident) => (
+                            <article key={incident.id}>
+                              <div><strong>{incident.subject}</strong><time>{notificationTimestamp(incident.createdAt)}</time></div>
+                              <p>{incident.message}</p>
+                              <small>Registrada por {incident.reportedByTeacherName}</small>
+                            </article>
+                          ))}
+                        </div>
+                      ) : <p className="installation-drawer-incident-empty">Esta instalación todavía no tiene incidencias registradas.</p>}
+                    </section>
+                  )}
                 </>
               )}
 

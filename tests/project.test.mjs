@@ -116,6 +116,10 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
   assert.match(page, /Materiales necesarios/);
   assert.match(page, /form\.materialsDescription/);
   assert.match(page, /className="installation-materials-field"/);
+  assert.match(page, /className="installation-drawer-incidents"/);
+  assert.match(page, /editingInstallationIncidents\.map\(\(incident\) =>/);
+  assert.match(page, /Registrada por \{incident\.reportedByTeacherName\}/);
+  assert.match(styles, /\.installation-drawer-incidents/);
   assert.match(styles, /\.entity-form textarea \{ min-height: 170px/);
   assert.match(page, /laboratoryInstallations\.length === 1 \? "instalación" : "instalaciones"/);
   assert.match(page, /entity === "installations" && catalog\.laboratories\.length > 0/);

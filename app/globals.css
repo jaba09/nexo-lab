@@ -990,6 +990,20 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .entity-form textarea { min-height: 170px; padding: 12px; resize: vertical; font-family: var(--font-geist-sans); line-height: 1.55; }
 .entity-form input::placeholder, .entity-form textarea::placeholder { color: #a6aaa5; }
 .installation-materials-field > small { display: block; margin-top: 6px; color: var(--muted); font-size: 8px; }
+.installation-drawer-incidents { border: 1px solid #d9decf; border-radius: 10px; background: #f7f9f1; overflow: hidden; }
+.installation-drawer-incidents > header { min-height: 66px; padding: 12px 14px; border-bottom: 1px solid #dfe3d8; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
+.installation-drawer-incidents > header > div { display: grid; gap: 4px; }
+.installation-drawer-incidents > header span { color: #687061; font: 750 8px var(--font-geist-mono); letter-spacing: .05em; text-transform: uppercase; }
+.installation-drawer-incidents > header strong { font-size: 11px; }
+.installation-drawer-incidents > header > b { width: 36px; height: 36px; border-radius: 50%; background: #dff765; display: grid; place-items: center; font: 800 10px var(--font-geist-mono); }
+.installation-drawer-incident-list { max-height: 360px; overflow-y: auto; }
+.installation-drawer-incident-list article { padding: 13px 14px; border-bottom: 1px solid #e1e5da; }
+.installation-drawer-incident-list article:last-child { border-bottom: 0; }
+.installation-drawer-incident-list article > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.installation-drawer-incident-list article strong { font-size: 10px; }
+.installation-drawer-incident-list time, .installation-drawer-incident-list small { color: var(--muted); font: 650 7px var(--font-geist-mono); }
+.installation-drawer-incident-list p { margin: 7px 0; color: #414840; font-size: 9px; line-height: 1.5; white-space: pre-wrap; }
+.installation-drawer-incident-empty { margin: 0; padding: 20px 14px; color: var(--muted); font-size: 9px; text-align: center; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .practice-picker { margin: 0; padding: 0; border: 0; }.practice-picker legend { width: 100%; }.practice-picker legend small { float: right; color: #999f9c; font-weight: 400; }
 .practice-picker > label { min-height: 48px; padding: 8px 11px; border: 1px solid #e0e0da; border-bottom: 0; display: flex; align-items: center; gap: 11px; cursor: pointer; }.practice-picker > label:first-of-type { border-radius: 8px 8px 0 0; }.practice-picker > label:last-of-type { border-bottom: 1px solid #e0e0da; border-radius: 0 0 8px 8px; }
