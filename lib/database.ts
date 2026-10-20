@@ -461,6 +461,44 @@ export function migrateRequested29716SessionDurations(database: DatabaseSync) {
   }
 }
 
+export function migrateRequestedStudent901606ToG33(database: DatabaseSync) {
+  const migrationKey = "requested_student_901606_subgroup_g33_version";
+  const migrated = database.prepare("SELECT value FROM app_meta WHERE key = ?").get(migrationKey);
+  if (migrated) return;
+
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    const students = database.prepare(`SELECT ss.id, ss.subject_id AS subjectId,
+      ss.semester_id AS semesterId
+      FROM subject_students ss
+      JOIN student_subgroups sg ON sg.student_id = ss.id
+      WHERE ss.email = '901606@unizar.es' COLLATE NOCASE
+        AND UPPER(TRIM(sg.group_code)) IN ('31', 'G31')`)
+      .all() as { id: number; subjectId: number; semesterId: string }[];
+    const targetLabel = database.prepare(`SELECT sg.group_label AS groupLabel
+      FROM student_subgroups sg
+      JOIN subject_students ss ON ss.id = sg.student_id
+      WHERE ss.subject_id = ? AND ss.semester_id = ?
+        AND UPPER(TRIM(sg.group_code)) IN ('33', 'G33')
+      ORDER BY ss.roster_active DESC, ss.id
+      LIMIT 1`);
+    const moveStudent = database.prepare(`UPDATE student_subgroups
+      SET group_code = '33', group_label = ?
+      WHERE student_id = ? AND UPPER(TRIM(group_code)) IN ('31', 'G31')`);
+    let movedStudents = 0;
+    for (const student of students) {
+      const matchingGroup = targetLabel.get(student.subjectId, student.semesterId) as { groupLabel: string } | undefined;
+      movedStudents += Number(moveStudent.run(matchingGroup?.groupLabel || "G33", student.id).changes);
+    }
+    database.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?)")
+      .run(migrationKey, String(movedStudents));
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 function migrateSessionTeachers(database: DatabaseSync) {
   const sessionColumns = database.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
   if (sessionColumns.some((column) => column.name === "teacher_id")) return;
@@ -722,6 +760,7 @@ function initializeDatabase(database: DatabaseSync) {
 
   migrateRequestedSessionTimes(database);
   migrateRequested29716SessionDurations(database);
+  migrateRequestedStudent901606ToG33(database);
 
   const teacherRolesInitialized = database.prepare("SELECT value FROM app_meta WHERE key = ?")
     .get("teacher_roles_version");
