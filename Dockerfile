@@ -1,15 +1,18 @@
-FROM node:24-alpine AS dependencies
+FROM node:24.22.1-alpine AS base
+RUN apk add --no-cache --upgrade ca-certificates && update-ca-certificates
+
+FROM base AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:24-alpine AS builder
+FROM base AS builder
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:24-alpine AS runner
+FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

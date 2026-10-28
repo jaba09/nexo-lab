@@ -15,9 +15,13 @@ test("has no Sites or Cloudflare runtime dependency", async () => {
     readFile(new URL("../app/api/attendance/route.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(packageJson, /"next": "16\.2\.6"/);
+  assert.match(packageJson, /"node": "24\.22\.1"/);
+  assert.match(packageJson, /"next": "16\.4\.3"/);
+  assert.match(packageJson, /"nodemailer": "10\.2\.1"/);
   assert.doesNotMatch(packageJson, /vinext|wrangler|cloudflare|drizzle/i);
   assert.match(nextConfig, /output: "standalone"/);
+  assert.match(dockerfile, /^FROM node:24\.22\.1-alpine AS base$/m);
+  assert.match(dockerfile, /apk add --no-cache --upgrade ca-certificates && update-ca-certificates/);
   assert.match(dockerfile, /ENV NEXO_LAB_DB_PATH=\/app\/data\/nexo-lab\.sqlite/);
   assert.match(dockerfile, /ENV NEXO_LAB_BOOTSTRAP_EMAIL=jablasal@unizar\.es/);
   assert.match(dockerCompose, /NEXO_LAB_DB_PATH: \/app\/data\/nexo-lab\.sqlite/);
