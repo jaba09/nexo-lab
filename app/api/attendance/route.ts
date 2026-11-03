@@ -38,7 +38,7 @@ type AttendanceSessionRow = Omit<AttendanceSession, "attendanceRole" | "canManag
 type AttendanceStatisticsSession = Pick<AttendanceSession,
   "id" | "sessionDate" | "startTime" | "duration" | "subjectId" | "subjectCode" |
   "subjectName" | "practiceCode" | "practiceName" | "groupCode"
-> & { teacherId: number };
+> & { teacherId: number; practiceId: number | null };
 
 type AttendanceStudent = {
   id: number;
@@ -64,10 +64,7 @@ type AttendanceSubmission = {
   updatedAt: string;
 };
 
-type AttendanceStatisticsSubject = {
-  subjectId: number;
-  subjectCode: string;
-  subjectName: string;
+type AttendanceStatisticsCounts = {
   teacherIds: Set<number>;
   controllingTeacherIds: Set<number>;
   scheduledSessionCount: number;
@@ -75,6 +72,36 @@ type AttendanceStatisticsSubject = {
   expectedStudentCount: number;
   attendedStudentCount: number;
 };
+
+type AttendanceStatisticsSubject = AttendanceStatisticsCounts & {
+  subjectId: number;
+  subjectCode: string;
+  subjectName: string;
+  practices: Map<number | null, AttendanceStatisticsCounts & {
+    practiceId: number | null;
+    practiceCode: string | null;
+    practiceName: string | null;
+  }>;
+};
+
+function emptyStatisticsCounts(): AttendanceStatisticsCounts {
+  return { teacherIds: new Set(), controllingTeacherIds: new Set(), scheduledSessionCount: 0,
+    recordedSessionCount: 0, expectedStudentCount: 0, attendedStudentCount: 0 };
+}
+
+function statisticsMetrics(counts: AttendanceStatisticsCounts) {
+  return {
+    teacherCount: counts.teacherIds.size,
+    controllingTeacherCount: counts.controllingTeacherIds.size,
+    teacherControlRate: counts.teacherIds.size ? Math.round(100 * counts.controllingTeacherIds.size / counts.teacherIds.size) : null,
+    scheduledSessionCount: counts.scheduledSessionCount,
+    recordedSessionCount: counts.recordedSessionCount,
+    sessionControlRate: counts.scheduledSessionCount ? Math.round(100 * counts.recordedSessionCount / counts.scheduledSessionCount) : null,
+    expectedStudentCount: counts.expectedStudentCount,
+    attendedStudentCount: counts.attendedStudentCount,
+    attendanceRate: counts.expectedStudentCount ? Math.round(100 * counts.attendedStudentCount / counts.expectedStudentCount) : null,
+  };
+}
 
 function positiveInteger(value: unknown) {
   const number = Number(value);
@@ -259,7 +286,7 @@ function attendanceStatistics(database: DatabaseSync, requestedSemesterId: strin
   const allSessions = database.prepare(`SELECT
     se.id, se.session_date AS sessionDate, se.start_time AS startTime, se.duration,
     se.subject_id AS subjectId, s.code AS subjectCode, s.name AS subjectName,
-    p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode,
+    se.practice_id AS practiceId, p.code AS practiceCode, p.name AS practiceName, se.group_code AS groupCode,
     se.teacher_id AS teacherId
     FROM sessions se
     JOIN subjects s ON s.id = se.subject_id
@@ -291,21 +318,26 @@ function attendanceStatistics(database: DatabaseSync, requestedSemesterId: strin
       subjectId: session.subjectId,
       subjectCode: session.subjectCode,
       subjectName: session.subjectName,
-      teacherIds: new Set<number>(),
-      controllingTeacherIds: new Set<number>(),
-      scheduledSessionCount: 0,
-      recordedSessionCount: 0,
-      expectedStudentCount: 0,
-      attendedStudentCount: 0,
+      ...emptyStatisticsCounts(),
+      practices: new Map(),
     };
-    subject.teacherIds.add(session.teacherId);
-    subject.scheduledSessionCount += 1;
-    if (submission) {
-      subject.controllingTeacherIds.add(session.teacherId);
-      subject.recordedSessionCount += 1;
-      subject.expectedStudentCount += Number(submission.expectedStudentCount);
-      subject.attendedStudentCount += Number(submission.attendedStudentCount);
+    const practice = subject.practices.get(session.practiceId) ?? {
+      practiceId: session.practiceId,
+      practiceCode: session.practiceCode,
+      practiceName: session.practiceName,
+      ...emptyStatisticsCounts(),
+    };
+    for (const counts of [subject, practice]) {
+      counts.teacherIds.add(session.teacherId);
+      counts.scheduledSessionCount += 1;
+      if (submission) {
+        counts.controllingTeacherIds.add(session.teacherId);
+        counts.recordedSessionCount += 1;
+        counts.expectedStudentCount += Number(submission.expectedStudentCount);
+        counts.attendedStudentCount += Number(submission.attendedStudentCount);
+      }
     }
+    subject.practices.set(session.practiceId, practice);
     subjects.set(session.subjectId, subject);
   }
 
@@ -317,21 +349,15 @@ function attendanceStatistics(database: DatabaseSync, requestedSemesterId: strin
         subjectId: subject.subjectId,
         subjectCode: subject.subjectCode,
         subjectName: subject.subjectName,
-        teacherCount: subject.teacherIds.size,
-        controllingTeacherCount: subject.controllingTeacherIds.size,
-        teacherControlRate: subject.teacherIds.size
-          ? Math.round((subject.controllingTeacherIds.size / subject.teacherIds.size) * 100)
-          : null,
-        scheduledSessionCount: subject.scheduledSessionCount,
-        recordedSessionCount: subject.recordedSessionCount,
-        sessionControlRate: subject.scheduledSessionCount
-          ? Math.round((subject.recordedSessionCount / subject.scheduledSessionCount) * 100)
-          : null,
-        expectedStudentCount: subject.expectedStudentCount,
-        attendedStudentCount: subject.attendedStudentCount,
-        attendanceRate: subject.expectedStudentCount
-          ? Math.round((subject.attendedStudentCount / subject.expectedStudentCount) * 100)
-          : null,
+        ...statisticsMetrics(subject),
+        practices: [...subject.practices.values()]
+          .sort((left, right) => (left.practiceCode ?? "ZZZ").localeCompare(right.practiceCode ?? "ZZZ", "es", { numeric: true }))
+          .map((practice) => ({
+            practiceId: practice.practiceId,
+            practiceCode: practice.practiceCode,
+            practiceName: practice.practiceName,
+            ...statisticsMetrics(practice),
+          })),
       }))
       .sort((left, right) => left.subjectCode.localeCompare(right.subjectCode, "es", { numeric: true })),
   };

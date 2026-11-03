@@ -317,7 +317,7 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   const statisticsMissingSessionId = Number(attendanceDatabase.prepare(`INSERT INTO sessions
     (session_date, start_time, duration, subject_id, teacher_id, practice_id, source_uid, subject_code, group_code)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run("2026-09-22", "09:00", 120, 1, 1, 1, "attendance-statistics-missing", "ASI-01", "32").lastInsertRowid);
+    .run("2026-09-22", "09:00", 120, 1, 1, null, "attendance-statistics-missing", "ASI-01", "32").lastInsertRowid);
   const statisticsOtherTeacherSessionId = Number(attendanceDatabase.prepare(`INSERT INTO sessions
     (session_date, start_time, duration, subject_id, teacher_id, practice_id, source_uid, subject_code, group_code)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -520,6 +520,23 @@ Alumno,"Dos grupos",999998@unizar.es,"G22 - Martes-B 09:00-11:00, G23 - Jueves-A
   assert.equal(subjectStatistics.expectedStudentCount, 1);
   assert.equal(subjectStatistics.attendedStudentCount, 1);
   assert.equal(subjectStatistics.attendanceRate, 100);
+  assert.ok(subjectStatistics.practices.length > 0);
+  const recordedPractice = subjectStatistics.practices.find((practice) => practice.practiceId === 1);
+  assert.ok(recordedPractice);
+  assert.equal(recordedPractice.recordedSessionCount, 1);
+  assert.equal(recordedPractice.expectedStudentCount, 1);
+  assert.equal(recordedPractice.attendedStudentCount, 1);
+  assert.equal(recordedPractice.attendanceRate, 100);
+  const unassignedPractice = subjectStatistics.practices.find((practice) => practice.practiceId === null);
+  assert.ok(unassignedPractice);
+  assert.equal(unassignedPractice.recordedSessionCount, 0);
+  assert.equal(unassignedPractice.attendanceRate, null);
+  assert.equal(unassignedPractice.sessionControlRate, 0);
+
+  for (const field of ["scheduledSessionCount", "recordedSessionCount", "expectedStudentCount", "attendedStudentCount"]) {
+    assert.equal(subjectStatistics.practices.reduce((total, practice) => total + practice[field], 0), subjectStatistics[field]);
+  }
+
 
   const addStudentResponse = await fetch(`${origin}/api/attendance`, {
     method: "PATCH",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import "./attendance.css";
 
@@ -82,22 +82,30 @@ type AttendanceSessionsPayload = {
   today: string;
 };
 
+type AttendanceStatisticsMetrics = {
+  teacherCount: number;
+  controllingTeacherCount: number;
+  teacherControlRate: number | null;
+  scheduledSessionCount: number;
+  recordedSessionCount: number;
+  sessionControlRate: number | null;
+  expectedStudentCount: number;
+  attendedStudentCount: number;
+  attendanceRate: number | null;
+};
+
 type AttendanceStatistics = {
   semesterId: string;
   availableSemesters: string[];
-  subjects: Array<{
+  subjects: Array<AttendanceStatisticsMetrics & {
     subjectId: number;
     subjectCode: string;
     subjectName: string;
-    teacherCount: number;
-    controllingTeacherCount: number;
-    teacherControlRate: number | null;
-    scheduledSessionCount: number;
-    recordedSessionCount: number;
-    sessionControlRate: number | null;
-    expectedStudentCount: number;
-    attendedStudentCount: number;
-    attendanceRate: number | null;
+    practices: Array<AttendanceStatisticsMetrics & {
+      practiceId: number | null;
+      practiceCode: string | null;
+      practiceName: string | null;
+    }>;
   }>;
 };
 
@@ -461,6 +469,14 @@ function SubstituteDialog({
   );
 }
 
+function AttendanceStatisticsCells({ metrics: subject }: { metrics: AttendanceStatisticsMetrics }) {
+  return <>
+            <td><div className="attendance-stat-metric"><strong>{subject.controllingTeacherCount} / {subject.teacherCount}</strong><span>{percentage(subject.teacherControlRate)}</span><i><b style={{ width: `${subject.teacherControlRate ?? 0}%` }} /></i><small>responsables con alguna sesión controlada</small></div></td>
+            <td><div className="attendance-stat-metric"><strong>{percentage(subject.attendanceRate)}</strong><span>{subject.expectedStudentCount ? `${subject.attendedStudentCount} / ${subject.expectedStudentCount}` : "Sin datos"}</span><i><b style={{ width: `${subject.attendanceRate ?? 0}%` }} /></i><small>solo sobre listas con control registrado</small></div></td>
+            <td><div className="attendance-stat-metric"><strong>{percentage(subject.sessionControlRate)}</strong><span>{subject.recordedSessionCount} / {subject.scheduledSessionCount}</span><i><b style={{ width: `${subject.sessionControlRate ?? 0}%` }} /></i><small>sesiones celebradas con lista guardada</small></div></td>
+  </>;
+}
+
 function AttendanceStatisticsPanel({
   statistics,
   loading,
@@ -470,6 +486,7 @@ function AttendanceStatisticsPanel({
   loading: boolean;
   onSemesterChange: (semesterId: string) => void;
 }) {
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   if (loading && !statistics) return <div className="loading-state" role="status"><span />Calculando estadísticas…</div>;
   if (!statistics) return null;
   return (
@@ -487,12 +504,26 @@ function AttendanceStatisticsPanel({
       <section className="attendance-stat-panel attendance-subject-statistics">
         <header><div><span>POR ASIGNATURA</span><h2>Uso del control de asistencia</h2></div><small>{statistics.subjects.length} {statistics.subjects.length === 1 ? "asignatura" : "asignaturas"}</small></header>
         {!statistics.subjects.length ? <p className="attendance-stat-empty">Todavía no hay sesiones celebradas con alumnado en este semestre.</p> : (
-          <div className="attendance-stat-table-wrap"><table><thead><tr><th>Asignatura</th><th>Profesores con control</th><th>Alumnos que asisten</th><th>Sesiones con control</th></tr></thead><tbody>{statistics.subjects.map((subject) => <tr key={subject.subjectId}>
-            <td><strong>{subject.subjectCode}</strong><span>{subject.subjectName}</span></td>
-            <td><div className="attendance-stat-metric"><strong>{subject.controllingTeacherCount} / {subject.teacherCount}</strong><span>{percentage(subject.teacherControlRate)}</span><i><b style={{ width: `${subject.teacherControlRate ?? 0}%` }} /></i><small>responsables con alguna sesión controlada</small></div></td>
-            <td><div className="attendance-stat-metric"><strong>{percentage(subject.attendanceRate)}</strong><span>{subject.expectedStudentCount ? `${subject.attendedStudentCount} / ${subject.expectedStudentCount}` : "Sin datos"}</span><i><b style={{ width: `${subject.attendanceRate ?? 0}%` }} /></i><small>solo sobre listas con control registrado</small></div></td>
-            <td><div className="attendance-stat-metric"><strong>{percentage(subject.sessionControlRate)}</strong><span>{subject.recordedSessionCount} / {subject.scheduledSessionCount}</span><i><b style={{ width: `${subject.sessionControlRate ?? 0}%` }} /></i><small>sesiones celebradas con lista guardada</small></div></td>
-          </tr>)}</tbody></table></div>
+          <div className="attendance-stat-table-wrap"><table><thead><tr><th>Asignatura</th><th>Profesores con control</th><th>Alumnos que asisten</th><th>Sesiones con control</th></tr></thead><tbody>{statistics.subjects.map((subject) => {
+            const key = `${statistics.semesterId}-${subject.subjectId}`;
+            const expanded = expandedSubjects.has(key);
+            return <Fragment key={subject.subjectId}>
+              <tr>
+                <td><button type="button" className="attendance-subject-toggle" aria-expanded={expanded} aria-controls={`practice-statistics-${key}`} onClick={() => setExpandedSubjects((previous) => {
+                  const next = new Set(previous);
+                  if (next.has(key)) next.delete(key); else next.add(key);
+                  return next;
+                })}><strong><i aria-hidden="true">{expanded ? "▾" : "▸"}</i> {subject.subjectCode}</strong><span>{subject.subjectName}</span><small>{expanded ? "Ocultar prácticas" : "Ver estadísticas por práctica"}</small></button></td>
+                <AttendanceStatisticsCells metrics={subject} />
+              </tr>
+              <tr id={`practice-statistics-${key}`} hidden={!expanded} className="attendance-practices-row"><td colSpan={4}>
+                <table aria-label={`Estadísticas por práctica de ${subject.subjectCode}`}><thead><tr><th>Práctica de laboratorio</th><th>Profesores con control</th><th>Alumnos que asisten</th><th>Sesiones con control</th></tr></thead><tbody>{subject.practices.map((practice) => <tr key={practice.practiceId ?? "unassigned"}>
+                  <td><strong>{practice.practiceCode ?? "Sin práctica asignada"}</strong><span>{practice.practiceName}</span></td>
+                  <AttendanceStatisticsCells metrics={practice} />
+                </tr>)}</tbody></table>
+              </td></tr>
+            </Fragment>;
+          })}</tbody></table></div>
         )}
       </section>
     </div>

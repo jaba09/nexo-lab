@@ -259,3 +259,10 @@
   .attendance-substitute-dialog footer { flex-wrap: wrap; }
   .attendance-substitute-dialog footer .attendance-remove-substitute { flex-basis: 100%; order: 3; }
 }
+
+.attendance-subject-toggle { width: 100%; border: 0; padding: 4px 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.attendance-subject-toggle i { font-style: normal; color: #607f1e; }
+.attendance-subject-toggle small { display: block; margin-top: 7px; color: #526f18; font-size: 9px; }
+.attendance-subject-toggle:focus-visible { outline: 2px solid #607f1e; outline-offset: 4px; }
+.attendance-stat-table-wrap .attendance-practices-row > td { padding: 0 14px 14px; background: #f3f6ea; }
+.attendance-practices-row table { border: 1px solid var(--line); background: var(--white); }
